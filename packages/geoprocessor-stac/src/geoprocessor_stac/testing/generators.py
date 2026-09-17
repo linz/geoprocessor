@@ -31,7 +31,7 @@ def any_stac_processing() -> STACProcessing:
         **{
             "processing:datetime": "any processing datetime",
             "processing:software": STACProcessingSoftwareGdal(
-                **{"gdal": "any GDAL version", "linz/geoprocessor": "any geoprocessor version"}
+                **{"gdal": "any GDAL version", "linz/geoprocessor-raster": "any geoprocessor-raster version"}
             ),
             "processing:version": "any processing version",
         }
