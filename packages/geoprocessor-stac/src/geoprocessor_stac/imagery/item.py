@@ -11,8 +11,7 @@ from geoprocessor_stac.util.stac_extensions import StacExtensions
 STACAsset = TypedDict("STACAsset", {"href": str, "file:checksum": str, "created": str, "updated": str})
 
 STACProcessingSoftwareGdal = TypedDict(
-    "STACProcessingSoftwareGdal",
-    {"gdal": str, "geoprocessor/raster": str, "linz/geoprocessor": str},
+    "STACProcessingSoftwareGdal", {"gdal": str, "geoprocessor/raster": str, "linz/geoprocessor": str}
 )
 """STAC Processing extension LINZ specific fields for a raster asset produced by GDAL"""
 
