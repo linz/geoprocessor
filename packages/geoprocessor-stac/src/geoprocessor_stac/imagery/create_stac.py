@@ -258,11 +258,11 @@ def create_or_load_base_item(
     stac_processing_software: STACProcessingSoftware
     if processing_software == "pdal":
         stac_processing_software = STACProcessingSoftwarePdal(
-            **{"pdal": processing_software_version, "linz/geoprocessor": commit_url}
+            **{"pdal": processing_software_version, "linz/geoprocessor-pointcloud": commit_url}
         )
     else:
         stac_processing_software = STACProcessingSoftwareGdal(
-            **{"gdal": processing_software_version, "linz/geoprocessor": commit_url}
+            **{"gdal": processing_software_version, "linz/geoprocessor-raster": commit_url}
         )
 
     stac_processing = STACProcessing(
