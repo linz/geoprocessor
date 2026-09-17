@@ -18,7 +18,7 @@ Two Docker containers are provided to run the Python scripts:
 
 | Container                 | Built from              | Package                   | Contains                  |
 | ------------------------- | ----------------------- | ------------------------- | ------------------------- |
-| `topo-imagery`            | `Dockerfile.raster`     | `geoprocessor-raster`     | [GDAL](https://gdal.org/) |
+| `geoprocessor/raster`     | `Dockerfile.raster`     | `geoprocessor-raster`     | [GDAL](https://gdal.org/) |
 | `geoprocessor/pointcloud` | `Dockerfile.pointcloud` | `geoprocessor-pointcloud` | [PDAL](https://pdal.io/)  |
 
 The containers are available [in GitHub Packages](https://github.com/orgs/linz/packages?repo_name=topo-imagery).
@@ -32,7 +32,7 @@ The scripts have been implemented to be run inside the Docker container only. Th
 - Build the `Docker` image:
 
 ```bash
-docker build --file Dockerfile.raster --tag=topo-imagery .
+docker build --file Dockerfile.raster --tag=geoprocessor/raster .
 ```
 
 ```bash
@@ -57,12 +57,12 @@ where `output` is the desired output [tile name](https://github.com/linz/topo-im
 
 Some test data are available in `/e2e/data/` along with the expected output.
 
-Run `docker run topo-imagery standardise-validate --help` to get the list of the expected arguments.
+Run `docker run geoprocessor/raster standardise-validate --help` to get the list of the expected arguments.
 
 - Example of local execution. This example uses the test data available on this repo and create the output will be created in a `~/tmp/` on the local machine (volume share with `Docker`):
 
 ```bash
-docker run -v ${HOME}/tmp/:/tmp/:rw topo-imagery standardise-validate --preset webp --data-type uint8 --from-file ./tests/data/aerial.json --collection-id 123 --start-datetime 2023-01-01 --end-datetime 2023-01-01 --target /tmp/ --source-epsg 2193 --target-epsg 2193 --gsd 10 --create-footprints=true
+docker run -v ${HOME}/tmp/:/tmp/:rw geoprocessor/raster standardise-validate --preset webp --data-type uint8 --from-file ./tests/data/aerial.json --collection-id 123 --start-datetime 2023-01-01 --end-datetime 2023-01-01 --target /tmp/ --source-epsg 2193 --target-epsg 2193 --gsd 10 --create-footprints=true
 ```
 
 To use an AWS test dataset (input located in an AWS S3 bucket), log into the AWS account and add the following arguments to the `docker run` command:
@@ -91,7 +91,7 @@ A new container is also published [when a release is merged to `master`](https:/
 - `vX.Y` (example: `v1.2`)
 - `vX.Y.Z` (example: `v1.2.4`)
 
-You can see the tags in the [GitHub Packages page](https://github.com/linz/topo-imagery/pkgs/container/topo-imagery).
+You can see the tags in the [GitHub Packages page](https://github.com/linz/topo-imagery/pkgs/container/geoprocessor/raster).
 
 ## Releases
 

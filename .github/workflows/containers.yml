@@ -22,7 +22,7 @@ jobs:
         include:
           # TODO: remove `image` tag and switch to <repo>/<container> once repo is renamed to geoprocessor
           - container: raster
-            image: topo-imagery
+            image: geoprocessor/raster
           - container: pointcloud
             image: geoprocessor/pointcloud
     environment: ${{ inputs.publish != '' && 'prod' || '' }}
