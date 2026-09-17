@@ -27,7 +27,11 @@ def fake_imagery_item_stac() -> dict[str, Any]:
             "created": "any created datetime",
             "updated": "any processing datetime",
             "processing:datetime": "any processing datetime",
-            "processing:software": {"gdal": "any GDAL version", "linz/geoprocessor-raster": "any geoprocessor-raster version"},
+            "processing:software": {
+                "gdal": "any GDAL version",
+                "geoprocessor/raster": "any geoprocessor/raster version",
+                "linz/geoprocessor": "any linz/geoprocessor commit-sha",
+            },
             "processing:version": "any processing version",
             "start_datetime": "2021-01-27T00:00:00Z",
             "end_datetime": "2021-01-29T00:00:00Z",
