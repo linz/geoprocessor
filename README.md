@@ -1,6 +1,7 @@
 # geoprocessor
 
-[![GitHub Actions Status](https://github.com/linz/geoprocessor/workflows/Build/badge.svg)](https://github.com/linz/geoprocessor/actions)
+[![GitHub Actions Status](https://github.com/linz/geoprocessor/workflows/format-tests.yml/badge.svg)](https://github.com/linz/geoprocessor/actions)
+[![Containers](https://github.com/linz/geoprocessor/actions/workflows/containers.yml/badge.svg)](https://github.com/linz/geoprocessor/actions/workflows/containers.yml)
 [![Coverage: 100% branches](https://img.shields.io/badge/Coverage-100%25%20branches-brightgreen.svg)](https://pytest.org/)
 [![Dependabot Status](https://badgen.net/badge/Dependabot/enabled?labelColor=2e3a44&color=blue)](https://github.com/linz/geoprocessor/network/updates)
 [![License](https://badgen.net/github/license/linz/geoprocessor?labelColor=2e3a44&label=License)](https://github.com/linz/geoprocessor/blob/master/LICENSE)
