@@ -1,9 +1,9 @@
-# Topo Imagery
+# geoprocessor
 
-[![GitHub Actions Status](https://github.com/linz/topo-imagery/workflows/Build/badge.svg)](https://github.com/linz/topo-imagery/actions)
+[![GitHub Actions Status](https://github.com/linz/geoprocessor/workflows/Build/badge.svg)](https://github.com/linz/geoprocessor/actions)
 [![Coverage: 100% branches](https://img.shields.io/badge/Coverage-100%25%20branches-brightgreen.svg)](https://pytest.org/)
-[![Dependabot Status](https://badgen.net/badge/Dependabot/enabled?labelColor=2e3a44&color=blue)](https://github.com/linz/topo-imagery/network/updates)
-[![License](https://badgen.net/github/license/linz/topo-imagery?labelColor=2e3a44&label=License)](https://github.com/linz/topo-imagery/blob/master/LICENSE)
+[![Dependabot Status](https://badgen.net/badge/Dependabot/enabled?labelColor=2e3a44&color=blue)](https://github.com/linz/geoprocessor/network/updates)
+[![License](https://badgen.net/github/license/linz/geoprocessor?labelColor=2e3a44&label=License)](https://github.com/linz/geoprocessor/blob/master/LICENSE)
 [![Conventional Commits](https://badgen.net/badge/Commits/conventional?labelColor=2e3a44&color=EC5772)](https://conventionalcommits.org)
 [![Code Style](https://badgen.net/badge/Code%20Style/black?labelColor=2e3a44&color=000000)](https://github.com/psf/black)
 [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=2e3a44)](https://pycqa.github.io/isort/)
@@ -12,7 +12,7 @@
 
 ## Description
 
-This is a collection of Python scripts used for processing topographic data in and for the cloud (AWS).
+This is a collection of Python scripts used for processing geospatial data in and for the cloud (AWS).
 
 Two Docker containers are provided to run the Python scripts:
 
@@ -21,7 +21,7 @@ Two Docker containers are provided to run the Python scripts:
 | `geoprocessor/raster`     | `Dockerfile.raster`     | `geoprocessor-raster`     | [GDAL](https://gdal.org/) |
 | `geoprocessor/pointcloud` | `Dockerfile.pointcloud` | `geoprocessor-pointcloud` | [PDAL](https://pdal.io/)  |
 
-The containers are available [in GitHub Packages](https://github.com/orgs/linz/packages?repo_name=topo-imagery).
+The containers are available [in GitHub Packages](https://github.com/orgs/linz/packages?repo_name=geoprocessor).
 
 ### Usage
 
@@ -53,7 +53,7 @@ The input TIFF file paths have to be passed through a `json` file in the followi
 ]
 ```
 
-where `output` is the desired output [tile name](https://github.com/linz/topo-imagery/blob/6aa0fb565696cb99fb66ca92b8c678ef3523d11a/scripts/tile/tests/tile_index_data.py#L3-L514) and input is the path to one or several TIFFs. If more than one TIFF, the system will try to retile them into one single output file.
+where `output` is the desired output [tile name](https://github.com/linz/geoprocessor/blob/6aa0fb565696cb99fb66ca92b8c678ef3523d11a/scripts/tile/tests/tile_index_data.py#L3-L514) and input is the path to one or several TIFFs. If more than one TIFF, the system will try to retile them into one single output file.
 
 Some test data are available in `/e2e/data/` along with the expected output.
 
@@ -79,26 +79,26 @@ This package is designed to be run in a [Kubernetes](https://kubernetes.io/) clu
 
 GitHub Actions automatically handles publishing a container to the GitHub Package Registry (`ghcr`) and in a private AWS Elastic Container Registry (ECR).
 
-A new container is published every time a change is [merged to the `master` branch](https://github.com/linz/topo-imagery/blob/master/.github/workflows/containers.yml). This container will be tagged with the following:
+A new container is published every time a change is [merged to the `master` branch](https://github.com/linz/geoprocessor/blob/master/.github/workflows/containers.yml). This container will be tagged with the following:
 
 - `latest`
 - `github` version (example: `v1.1.0-2-ga1154e8`)
 
-A new container is also published [when a release is merged to `master`](https://github.com/linz/topo-imagery/blob/master/.github/workflows/release-please.yml) (see section bellow). This container will be tagged with the following:
+A new container is also published [when a release is merged to `master`](https://github.com/linz/geoprocessor/blob/master/.github/workflows/release-please.yml) (see section bellow). This container will be tagged with the following:
 
 - `latest`
 - `vX` (example: `v1`)
 - `vX.Y` (example: `v1.2`)
 - `vX.Y.Z` (example: `v1.2.4`)
 
-You can see the tags in the [GitHub Packages page](https://github.com/linz/topo-imagery/pkgs/container/geoprocessor/raster).
+You can see the tags in the [GitHub Packages page](https://github.com/linz/geoprocessor/pkgs/container/geoprocessor/raster).
 
 ## Releases
 
 ### Managing
 
 [googleapis/release-please](https://github.com/googleapis/release-please) is used to support the release process.
-Based on what has been merged to `master` (`fix`, `feat`, `feat!`, `fix!` or `refactor!`), the library generates a `changelog` based on the commit messages and creates a Pull Request. This is triggered by this [GitHub Action](https://github.com/linz/topo-imagery/blob/master/.github/workflows/release-please.yml).
+Based on what has been merged to `master` (`fix`, `feat`, `feat!`, `fix!` or `refactor!`), the library generates a `changelog` based on the commit messages and creates a Pull Request. This is triggered by this [GitHub Action](https://github.com/linz/geoprocessor/blob/master/.github/workflows/release-please.yml).
 
 The repository is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/) and each of its packages is versioned on its own:
 
@@ -117,4 +117,4 @@ To publish a release, the Pull Request opened by `release-please` bot needs to b
 
 1. Open the PR and verify that the `CHANGELOG` contains what you expect in the release. If the latest change you expect is not there, double-check that a GitHub Actions is not currently running or failed.
 2. Approve and merge the PR.
-3. Once the Pull Request is merged to `master` a [GitHub Action](https://github.com/linz/topo-imagery/blob/master/.github/workflows/release-please.yml) it creates the release and publish a new container tagged for this release.
+3. Once the Pull Request is merged to `master` a [GitHub Action](https://github.com/linz/geoprocessor/blob/master/.github/workflows/release-please.yml) it creates the release and publish a new container tagged for this release.
