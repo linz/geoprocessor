@@ -10,10 +10,10 @@ from geoprocessor_stac.util.stac_extensions import StacExtensions
 
 STACAsset = TypedDict("STACAsset", {"href": str, "file:checksum": str, "created": str, "updated": str})
 
-STACProcessingSoftwareGdal = TypedDict("STACProcessingSoftwareGdal", {"gdal": str, "linz/topo-imagery": str})
+STACProcessingSoftwareGdal = TypedDict("STACProcessingSoftwareGdal", {"gdal": str, "linz/geoprocessor": str})
 """STAC Processing extension LINZ specific fields for a raster asset produced by GDAL"""
 
-STACProcessingSoftwarePdal = TypedDict("STACProcessingSoftwarePdal", {"pdal": str, "linz/topo-imagery": str})
+STACProcessingSoftwarePdal = TypedDict("STACProcessingSoftwarePdal", {"pdal": str, "linz/geoprocessor": str})
 """STAC Processing extension LINZ specific fields for a point cloud asset produced by PDAL"""
 
 type STACProcessingSoftware = STACProcessingSoftwareGdal | STACProcessingSoftwarePdal
