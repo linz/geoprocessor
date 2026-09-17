@@ -1,6 +1,6 @@
 # geoprocessor
 
-[![GitHub Actions Status](https://github.com/linz/geoprocessor/workflows/format-tests.yml/badge.svg)](https://github.com/linz/geoprocessor/actions)
+[![GitHub Actions Status](https://github.com/linz/geoprocessor/actions/workflows/format-tests.yml/badge.svg)](https://github.com/linz/geoprocessor/actions)
 [![Containers](https://github.com/linz/geoprocessor/actions/workflows/containers.yml/badge.svg)](https://github.com/linz/geoprocessor/actions/workflows/containers.yml)
 [![Coverage: 100% branches](https://img.shields.io/badge/Coverage-100%25%20branches-brightgreen.svg)](https://pytest.org/)
 [![Dependabot Status](https://badgen.net/badge/Dependabot/enabled?labelColor=2e3a44&color=blue)](https://github.com/linz/geoprocessor/network/updates)
@@ -92,7 +92,7 @@ A new container is also published [when a release is merged to `master`](https:/
 - `vX.Y` (example: `v1.2`)
 - `vX.Y.Z` (example: `v1.2.4`)
 
-You can see the tags in the [GitHub Packages page](https://github.com/linz/geoprocessor/pkgs/container/geoprocessor/raster).
+You can see the tags in the [GitHub Packages page](https://github.com/linz/geoprocessor/pkgs/container/geoprocessor%2Fraster).
 
 ## Releases
 
