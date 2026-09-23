@@ -12,7 +12,7 @@
         {
           "path": "uv.lock",
           "type": "toml",
-          "jsonpath": "$.package[?(@.name.value=='topo-imagery')].version"
+          "jsonpath": "$.package[?(@.name.value=='geoprocessor')].version"
         }
       ]
     },

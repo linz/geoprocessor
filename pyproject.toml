@@ -3,7 +3,7 @@ requires = ["uv_build>=0.11.14,<0.12.0"]
 build-backend = "uv_build"
 
 [project]
-name = "topo-imagery"
+name = "geoprocessor"
 version = "9.0.0"
 description = "A collection of scripts for processing geospatial datasets"
 authors = [

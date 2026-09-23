@@ -4,7 +4,7 @@ requires-python = ">=3.12.3, <3.13"
 
 [manifest]
 members = [
-    "topo-imagery",
+    "geoprocessor",
     "geoprocessor-common",
     "geoprocessor-gdal",
     "geoprocessor-pdal",
@@ -894,7 +894,7 @@ wheels = [
 ]
 
 [[package]]
-name = "topo-imagery"
+name = "geoprocessor"
 version = "9.0.0"
 source = { virtual = "." }
 dependencies = [
