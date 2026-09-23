@@ -1,4 +1,6 @@
 [MASTER]
+# pytest resolves these via each package's `pythonpath` and pylint needs them on `sys.path`
+init-hook = "import sys; sys.path += ['packages/geoprocessor-gdal/test', 'packages/geoprocessor-gdal/test/tile', 'packages/geoprocessor-stac/test']"
 disable =
         duplicate-code,
         invalid-name,

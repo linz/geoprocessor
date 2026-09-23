@@ -415,3 +415,17 @@ def test_should_throw_when_encountering_non_integer_no_data_value() -> None:
     assert file_tiff.get_errors() == [
         {"type": FileTiffErrorType.NO_DATA, "message": "noDataValue is not -9999", "current": "-9999.1"}
     ]
+
+
+def test_checksum_is_not_set_by_default() -> None:
+    file_tiff = FileTiff(["test.tiff"], CompressionPreset.WEBP.value)
+
+    assert file_tiff.get_checksum() is None
+
+
+def test_set_checksum() -> None:
+    file_tiff = FileTiff(["test.tiff"], CompressionPreset.WEBP.value)
+
+    file_tiff.set_checksum("12206ae8a75555209fd6c44157c0aed8016e763ff435a19cf186f76863140143ff72")
+
+    assert file_tiff.get_checksum() == "12206ae8a75555209fd6c44157c0aed8016e763ff435a19cf186f76863140143ff72"

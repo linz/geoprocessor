@@ -11,7 +11,7 @@ from geoprocessor_common.data_type import DataType
 from geoprocessor_common.datetimes import RFC_3339_DATETIME_FORMAT
 from geoprocessor_common.epsg import EpsgNumber
 from geoprocessor_common.files.files_helper import SUFFIX_JSON, ContentType, is_tiff
-from geoprocessor_common.files.fs import exists, read, write, write_all
+from geoprocessor_common.files.fs import copy, exists, write, write_all
 from geoprocessor_common.log.time_helper import time_in_ms
 from geoprocessor_gdal.gdal.gdal_commands import get_gdal_command, get_hillshade_command
 from geoprocessor_gdal.gdal.gdal_helper import get_gdal_version, run_gdal
@@ -75,7 +75,7 @@ def create_hillshade(
     preset: str,
     target_output: str = "/tmp/",
     force: bool = False,
-) -> tuple[str, list[str]]:
+) -> tuple[str, list[str], str | None]:
     """Create a hillshade TIFF file from a `TileFiles` which include an output tile with its input TIFFs.
 
     Args:
@@ -85,7 +85,8 @@ def create_hillshade(
         force: overwrite existing output file. Defaults to False.
 
     Returns:
-        The filename of the hillshade TIFF file if created and the path of the input files used to create it.
+        The filename of the hillshade TIFF file if created, the path of the input files used to create it,
+        and the multihash of its content (None if the file already existed and was not rewritten).
     """
     hillshade_file_name = tile.output + ".tiff"
     hillshade_file_path = os.path.join(target_output, hillshade_file_name)
@@ -94,7 +95,7 @@ def create_hillshade(
     if exists(hillshade_file_path):
         if not force:
             get_log().info("Skipping: hillshade TIFF already exists.", path=hillshade_file_path)
-            return hillshade_file_path, tile.inputs
+            return hillshade_file_path, tile.inputs, None
         get_log().info("Overwriting: hillshade TIFF already exists.", path=hillshade_file_path)
 
     # Download any needed file from S3 ["/foo/bar.tiff", "s3://foo"] => "/tmp/bar.tiff", "/tmp/foo.tiff"
@@ -119,9 +120,9 @@ def create_hillshade(
         )
 
         # Note: This file is used as an implicit indicator that processing has completed, so should be written last.
-        write(hillshade_file_path, read(hillshade_cog_working_path), content_type=ContentType.GEOTIFF.value)
+        file_checksum = copy(hillshade_cog_working_path, hillshade_file_path, content_type=ContentType.GEOTIFF.value)
 
-        return hillshade_file_path, tile.inputs
+        return hillshade_file_path, tile.inputs, file_checksum
 
 
 def run_create_hillshade(
@@ -130,7 +131,7 @@ def run_create_hillshade(
     concurrency: int,
     target_output: str = "/tmp/",
     force: bool = False,
-) -> list[tuple[str, list[str]]]:
+) -> list[tuple[str, list[str], str | None]]:
     """Run `create_hillshade()` in parallel (see `concurrency`).
 
     Args:
@@ -141,7 +142,7 @@ def run_create_hillshade(
         force: overwrite existing files. Defaults to False.
 
     Returns:
-        the list of generated hillshade TIFF paths with their input files.
+        the list of generated hillshade TIFF paths with their input files and content multihash.
     """
     with Pool(concurrency) as p:
         results = list(p.map(partial(create_hillshade, preset=preset, target_output=target_output, force=force), todo))
@@ -173,7 +174,7 @@ def main() -> None:
     tiles = run_create_hillshade(tile_files, arguments.preset, concurrency, arguments.target, arguments.force)
 
     if arguments.collection_id:
-        for path, derived_from_tiffs in tiles:
+        for path, derived_from_tiffs, file_checksum in tiles:
             stac_item_path = path.rsplit(".", 1)[0] + SUFFIX_JSON
             if not exists(stac_item_path):
                 # Create STAC and save in target
@@ -187,6 +188,7 @@ def main() -> None:
                     gdalinfo_result=None,
                     derived_from=[url_derived_from.rsplit(".", 1)[0] + SUFFIX_JSON for url_derived_from in derived_from_tiffs],
                     odr_url=arguments.odr_url,
+                    asset_checksum=file_checksum,
                 )
                 write(stac_item_path, dict_to_json_bytes(item.stac), content_type=ContentType.GEOJSON.value)
             else:

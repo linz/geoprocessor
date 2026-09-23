@@ -17,6 +17,7 @@ def create_item_from_tiff(
     gdalinfo_result: GdalInfo | None = None,
     derived_from: list[str] | None = None,
     odr_url: str | None = None,
+    asset_checksum: str | None = None,
 ) -> ImageryItem:
     """Create an ImageryItem (STAC) for a TIFF, deriving its spatial extents with GDAL.
 
@@ -30,6 +31,7 @@ def create_item_from_tiff(
         gdalinfo_result: result of the gdalinfo command. Defaults to None.
         derived_from: list of STAC Items from where this Item is derived. Defaults to None.
         odr_url: S3 URL of the already published files in ODR (if this is a resupply). Defaults to None.
+        asset_checksum: multihash of the asset, if it has already been computed. Defaults to None = compute it.
 
     Returns:
         a STAC Item wrapped in ImageryItem
@@ -49,4 +51,5 @@ def create_item_from_tiff(
         bbox,
         derived_from=derived_from,
         odr_url=odr_url,
+        asset_checksum=asset_checksum,
     )

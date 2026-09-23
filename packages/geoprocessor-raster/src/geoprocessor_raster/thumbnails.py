@@ -6,7 +6,7 @@ from multiprocessing import Pool
 
 from geoprocessor_common.cli.common_args import CommonArgumentParser
 from geoprocessor_common.files.files_helper import ContentType, get_file_name_from_path, is_tiff
-from geoprocessor_common.files.fs import exists, read, write
+from geoprocessor_common.files.fs import copy, exists, read
 from geoprocessor_common.log.time_helper import time_in_ms
 from geoprocessor_gdal.gdal import gdal_helper
 from geoprocessor_gdal.gdal.gdal_commands import get_thumbnail_command
@@ -40,7 +40,7 @@ def thumbnails(path: str, target: str) -> str | None:
         tmp_thumbnail = os.path.join(tmp_path, f"{basename}-thumbnail.jpg")
         source_tiff = os.path.join(tmp_path, f"{basename}.tiff")
         # Download source file
-        write(source_tiff, read(path))
+        copy(path, source_tiff)
 
         # Generate thumbnail
         # For both GeoTIFF and TIFF (not georeferenced) this is done in 2 steps.
@@ -69,7 +69,7 @@ def thumbnails(path: str, target: str) -> str | None:
             run_gdal(get_thumbnail_command("jpeg", transitional_jpg, tmp_thumbnail, "30%", "30%", None, gdalinfo_data))
 
         # Upload to target
-        write(target_thumbnail, read(tmp_thumbnail), content_type=ContentType.JPEG.value)
+        copy(tmp_thumbnail, target_thumbnail, content_type=ContentType.JPEG.value)
     return target_thumbnail
 
 

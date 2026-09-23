@@ -1,11 +1,41 @@
 import os
+from collections.abc import Generator
 from concurrent.futures import Future, ThreadPoolExecutor
+from contextlib import contextmanager
+from tempfile import TemporaryDirectory
 
-from boto3 import client
+from botocore.exceptions import ClientError
 from geoprocessor_common.aws.aws_helper import is_s3
 from geoprocessor_common.files import fs_local, fs_s3
 from geoprocessor_common.files.checksum import multihash_as_hex
+from geoprocessor_common.log.time_helper import time_in_ms
 from linz_logger import get_log
+
+
+@contextmanager
+def _missing_file_as_no_such_file_error(path: str) -> Generator[None, None, None]:
+    """Translate "the file is not there" into `NoSuchFileError`, whether the path is local or on `s3`.
+
+    Any other `ClientError` is re-raised unchanged.
+
+    Args:
+        path: the path to name in the error
+
+    Raises:
+        NoSuchFileError: if the file does not exist
+        ClientError: if `s3` fails for any other reason
+    """
+    try:
+        yield
+    except FileNotFoundError as error:
+        raise NoSuchFileError(path) from error
+    # https://boto3.amazonaws.com/v1/documentation/api/latest/guide/error-handling.html#parsing-error-responses-and-catching-exceptions-from-aws-services
+    except ClientError as ce:
+        # Error codes are listed at
+        # https://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html#ErrorCodeList
+        if ce.response["Error"]["Code"] == "NoSuchKey":
+            raise NoSuchFileError(path) from ce
+        raise
 
 
 def write(destination: str, source: bytes, content_type: str | None = None) -> str:
@@ -24,6 +54,24 @@ def write(destination: str, source: bytes, content_type: str | None = None) -> s
     return destination
 
 
+def multihash(path: str) -> str:
+    """Get the multihash of a file without loading it into memory.
+
+    Args:
+        path: A path to a file.
+
+    Returns:
+        the multihash of the file content
+    """
+    start_time = time_in_ms()
+
+    with _missing_file_as_no_such_file_error(path):
+        file_multihash = fs_s3.multihash(path) if is_s3(path) else fs_local.multihash(path)
+
+    get_log().debug("multihash_success", path=path, multihash=file_multihash, duration=time_in_ms() - start_time)
+    return file_multihash
+
+
 def read(path: str) -> bytes:
     """Read a file from its path.
 
@@ -34,34 +82,44 @@ def read(path: str) -> bytes:
         bytes: The bytes content of the file.
     """
     get_log().debug("read", path=path)
-    if is_s3(path):
-        try:
-            return fs_s3.read(path)
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/guide/error-handling.html#parsing-error-responses-and-catching-exceptions-from-aws-services
-        except client("s3").exceptions.ClientError as ce:
-            # Error Code can be found here:
-            # https://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html#ErrorCodeList
-            if ce.response["Error"]["Code"] == "NoSuchKey":
-                raise NoSuchFileError(path) from ce
 
-    try:
-        return fs_local.read(path)
-    except FileNotFoundError as error:
-        raise NoSuchFileError(path) from error
+    with _missing_file_as_no_such_file_error(path):
+        return fs_s3.read(path) if is_s3(path) else fs_local.read(path)
 
 
-def copy(source: str, target: str) -> str:
-    """Copy a `source` file to a `target`.
+def copy(source: str, target: str, content_type: str | None = None) -> str:
+    """Copy a `source` file to a `target`, streaming it rather than holding it in memory.
+
+    Unlike `write()` this is not limited to 5GB when the target is on `s3`.
 
     Args:
         source: A path to a file to copy
         target: A path of the copy to create
+        content_type: A standard Media Type describing the format of the contents.
 
     Returns:
-        The path of the file created
+        the multihash of the file content
     """
-    source_content = read(source)
-    return write(target, source_content)
+    get_log().debug("copy", source=source, target=target)
+    start_time = time_in_ms()
+
+    with _missing_file_as_no_such_file_error(source):
+        if is_s3(source) and is_s3(target):
+            with TemporaryDirectory() as tmp_path:
+                local_copy = os.path.join(tmp_path, os.path.basename(target))
+                fs_s3.download(source, local_copy)
+                file_multihash = fs_s3.upload(local_copy, target, content_type)
+        elif is_s3(source):
+            fs_s3.download(source, target)
+            file_multihash = fs_local.multihash(target)
+        elif is_s3(target):
+            file_multihash = fs_s3.upload(source, target, content_type)
+        else:
+            fs_local.copy_file(source, target)
+            file_multihash = fs_local.multihash(target)
+
+    get_log().debug("copy_success", source=source, target=target, multihash=file_multihash, duration=time_in_ms() - start_time)
+    return file_multihash
 
 
 def exists(path: str) -> bool:
@@ -148,7 +206,9 @@ def write_file(input_: str, target: str, generate_name: bool | None = True) -> s
     else:
         target_file_name = os.path.basename(input_)
 
-    return copy(input_, os.path.join(target, target_file_name))
+    target_path = os.path.join(target, target_file_name)
+    copy(input_, target_path)
+    return target_path
 
 
 class NoSuchFileError(Exception):

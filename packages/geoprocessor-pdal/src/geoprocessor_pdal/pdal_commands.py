@@ -104,7 +104,9 @@ def run_pdal(
 
     temp_dir = mkdtemp()
     if is_s3(input_file):  # Download the file from S3
-        input_file = copy(source=input_file, target=os.path.join(temp_dir, input_file.split("/")[-1]))
+        local_input_file = os.path.join(temp_dir, input_file.split("/")[-1])
+        copy(source=input_file, target=local_input_file)
+        input_file = local_input_file
 
     pdal_command.append(input_file)
 
