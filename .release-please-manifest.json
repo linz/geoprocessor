@@ -1,9 +1,9 @@
 {
-  ".": "9.0.0",
-  "packages/geoprocessor-common": "0.1.0",
-  "packages/geoprocessor-gdal": "0.1.0",
-  "packages/geoprocessor-pdal": "0.1.0",
+  ".": "9.0.1",
+  "packages/geoprocessor-common": "0.1.1",
+  "packages/geoprocessor-gdal": "0.1.1",
+  "packages/geoprocessor-pdal": "0.1.1",
   "packages/geoprocessor-pointcloud": "0.1.0",
-  "packages/geoprocessor-raster": "0.1.0",
-  "packages/geoprocessor-stac": "0.1.0"
+  "packages/geoprocessor-raster": "0.1.1",
+  "packages/geoprocessor-stac": "0.1.1"
 }
