@@ -15,6 +15,15 @@
 
 This is a collection of Python scripts used for processing geospatial data in and for the cloud (AWS).
 
+The code is split into the following packages:
+
+- `geoprocessor-common` - commonly packaged utilities that not dependent on other packages
+- `geoprocessor-gdal` - GDAL-related functions
+- `geoprocessor-pdal` - PDAL-related functions
+- `geoprocessor-pointcloud` - script entry points for Point Cloud (PDAL) processing
+- `geoprocessor-stac` - STAC metadata-related functions
+- `geoprocessor-raster` - script entry points for raster (GDAL) processing
+
 Two Docker containers are provided to run the Python scripts:
 
 | Container                 | Built from              | Package                   | Contains                  |
