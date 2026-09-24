@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "geoprocessor-gdal"
-version = "0.1.0"
+version = "0.1.1"
 description = "GDAL and raster utilities for LINZ geoprocessor workflows"
 requires-python = "~=3.12.3"
 dependencies = [
