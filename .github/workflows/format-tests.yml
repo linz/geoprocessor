@@ -1,9 +1,5 @@
 name: Format and Tests
-on:
-  push:
-  pull_request:
-    branches:
-      - master
+on: [push]
 
 jobs:
   build:
