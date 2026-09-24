@@ -48,6 +48,9 @@ class StandardisingConfig:
     data_type: data type of the dataset. See `gdal.gdal_presets.py`.
     scale_to_resolution: scale TIFFs to the specified x,y resolution. Defaults to None = no scaling.
     force: overwrite existing output file. Defaults to False.
+    blocksize: override the COG `blocksize` creation option. Defaults to None = use the preset value.
+    compression_level: override the `level` creation option. Defaults to None = use the preset value.
+    predictor: override the `predictor` creation option. Defaults to None = use the preset value.
     """
 
     gdal_preset: str
@@ -60,6 +63,9 @@ class StandardisingConfig:
     data_type: str
     scale_to_resolution: list[Decimal] | None = None
     force: bool = False
+    blocksize: int | None = None
+    compression_level: int | None = None
+    predictor: int | None = None
 
     def __post_init__(self) -> None:
         if self.cutline and not self.cutline.endswith((".fgb", ".geojson")):
@@ -336,7 +342,14 @@ def apply_gdal_transformation(input_file: str, config: StandardisingConfig, tmp_
     """Generate output using GDAL command."""
     target_file = os.path.join(tmp_path, f"{tile_name}.tiff")
 
-    command = get_gdal_command(config.gdal_preset, epsg=config.target_epsg, data_type=config.data_type)
+    command = get_gdal_command(
+        config.gdal_preset,
+        epsg=config.target_epsg,
+        data_type=config.data_type,
+        blocksize=config.blocksize,
+        compression_level=config.compression_level,
+        predictor=config.predictor,
+    )
     command.extend(get_gdal_band_offset(input_file, gdal_info(input_file), config.gdal_preset))
 
     # Specify the extent to get the right boundaries in case of the tiff got no data on its edges

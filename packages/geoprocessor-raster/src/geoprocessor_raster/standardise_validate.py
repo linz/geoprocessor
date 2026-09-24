@@ -10,6 +10,7 @@ from geoprocessor_common.cli.cli_helper import (
     str_to_gsd,
     str_to_list_or_none,
     str_to_positive_int,
+    str_to_positive_int_or_none,
     valid_date,
 )
 from geoprocessor_common.data_type import DataType
@@ -106,6 +107,30 @@ def get_args_parser() -> ArgumentParser:
         required=False,
     )
     parser.add_argument(
+        "--blocksize",
+        dest="blocksize",
+        type=str_to_positive_int_or_none,
+        nargs="?",
+        help="Override the COG blocksize creation option (leave blank to use the preset value).",
+        required=False,
+    )
+    parser.add_argument(
+        "--compression-level",
+        dest="compression_level",
+        type=str_to_positive_int_or_none,
+        nargs="?",
+        help="Override the compression `level` creation option (leave blank to use the preset value).",
+        required=False,
+    )
+    parser.add_argument(
+        "--predictor",
+        dest="predictor",
+        type=str_to_positive_int_or_none,
+        nargs="?",
+        help="Override the compression `predictor` creation option (leave blank to use the preset value).",
+        required=False,
+    )
+    parser.add_argument(
         "--force",
         dest="force",
         help="Regenerate the standardised TIFF and STAC files if already exist. Defaults to False.",
@@ -158,6 +183,9 @@ def main() -> None:
         data_type=arguments.data_type,
         scale_to_resolution=arguments.scale_to_resolution,
         force=force,
+        blocksize=arguments.blocksize,
+        compression_level=arguments.compression_level,
+        predictor=arguments.predictor,
     )
 
     try:

@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+import pytest
 from geoprocessor_common.data_type import DataType
 from geoprocessor_common.epsg import EpsgNumber
 from geoprocessor_gdal.gdal.gdal_commands import (
@@ -228,3 +229,85 @@ def test_footprint_preset_hillshade_igor(subtests: SubTests) -> None:
 
     with subtests.test():
         assert "-b 5" not in " ".join(gdal_command)
+
+
+def test_creation_options_default_to_the_preset(subtests: SubTests) -> None:
+    gdal_command = get_gdal_command(
+        CompressionPreset.RGBNIR_ZSTD.value, epsg=EpsgNumber.NZTM_2000, data_type=DataType.UINT16.value
+    )
+
+    with subtests.test():
+        assert "blocksize=512" in gdal_command
+
+    with subtests.test():
+        assert "level=17" in gdal_command
+
+    with subtests.test():
+        assert "predictor=2" in gdal_command
+
+
+def test_creation_options_can_be_overridden(subtests: SubTests) -> None:
+    gdal_command = get_gdal_command(
+        CompressionPreset.RGBNIR_ZSTD.value,
+        epsg=EpsgNumber.NZTM_2000,
+        data_type=DataType.UINT16.value,
+        blocksize=2048,
+        compression_level=12,
+        predictor=3,
+    )
+
+    with subtests.test():
+        assert "blocksize=2048" in gdal_command
+        assert "blocksize=512" not in gdal_command
+
+    with subtests.test():
+        assert "level=12" in gdal_command
+        assert "level=17" not in gdal_command
+
+    with subtests.test():
+        assert "predictor=3" in gdal_command
+        assert "predictor=2" not in gdal_command
+
+
+def test_overriding_a_single_creation_option_leaves_the_others(subtests: SubTests) -> None:
+    gdal_command = get_gdal_command(
+        CompressionPreset.RGBNIR_ZSTD.value,
+        epsg=EpsgNumber.NZTM_2000,
+        data_type=DataType.UINT16.value,
+        compression_level=9,
+    )
+
+    with subtests.test():
+        assert "level=9" in gdal_command
+
+    with subtests.test():
+        assert "blocksize=512" in gdal_command
+
+    with subtests.test():
+        assert "predictor=2" in gdal_command
+
+
+def test_overview_options_are_not_matched_by_an_override(subtests: SubTests) -> None:
+    """`overview_compress` and `overview_resampling` must not be mistaken for `compress`/`resampling`."""
+    gdal_command = get_gdal_command(
+        CompressionPreset.RGBNIR_ZSTD.value,
+        epsg=EpsgNumber.NZTM_2000,
+        data_type=DataType.UINT16.value,
+        predictor=3,
+    )
+
+    with subtests.test():
+        assert "overview_compress=zstd" in gdal_command
+
+    with subtests.test():
+        assert "overview_resampling=lanczos" in gdal_command
+
+
+def test_overriding_an_option_the_preset_does_not_set_raises() -> None:
+    with pytest.raises(ValueError, match="cannot override it: level"):
+        get_gdal_command(
+            CompressionPreset.WEBP.value,
+            epsg=EpsgNumber.NZTM_2000,
+            data_type=DataType.UINT8.value,
+            compression_level=9,
+        )

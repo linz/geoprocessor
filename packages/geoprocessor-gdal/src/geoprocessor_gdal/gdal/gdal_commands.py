@@ -25,7 +25,47 @@ BIGTIFF_NO = "bigtiff=no"
 BIGTIFF_YES = "bigtiff=yes"
 
 
-def get_gdal_command(preset: str, epsg: int, data_type: str) -> list[str]:
+def override_creation_options(command: list[str], overrides: dict[str, int | None]) -> list[str]:
+    """Replace the values of `-co name=value` arguments already present in `command`.
+
+    Only options the preset already sets can be overridden. Silently ignoring an option the preset
+    never sets would let a caller believe a value took effect when it did not.
+
+    Args:
+        command: the assembled `gdal_translate` arguments
+        overrides: creation option name to replacement value. `None` values are left alone.
+
+    Returns:
+        a new list of arguments with the replacement values applied
+
+    Raises:
+        ValueError: if an override names a creation option this preset does not set
+    """
+    overridden = list(command)
+
+    for name, value in overrides.items():
+        if value is None:
+            continue
+        prefix = f"{name}="
+        for index, argument in enumerate(overridden):
+            if argument.startswith(prefix):
+                overridden[index] = f"{prefix}{value}"
+                break
+        else:
+            raise ValueError(f"Preset does not set creation option, cannot override it: {name}")
+
+    return overridden
+
+
+def get_gdal_command(
+    preset: str,
+    epsg: int,
+    data_type: str,
+    *,
+    blocksize: int | None = None,
+    compression_level: int | None = None,
+    predictor: int | None = None,
+) -> list[str]:
     """Build a `gdal_translate` command based on the `preset`, `epsg` code, with conversion to 8bits if required.
 
     Args:
@@ -33,6 +73,11 @@ def get_gdal_command(preset: str, epsg: int, data_type: str) -> list[str]:
         epsg: the EPSG code of the file
         data_type: the data type of the dataset. Defined in `gdal.gdal_presets.py`. Defaults to `uint8`.
                    RGBNIR_ZSTD `uint16` and `uint32` are written as a BIGTIFF as the tiffs may exceed 4GB.
+        blocksize: override the COG `blocksize` creation option. Defaults to None = use the preset value.
+        compression_level: override the `level` creation option. ZSTD and LZW presets only.
+                           Defaults to None = use the preset value.
+        predictor: override the `predictor` creation option. ZSTD and LZW presets only.
+                   Defaults to None = use the preset value.
 
     Returns:
         a list of arguments to run `gdal_translate`
@@ -64,7 +109,10 @@ def get_gdal_command(preset: str, epsg: int, data_type: str) -> list[str]:
     if preset_options is None:
         raise ValueError(f"Unsupported compression preset: {preset}")
 
-    return base_command + preset_options
+    return override_creation_options(
+        base_command + preset_options,
+        {"blocksize": blocksize, "level": compression_level, "predictor": predictor},
+    )
 
 
 def get_cutline_command(cutline: str | None) -> list[str]:

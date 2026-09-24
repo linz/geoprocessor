@@ -216,6 +216,32 @@ def str_to_positive_int(value: str) -> int:
     return parsed
 
 
+def str_to_positive_int_or_none(value: str) -> int | None:
+    """Transform a string to a positive integer. Return None if the string is empty.
+
+    Argo passes unset workflow parameters as an empty string, so an optional integer
+    argument has to accept one.
+
+    Example:
+        >>> str_to_positive_int_or_none("5")
+        5
+        >>> str_to_positive_int_or_none('') is None
+        True
+
+    Args:
+        value: string representing a positive integer, or an empty string
+
+    Raises:
+        ArgumentTypeError: if the string is not empty and not a positive integer
+
+    Returns:
+        the positive integer value, or None if the string is empty
+    """
+    if not value:
+        return None
+    return str_to_positive_int(value)
+
+
 def get_geometry_from_geojson_feature(feature: Any, file_path: str) -> shapely.geometry.base.BaseGeometry:
     """Extracts a geometry from a GeoJSON feature and logs errors if the geometry is invalid.
 
