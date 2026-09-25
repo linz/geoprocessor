@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "geoprocessor-pdal"
-version = "0.1.1"
+version = "0.1.2"
 description = "PDAL utilities for LINZ geoprocessor workflows"
 requires-python = "~=3.12.3"
 dependencies = [

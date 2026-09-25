@@ -1,5 +1,12 @@
 # Changelog
 
+## [9.0.2](https://github.com/linz/geoprocessor/compare/v9.0.1...v9.0.2) (2026-09-25)
+
+
+### Reverts
+
+* "fix: stream file copies to allow outputs over 5GB TDE-2072" ([#1660](https://github.com/linz/geoprocessor/issues/1660)) ([ce6e399](https://github.com/linz/geoprocessor/commit/ce6e399e62527188932a3c134ef76725edff5127))
+
 ## [9.0.1](https://github.com/linz/geoprocessor/compare/v9.0.0...v9.0.1) (2026-09-23)
 
 

@@ -895,7 +895,7 @@ wheels = [
 
 [[package]]
 name = "topo-imagery"
-version = "9.0.1"
+version = "9.0.2"
 source = { virtual = "." }
 dependencies = [
     { name = "boto3" },
@@ -948,7 +948,7 @@ dev = [
 
 [[package]]
 name = "geoprocessor-common"
-version = "0.1.1"
+version = "0.1.2"
 source = { editable = "packages/geoprocessor-common" }
 dependencies = [
     { name = "boto3" },
@@ -987,7 +987,7 @@ dev = [
 
 [[package]]
 name = "geoprocessor-gdal"
-version = "0.1.1"
+version = "0.1.2"
 source = { editable = "packages/geoprocessor-gdal" }
 dependencies = [
     { name = "linz-logger" },
@@ -1020,7 +1020,7 @@ dev = [
 
 [[package]]
 name = "geoprocessor-pdal"
-version = "0.1.1"
+version = "0.1.2"
 source = { editable = "packages/geoprocessor-pdal" }
 dependencies = [
     { name = "linz-logger" },
@@ -1080,7 +1080,7 @@ dev = [
 
 [[package]]
 name = "geoprocessor-raster"
-version = "0.1.1"
+version = "0.1.2"
 source = { editable = "packages/geoprocessor-raster" }
 dependencies = [
     { name = "linz-logger" },
@@ -1117,7 +1117,7 @@ dev = [
 
 [[package]]
 name = "geoprocessor-stac"
-version = "0.1.1"
+version = "0.1.2"
 source = { editable = "packages/geoprocessor-stac" }
 dependencies = [
     { name = "boto3" },
