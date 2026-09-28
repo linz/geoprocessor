@@ -24,6 +24,22 @@ from linz_logger import get_log
 BIGTIFF_NO = "bigtiff=no"
 BIGTIFF_YES = "bigtiff=yes"
 
+def get_webp_8bit_args(data_type: str) -> list[str]:
+    """Get GDAL args to scale 16-bit WEBP imagery down to 8-bit."""
+    src_max_by_type = {
+        DataType.UINT16.value: "65535",
+    }
+
+    src_max = src_max_by_type.get(data_type)
+    if src_max is None:
+        raise ValueError(f"Unsupported data type for WEBP scaling: {data_type}")
+
+    return [
+        "-scale", "0", src_max, "0", "254",
+        "-a_nodata", "255",
+        "-ot", "Byte",
+    ]
+
 
 def get_gdal_command(preset: str, epsg: int, data_type: str) -> list[str]:
     """Build a `gdal_translate` command based on the `preset`, `epsg` code, with conversion to 8bits if required.
@@ -54,7 +70,9 @@ def get_gdal_command(preset: str, epsg: int, data_type: str) -> list[str]:
 
     PRESET_OPTIONS: dict[str, list[str]] = {
         CompressionPreset.LZW.value: (SCALE_254_ADD_NO_DATA + COMPRESS_LZW + WEBP_OVERVIEWS),
-        CompressionPreset.WEBP.value: (COMPRESS_WEBP_LOSSLESS + WEBP_OVERVIEWS),
+        CompressionPreset.WEBP.value: (COMPRESS_WEBP_LOSSLESS + WEBP_OVERVIEWS
+            if data_type == DataType.UINT8.value
+            else get_webp_8bit_args(data_type) + COMPRESS_WEBP_LOSSLESS + WEBP_OVERVIEWS),
         CompressionPreset.RGBNIR_ZSTD.value: ZSTD_OPTIONS,
         CompressionPreset.DEM_ZSTD.value: ZSTD_OPTIONS,
         CompressionPreset.DEM_LERC.value: DEM_LERC,
