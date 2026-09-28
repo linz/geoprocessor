@@ -210,6 +210,7 @@ def main() -> None:
                 file.get_gdalinfo(),
                 file.get_derived_from_paths(),
                 arguments.odr_url,
+                file.get_checksum(),
             )
             write(stac_item_path, dict_to_json_bytes(item.stac), content_type=ContentType.GEOJSON.value)
             get_log().info("stac_saved", path=stac_item_path)

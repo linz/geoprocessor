@@ -18,6 +18,8 @@ from geoprocessor_stac.testing.helpers import any_epoch_datetime, any_epoch_date
 from geoprocessor_stac.util.STAC_VERSION import STAC_VERSION
 from pytest_subtests import SubTests
 
+EMPTY_TIFF_MULTIHASH = "12205f300ac3bd1d289da1517144d4851050e544c43c58c23ccfcc1f6968f764a45a"
+
 
 def test_create_item(subtests: SubTests) -> None:
     fake_geometry, fake_bbox = any_geometry_and_bbox()
@@ -44,6 +46,43 @@ def test_create_item(subtests: SubTests) -> None:
 
     with subtests.test(msg="assets.visual.updated"):
         assert item.stac["assets"]["visual"]["updated"] == current_datetime
+
+
+def test_create_item_computes_checksum_from_the_asset() -> None:
+    fake_geometry, fake_bbox = any_geometry_and_bbox()
+
+    item = create_item(
+        str(DATA_DIR / "empty.tiff"),
+        "",
+        "",
+        "abc123",
+        "any GDAL version",
+        any_epoch_datetime_string(),
+        fake_geometry,
+        fake_bbox,
+    )
+
+    assert item.stac["assets"]["visual"]["file:checksum"] == EMPTY_TIFF_MULTIHASH
+
+
+def test_create_item_uses_the_supplied_checksum() -> None:
+    """A checksum computed while writing the asset is reused, to avoid reading a multi GB asset back."""
+    fake_geometry, fake_bbox = any_geometry_and_bbox()
+    asset_checksum = any_multihash_as_hex()
+
+    item = create_item(
+        str(DATA_DIR / "empty.tiff"),
+        "",
+        "",
+        "abc123",
+        "any GDAL version",
+        any_epoch_datetime_string(),
+        fake_geometry,
+        fake_bbox,
+        asset_checksum=asset_checksum,
+    )
+
+    assert item.stac["assets"]["visual"]["file:checksum"] == asset_checksum
 
 
 def test_create_item_when_resupplying(subtests: SubTests, tmp_path: Path) -> None:
@@ -75,7 +114,7 @@ def test_create_item_when_resupplying(subtests: SubTests, tmp_path: Path) -> Non
             "visual": {
                 "href": tiff_path,
                 "type": "image/tiff; application=geotiff; profile=cloud-optimized",
-                "file:checksum": "12205f300ac3bd1d289da1517144d4851050e544c43c58c23ccfcc1f6968f764a45a",
+                "file:checksum": EMPTY_TIFF_MULTIHASH,
                 "created": created_datetime,
                 "updated": updated_datetime,
             }
