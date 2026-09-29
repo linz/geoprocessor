@@ -9,7 +9,25 @@ from geoprocessor_gdal.gdal.gdal_commands import (
 )
 from geoprocessor_gdal.gdal.gdal_presets import CompressionPreset, HillshadePreset
 from pytest_subtests import SubTests
+from pytest import raises
+from geoprocessor_gdal.gdal.gdal_commands import get_webp_8bit_args
 
+def test_get_webp_8bit_args_uint16() -> None:
+    assert get_webp_8bit_args(DataType.UINT16.value) == [
+        "-scale",
+        "0",
+        "65535",
+        "0",
+        "254",
+        "-a_nodata",
+        "255",
+        "-ot",
+        "Byte",
+    ]
+
+def test_get_webp_8bit_args_uint32_rejected() -> None:
+    with raises(ValueError, match="Unspported data type for WEBP scaling"):
+        get_webp_8bit_args(DataType.UINT32.value)
 
 def test_preset_webp(subtests: SubTests) -> None:
     gdal_command = get_gdal_command(CompressionPreset.WEBP.value, epsg=EpsgNumber.NZTM_2000, data_type=DataType.UINT8.value)
