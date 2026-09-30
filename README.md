@@ -72,7 +72,7 @@ Run `docker run geoprocessor/raster standardise-validate --help` to get the list
 - Example of local execution. This example uses the test data available on this repo and create the output will be created in a `~/tmp/` on the local machine (volume share with `Docker`):
 
 ```bash
-docker run -v ${HOME}/tmp/:/tmp/:rw geoprocessor/raster standardise-validate --preset webp --data-type uint8 --from-file ./tests/data/aerial.json --collection-id 123 --start-datetime 2023-01-01 --end-datetime 2023-01-01 --target /tmp/ --source-epsg 2193 --target-epsg 2193 --gsd 10 --create-footprints=true
+docker run -v "${HOME}/tmp/:/tmp/:rw" -v "${PWD}/e2e/data:/app/tests/data:ro" geoprocessor/raster standardise-validate --preset webp --data-type uint8 --from-file ./tests/data/aerial.json --collection-id 123 --start-datetime 2023-01-01 --end-datetime 2023-01-01 --target /tmp/ --source-epsg 2193 --target-epsg 2193 --gsd 10 --create-footprints=true
 ```
 
 To use an AWS test dataset (input located in an AWS S3 bucket), log into the AWS account and add the following arguments to the `docker run` command:
