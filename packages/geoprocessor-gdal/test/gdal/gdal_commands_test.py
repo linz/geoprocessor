@@ -6,11 +6,12 @@ from geoprocessor_gdal.gdal.gdal_commands import (
     get_cutline_command,
     get_footprint_command,
     get_gdal_command,
+    get_webp_rescaled,
 )
 from geoprocessor_gdal.gdal.gdal_presets import CompressionPreset, HillshadePreset
-from pytest_subtests import SubTests
 from pytest import raises
-from geoprocessor_gdal.gdal.gdal_commands import get_webp_rescaled
+from pytest_subtests import SubTests
+
 
 def test_get_webp_rescaled() -> None:
     assert get_webp_rescaled(DataType.UINT16.value) == [
@@ -23,9 +24,11 @@ def test_get_webp_rescaled() -> None:
         "Byte",
     ]
 
+
 def test_get_webp_rescaled_uint32_rejected() -> None:
     with raises(ValueError, match="Unsupported data type for WEBP scaling"):
         get_webp_rescaled(DataType.UINT32.value)
+
 
 def test_preset_webp(subtests: SubTests) -> None:
     gdal_command = get_gdal_command(CompressionPreset.WEBP.value, epsg=EpsgNumber.NZTM_2000, data_type=DataType.UINT8.value)
