@@ -16,7 +16,7 @@ from linz_logger import get_log
 def _missing_file_as_no_such_file_error(path: str) -> Generator[None, None, None]:
     """Translate "the file is not there" into `NoSuchFileError`, whether the path is local or on `s3`.
 
-    Any other `ClientError` is re-raised unchanged.
+    Only a `FileNotFoundError` on `path` is translated. Any other ClientError is re-raised unchanged.
 
     Args:
         path: the path to name in the error
@@ -28,6 +28,8 @@ def _missing_file_as_no_such_file_error(path: str) -> Generator[None, None, None
     try:
         yield
     except FileNotFoundError as error:
+        if error.filename is not None and error.filename != path:
+            raise
         raise NoSuchFileError(path) from error
     # https://boto3.amazonaws.com/v1/documentation/api/latest/guide/error-handling.html#parsing-error-responses-and-catching-exceptions-from-aws-services
     except ClientError as ce:
@@ -213,5 +215,4 @@ def write_file(input_: str, target: str, generate_name: bool | None = True) -> s
 
 class NoSuchFileError(Exception):
     def __init__(self, path: str) -> None:
-        self.message = f"File not found: {path}"
-        self.path = path
+        super().__init__(f"File not found: {path}")

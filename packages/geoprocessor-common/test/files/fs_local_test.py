@@ -1,7 +1,10 @@
 import os
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
+from unittest.mock import patch
 
 import pytest
-from geoprocessor_common.files.fs_local import copy_file, exists, multihash, read, write
+from geoprocessor_common.files.fs_local import PartialFileLostError, copy_file, exists, multihash, read, write
 from pytest import MonkeyPatch
 from pytest_subtests import SubTests
 
@@ -118,3 +121,28 @@ def test_copy_file_onto_itself_keeps_the_file(setup: str) -> None:
     copy_file(path, path)
 
     assert read(path) == b"test content"
+
+
+def test_concurrent_writes_to_one_destination_leave_it_complete(setup: str) -> None:
+    """Racing writers must not truncate each other's partial file."""
+    destination = os.path.join(setup, "destination.file")
+    content = b"z" * (2 * 1024 * 1024)
+    barrier = Barrier(4)
+
+    def write_it() -> None:
+        barrier.wait()
+        write(destination, content)
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        for future in [executor.submit(write_it) for _ in range(4)]:
+            future.result()
+
+    assert read(destination) == content
+
+
+def test_write_error_names_the_partial_file_when_it_is_lost(setup: str) -> None:
+    destination = os.path.join(setup, "destination.file")
+
+    with patch("os.replace", side_effect=FileNotFoundError(2, "No such file or directory")):
+        with pytest.raises(PartialFileLostError, match=r"was gone before it could be moved to .*destination\.file"):
+            write(destination, b"test content")
