@@ -68,10 +68,7 @@ def test_config_rejects_uint16_for_presets_other_than_rgbnir_or_webp(subtests: S
         with subtests.test(msg=f"{DataType.UINT16.value} is invalid with {preset.value}"):
             with raises(
                 ValueError,
-                match=(
-                    f"is only supported with the {CompressionPreset.RGBNIR_ZSTD.value} "
-                    f"or {CompressionPreset.WEBP.value} preset"
-                ),
+                match=f"is only supported with the {CompressionPreset.RGBNIR_ZSTD.value} preset",
             ):
                 standardising_config(preset.value, DataType.UINT16.value)
 
