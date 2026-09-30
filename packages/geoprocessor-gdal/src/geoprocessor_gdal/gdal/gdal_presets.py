@@ -4,7 +4,7 @@ from typing import Annotated
 
 DEFAULT_NO_DATA_VALUE: Annotated[Decimal, "From the New Zealand National Aerial LiDAR Base Specification"] = Decimal(-9999)
 
-SCALE_254_ADD_NO_DATA = ["-scale", "0", "255", "0", "254", "-a_nodata", "255"]
+SCALE_255 = ["-scale", "0", "255", "0", "255"]
 """ Scale imagery from 0-255 to 0-254 then set 255 as NO_DATA.
 Useful for imagery that does not have a alpha band.
 """
