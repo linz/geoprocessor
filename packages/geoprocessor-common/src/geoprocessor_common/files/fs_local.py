@@ -17,16 +17,32 @@ def atomic_write_path(destination: str) -> Iterator[str]:
     Args:
         destination: The local path to the file to write.
 
+    Raises:
+        PartialFileLostError: if the partial file is gone by the time it should be moved into place
+
     Yields:
         the path to write to, a sibling of `destination`
     """
     Path(destination).parent.mkdir(parents=True, exist_ok=True)
-    partial_destination = destination + ".part"
+    partial_destination = f"{destination}.{os.urandom(8).hex()}.part"
     try:
         yield partial_destination
-        os.replace(partial_destination, destination)
+        try:
+            os.replace(partial_destination, destination)
+        except FileNotFoundError as error:
+            raise PartialFileLostError(destination, partial_destination) from error
     finally:
         Path(partial_destination).unlink(missing_ok=True)
+
+
+class PartialFileLostError(Exception):
+    """A partial file vanished before it could be moved onto its destination."""
+
+    def __init__(self, destination: str, partial_destination: str) -> None:
+        super().__init__(
+            f"Partial file {partial_destination} was gone before it could be moved to {destination}. "
+            "Something else may be writing to or cleaning up the working directory."
+        )
 
 
 def write(destination: str, source: bytes) -> None:

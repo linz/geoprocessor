@@ -3,6 +3,7 @@ from decimal import Decimal
 from geoprocessor_common.data_type import DataType
 from geoprocessor_common.epsg import EpsgNumber
 from geoprocessor_gdal.gdal.gdal_commands import (
+    get_build_vrt_command,
     get_cutline_command,
     get_footprint_command,
     get_gdal_command,
@@ -228,3 +229,16 @@ def test_footprint_preset_hillshade_igor(subtests: SubTests) -> None:
 
     with subtests.test():
         assert "-b 5" not in " ".join(gdal_command)
+
+
+def test_get_build_vrt_command_keeps_input_order(subtests: SubTests) -> None:
+    """`gdalbuildvrt` draws later inputs over earlier ones."""
+    files = ["/tmp/source/z.tiff", "/tmp/source/a.tiff", "/tmp/source/m.tiff"]
+
+    command = get_build_vrt_command(files=files, output="/tmp/source.vrt")
+
+    with subtests.test(msg="inputs are last, in the order given"):
+        assert command[-3:] == files
+
+    with subtests.test(msg="output precedes the inputs"):
+        assert command[-4] == "/tmp/source.vrt"

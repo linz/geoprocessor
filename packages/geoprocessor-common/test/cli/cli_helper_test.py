@@ -196,3 +196,14 @@ def test_get_non_empty_features_single_feature() -> None:
     features = get_non_empty_features(geojson, "/tmp/test/test.geojson")
     assert len(features) == 1
     assert features[0]["type"] == "Feature"
+
+
+def test_get_tile_files_keeps_input_order() -> None:
+    """The order of the list dictates z-order of `gdalbuildvrt`."""
+    source = '[{"output": "CE16_5000_1001", "input": ["s3://bucket/z.tiff", "s3://bucket/a.tiff", "s3://bucket/m.tiff"]}]'
+
+    assert get_tile_files(source)[0].inputs == ["s3://bucket/z.tiff", "s3://bucket/a.tiff", "s3://bucket/m.tiff"]
+
+    source = '[{"output": "CE16_5000_1001", "input": ["s3://bucket/a.tiff", "s3://bucket/z.tiff", "s3://bucket/m.tiff"]}]'
+
+    assert get_tile_files(source)[0].inputs == ["s3://bucket/a.tiff", "s3://bucket/z.tiff", "s3://bucket/m.tiff"]
