@@ -72,7 +72,9 @@ def run_gdal(
         if is_s3(input_file):
             # Download the file from S3
             temp_dir = mkdtemp()
-            input_file = copy(source=input_file, target=os.path.join(temp_dir, get_file_name_from_path(input_file)))
+            local_input_file = os.path.join(temp_dir, get_file_name_from_path(input_file))
+            copy(source=input_file, target=local_input_file)
+            input_file = local_input_file
 
         temp_command.append(input_file)
 

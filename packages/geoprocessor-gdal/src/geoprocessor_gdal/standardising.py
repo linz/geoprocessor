@@ -12,7 +12,7 @@ from geoprocessor_common.cli.cli_helper import TileFiles
 from geoprocessor_common.data_type import DataType
 from geoprocessor_common.epsg import EpsgNumber
 from geoprocessor_common.files.files_helper import SUFFIX_FOOTPRINT, ContentType, is_tiff
-from geoprocessor_common.files.fs import exists, read, write, write_all, write_sidecars
+from geoprocessor_common.files.fs import copy, exists, write_all, write_sidecars
 from geoprocessor_common.log.time_helper import time_in_ms
 from geoprocessor_gdal.gdal.gdal_bands import get_gdal_band_offset
 from geoprocessor_gdal.gdal.gdal_commands import (
@@ -216,10 +216,10 @@ def standardising(
                 tiff_for_footprint = create_fillnodata_tiff(current_working_file, fillnodata_tiff_path)
             temp_footprint = create_footprint(tiff_for_footprint, tmp_path, config.gsd, config.gdal_preset)
             footprint_file_path = os.path.join(target_output, f"{files.output}{SUFFIX_FOOTPRINT}")
-            write(footprint_file_path, read(temp_footprint), content_type=ContentType.GEOJSON.value)
+            copy(temp_footprint, footprint_file_path, content_type=ContentType.GEOJSON.value)
 
         # Copy the final version of the working / temp file to the desired destination
-        write(standardised_file_path, read(current_working_file), content_type=ContentType.GEOTIFF.value)
+        tiff.set_checksum(copy(current_working_file, standardised_file_path, content_type=ContentType.GEOTIFF.value))
 
     return tiff
 
@@ -300,7 +300,7 @@ def apply_cutline(input_file: str, config: StandardisingConfig, tmp_path: str) -
         input_cutline_path = config.cutline
         if is_s3(config.cutline):
             input_cutline_path = os.path.join(tmp_path, "cutline" + os.path.splitext(config.cutline)[1])
-            write(input_cutline_path, read(config.cutline))
+            copy(config.cutline, input_cutline_path)
 
         target_vrt = os.path.join(tmp_path, "cutline.vrt")
         run_gdal(get_cutline_command(input_cutline_path), input_file=input_file, output_file=target_vrt)

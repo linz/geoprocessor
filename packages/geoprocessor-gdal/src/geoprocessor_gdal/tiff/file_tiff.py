@@ -24,6 +24,7 @@ class FileTiffType(str, Enum):
 
 
 class FileTiff:
+    # pylint: disable=too-many-instance-attributes
     """Wrapper to carry information about the TIFF or list of TIFF within the same tile."""
 
     def __init__(
@@ -50,6 +51,7 @@ class FileTiff:
         self._errors: list[dict[str, Any]] = []
         self._gdalinfo: GdalInfo | None = None
         self._srs: bytes | None = None
+        self._checksum: str | None = None
         if preset in [
             CompressionPreset.DEM_LERC.value,
             CompressionPreset.DEM_ZSTD.value,
@@ -113,6 +115,22 @@ class FileTiff:
         ```
         """
         self._srs = srs
+
+    def set_checksum(self, checksum: str) -> None:
+        """Set the multihash of the standardised file content.
+
+        Args:
+            checksum: the multihash of the standardised file content
+        """
+        self._checksum = checksum
+
+    def get_checksum(self) -> str | None:
+        """Get the multihash of the standardised file content, if it has been computed.
+
+        Returns:
+            the multihash of the standardised file content, or None if the file was not (re)written
+        """
+        return self._checksum
 
     def set_path_standardised(self, path: str) -> None:
         """Set the standardised file path.
