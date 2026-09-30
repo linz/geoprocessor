@@ -24,7 +24,7 @@ def test_get_webp_rescaled() -> None:
     ]
 
 def test_get_webp_rescaled_uint32_rejected() -> None:
-    with raises(ValueError, match="Unspported data type for WEBP scaling"):
+    with raises(ValueError, match="Unsupported data type for WEBP scaling"):
         get_webp_rescaled(DataType.UINT32.value)
 
 def test_preset_webp(subtests: SubTests) -> None:

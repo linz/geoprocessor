@@ -12,7 +12,7 @@ from geoprocessor_gdal.gdal.gdal_presets import (
     COMPRESS_WEBP_LOSSLESS,
     COMPRESS_ZSTD,
     DEM_LERC,
-    SCALE_255,
+    SCALE_254_ADD_NO_DATA,
     WEBP_OVERVIEWS,
     ZSTD_OVERVIEWS,
     CompressionPreset,
@@ -68,7 +68,7 @@ def get_gdal_command(preset: str, epsg: int, data_type: str) -> list[str]:
     ZSTD_OPTIONS = COMPRESS_ZSTD + ZSTD_OVERVIEWS
 
     PRESET_OPTIONS: dict[str, list[str]] = {
-        CompressionPreset.LZW.value: (SCALE_255 + COMPRESS_LZW + WEBP_OVERVIEWS),
+        CompressionPreset.LZW.value: (SCALE_254_ADD_NO_DATA + COMPRESS_LZW + WEBP_OVERVIEWS),
         CompressionPreset.WEBP.value: (COMPRESS_WEBP_LOSSLESS + WEBP_OVERVIEWS
             if data_type == DataType.UINT8.value
             else get_webp_rescaled(data_type) + COMPRESS_WEBP_LOSSLESS + WEBP_OVERVIEWS),
