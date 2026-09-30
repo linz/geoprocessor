@@ -17,7 +17,7 @@ This is a collection of Python scripts used for processing geospatial data in an
 
 The code is split into the following packages:
 
-- `geoprocessor-common` - commonly packaged utilities that not dependent on other packages
+- `geoprocessor-common` - commonly packaged utilities that are not dependent on other packages
 - `geoprocessor-gdal` - GDAL-related functions
 - `geoprocessor-pdal` - PDAL-related functions
 - `geoprocessor-pointcloud` - script entry points for Point Cloud (PDAL) processing
