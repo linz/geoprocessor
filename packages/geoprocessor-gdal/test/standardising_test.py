@@ -29,6 +29,12 @@ def test_config_allows_high_bit_depth_rgbnir(subtests: SubTests) -> None:
             assert config.data_type == data_type.value
 
 
+def test_config_allows_uint16_for_webp() -> None:
+    config = standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value)
+
+    assert config.data_type == DataType.UINT16.value
+
+
 def test_config_allows_uint8_for_any_preset(subtests: SubTests) -> None:
     for preset in CompressionPreset:
         with subtests.test(msg=f"{DataType.UINT8.value} is valid with {preset.value}"):
@@ -45,12 +51,26 @@ def test_config_allows_float32_for_dem_presets(subtests: SubTests) -> None:
             assert config.data_type == DataType.FLOAT32.value
 
 
-def test_config_rejects_high_bit_depth_for_other_presets(subtests: SubTests) -> None:
+def test_config_rejects_uint16_for_presets_other_than_rgbnir_or_webp(subtests: SubTests) -> None:
+    for preset in [
+        preset for preset in CompressionPreset if preset not in (CompressionPreset.RGBNIR_ZSTD, CompressionPreset.WEBP)
+    ]:
+        with subtests.test(msg=f"{DataType.UINT16.value} is invalid with {preset.value}"):
+            with raises(
+                ValueError,
+                match=(
+                    f"is only supported with the {CompressionPreset.RGBNIR_ZSTD.value} "
+                    f"or {CompressionPreset.WEBP.value} preset"
+                ),
+            ):
+                standardising_config(preset.value, DataType.UINT16.value)
+
+
+def test_config_rejects_uint32_for_presets_other_than_rgbnir(subtests: SubTests) -> None:
     for preset in [preset for preset in CompressionPreset if preset != CompressionPreset.RGBNIR_ZSTD]:
-        for data_type in [DataType.UINT16, DataType.UINT32]:
-            with subtests.test(msg=f"{data_type.value} is invalid with {preset.value}"):
-                with raises(ValueError, match=f"is only supported with the {CompressionPreset.RGBNIR_ZSTD.value} preset"):
-                    standardising_config(preset.value, data_type.value)
+        with subtests.test(msg=f"{DataType.UINT32.value} is invalid with {preset.value}"):
+            with raises(ValueError, match=f"is only supported with the {CompressionPreset.RGBNIR_ZSTD.value} preset"):
+                standardising_config(preset.value, DataType.UINT32.value)
 
 
 def test_config_rejects_unknown_data_type() -> None:

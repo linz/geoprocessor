@@ -53,7 +53,7 @@ def get_args_parser() -> ArgumentParser:
     parser.add_argument(
         "--data-type",
         dest="data_type",
-        help="Dataset data type, e.g. uint8. `uint16` and `uint32` are only valid with the rgbnir_zstd preset",
+        help="Dataset data type, e.g. uint8. `uint16` is valid with the rgbnir_zstd and webp presets",
         type=str,
         choices=[data_type.value for data_type in DataType],
         required=True,
