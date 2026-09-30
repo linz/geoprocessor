@@ -4,11 +4,12 @@ from geoprocessor_common.data_type import DataType
 from geoprocessor_common.epsg import EpsgNumber
 from geoprocessor_gdal.gdal.gdal_presets import CompressionPreset
 from geoprocessor_gdal.standardising import StandardisingConfig
+from geoprocessor_stac.imagery.constants import RURAL_AERIAL_PHOTOS, SATELLITE_IMAGERY
 from pytest import raises
 from pytest_subtests import SubTests
 
 
-def standardising_config(preset: str, data_type: str) -> StandardisingConfig:
+def standardising_config(preset: str, data_type: str, category: str | None = None) -> StandardisingConfig:
     return StandardisingConfig(
         gdal_preset=preset,
         source_epsg=EpsgNumber.NZTM_2000.value,
@@ -17,6 +18,7 @@ def standardising_config(preset: str, data_type: str) -> StandardisingConfig:
         create_footprints=False,
         simplify_footprints=False,
         cutline=None,
+        category=category,
         data_type=data_type,
     )
 
@@ -30,9 +32,17 @@ def test_config_allows_high_bit_depth_rgbnir(subtests: SubTests) -> None:
 
 
 def test_config_allows_uint16_for_webp() -> None:
-    config = standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value)
+    config = standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, RURAL_AERIAL_PHOTOS)
 
     assert config.data_type == DataType.UINT16.value
+
+
+def test_config_rejects_uint16_for_webp_without_aerial_category() -> None:
+    with raises(
+        ValueError,
+        match=f"is only supported with the {CompressionPreset.WEBP.value} preset for aerial-photo categories",
+    ):
+        standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, SATELLITE_IMAGERY)
 
 
 def test_config_allows_uint8_for_any_preset(subtests: SubTests) -> None:

@@ -29,8 +29,25 @@ from geoprocessor_gdal.gdal.gdal_helper import gdal_info, run_gdal
 from geoprocessor_gdal.gdal.gdal_presets import CompressionPreset
 from geoprocessor_gdal.tiff.file_tiff import FileTiff, FileTiffType
 from geoprocessor_gdal.tile.tile_index import Bounds, get_bounds_from_name
+from geoprocessor_stac.imagery.constants import (
+    ANCILLARY_AERIAL_PHOTOS,
+    ANCILLARY_NEAR_INFRARED_AERIAL_PHOTOS,
+    NEAR_INFRARED_AERIAL_PHOTOS,
+    RURAL_AERIAL_PHOTOS,
+    SCANNED_AERIAL_PHOTOS,
+    URBAN_AERIAL_PHOTOS,
+)
 from linz_logger import get_log
 from tifffile import TiffFile
+
+AERIAL_PHOTO_CATEGORIES = {
+    ANCILLARY_AERIAL_PHOTOS,
+    ANCILLARY_NEAR_INFRARED_AERIAL_PHOTOS,
+    SCANNED_AERIAL_PHOTOS,
+    RURAL_AERIAL_PHOTOS,
+    NEAR_INFRARED_AERIAL_PHOTOS,
+    URBAN_AERIAL_PHOTOS,
+}
 
 
 @dataclass
@@ -58,6 +75,7 @@ class StandardisingConfig:
     simplify_footprints: bool
     cutline: str | None
     data_type: str
+    category: str | None = None
     scale_to_resolution: list[Decimal] | None = None
     force: bool = False
 
@@ -68,15 +86,17 @@ class StandardisingConfig:
             raise ValueError(f"scale_to_resolution must be exactly two items [xres, yres]: {self.scale_to_resolution}")
         if self.data_type not in [data_type.value for data_type in DataType]:
             raise ValueError(f"Unsupported data type: {self.data_type}")
-        # Only WEBP and RGBNIR imagery support UINT16 inputs.
-        if self.data_type == DataType.UINT16.value and self.gdal_preset not in (
-            CompressionPreset.RGBNIR_ZSTD.value,
-            CompressionPreset.WEBP.value,
-        ):
+        # UINT16 WEBP imagery is only supported for aerial-photo categories.
+        if self.data_type == DataType.UINT16.value and self.gdal_preset == CompressionPreset.WEBP.value:
+            if self.category not in AERIAL_PHOTO_CATEGORIES:
+                raise ValueError(
+                    f"Data type {self.data_type} is only supported with the "
+                    f"{CompressionPreset.WEBP.value} preset for aerial-photo categories, preset supplied was {self.category}"
+                )
+        elif self.data_type == DataType.UINT16.value and self.gdal_preset != CompressionPreset.RGBNIR_ZSTD.value:
             raise ValueError(
                 f"Data type {self.data_type} is only supported with the "
-                f"{CompressionPreset.RGBNIR_ZSTD.value} or {CompressionPreset.WEBP.value} preset, "
-                f"preset supplied was {self.gdal_preset}"
+                f"{CompressionPreset.RGBNIR_ZSTD.value} preset, preset supplied was {self.gdal_preset}"
             )
         if self.data_type == DataType.UINT32.value and self.gdal_preset != CompressionPreset.RGBNIR_ZSTD.value:
             raise ValueError(
