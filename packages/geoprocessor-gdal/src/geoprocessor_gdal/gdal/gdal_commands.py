@@ -69,15 +69,20 @@ def get_gdal_command(preset: str, epsg: int, data_type: str) -> list[str]:
 
     PRESET_OPTIONS: dict[str, list[str]] = {
         CompressionPreset.LZW.value: (SCALE_254_ADD_NO_DATA + COMPRESS_LZW + WEBP_OVERVIEWS),
-        CompressionPreset.WEBP.value: (COMPRESS_WEBP_LOSSLESS + WEBP_OVERVIEWS
-            if data_type == DataType.UINT8.value
-            else get_webp_rescaled(data_type) + COMPRESS_WEBP_LOSSLESS + WEBP_OVERVIEWS),
+        CompressionPreset.WEBP.value: [],  # Handled separately below
         CompressionPreset.RGBNIR_ZSTD.value: ZSTD_OPTIONS,
         CompressionPreset.DEM_ZSTD.value: ZSTD_OPTIONS,
         CompressionPreset.DEM_LERC.value: DEM_LERC,
     }
 
-    preset_options = PRESET_OPTIONS.get(preset)
+    # Handle WEBP preset separately to avoid evaluating get_webp_rescaled() for non-WEBP presets
+    if preset == CompressionPreset.WEBP.value:
+        if data_type == DataType.UINT8.value:
+            preset_options = COMPRESS_WEBP_LOSSLESS + WEBP_OVERVIEWS
+        else:
+            preset_options = get_webp_rescaled(data_type) + COMPRESS_WEBP_LOSSLESS + WEBP_OVERVIEWS
+    else:
+        preset_options = PRESET_OPTIONS.get(preset)
     if preset_options is None:
         raise ValueError(f"Unsupported compression preset: {preset}")
 
