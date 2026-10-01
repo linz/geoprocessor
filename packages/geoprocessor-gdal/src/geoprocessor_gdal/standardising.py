@@ -76,7 +76,8 @@ class StandardisingConfig:
         ):
             raise ValueError(
                 f"Data type {self.data_type} is only supported with the "
-                f"{CompressionPreset.RGBNIR_ZSTD.value} or {CompressionPreset.WEBP.value} presets, "preset supplied was {self.gdal_preset}"
+                f"{CompressionPreset.RGBNIR_ZSTD.value} or {CompressionPreset.WEBP.value} presets, "
+                f"preset supplied was {self.gdal_preset}"
             )
 
 

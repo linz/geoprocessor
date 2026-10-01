@@ -180,7 +180,8 @@ def main() -> None:
         if arguments.category not in AERIAL_PHOTO_CATEGORIES:
             raise ValueError(
                 f"Data type {arguments.data_type} is only supported with the "
-                f"{CompressionPreset.WEBP.value} preset for aerial-photo categories, "category supplied was {arguments.category}"
+                f"{CompressionPreset.WEBP.value} preset for aerial-photo categories, "
+                f"category supplied was {arguments.category}"
             )
 
     standardising_config = StandardisingConfig(
