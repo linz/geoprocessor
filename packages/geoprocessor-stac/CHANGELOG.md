@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/linz/geoprocessor/compare/geoprocessor-stac-v0.1.2...geoprocessor-stac-v0.1.3) (2026-09-30)
+
+
+### Reverts
+
+* "revert: "fix: stream file copies to allow outputs over 5GB TDE-2072" TDE-2090" ([#1663](https://github.com/linz/geoprocessor/issues/1663)) ([c546acd](https://github.com/linz/geoprocessor/commit/c546acde61d17b3eb5394e49fef4548c9cfff083))
+
 ## [0.1.2](https://github.com/linz/geoprocessor/compare/geoprocessor-stac-v0.1.1...geoprocessor-stac-v0.1.2) (2026-09-25)
 
 
