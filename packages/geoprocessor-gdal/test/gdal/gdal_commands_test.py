@@ -25,11 +25,6 @@ def test_get_webp_rescaled() -> None:
     ]
 
 
-def test_get_webp_rescaled_uint32_rejected() -> None:
-    with raises(ValueError, match="Unsupported data type for WEBP scaling"):
-        get_webp_rescaled(DataType.UINT32.value)
-
-
 def test_preset_webp(subtests: SubTests) -> None:
     gdal_command = get_gdal_command(CompressionPreset.WEBP.value, epsg=EpsgNumber.NZTM_2000, data_type=DataType.UINT8.value)
 
@@ -110,7 +105,7 @@ def test_preset_zstd(subtests: SubTests) -> None:
 
 
 def test_preset_zstd_high_bit_depth_uses_bigtiff(subtests: SubTests) -> None:
-    for data_type in (DataType.UINT16, DataType.UINT32):
+    for data_type in (DataType.UINT16):
         gdal_command = get_gdal_command(
             CompressionPreset.RGBNIR_ZSTD.value,
             epsg=EpsgNumber.NZTM_2000.value,

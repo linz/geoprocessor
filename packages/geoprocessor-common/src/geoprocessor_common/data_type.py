@@ -10,4 +10,3 @@ class DataType(str, Enum):
     FLOAT32 = "float32"
     UINT8 = "uint8"
     UINT16 = "uint16"
-    UINT32 = "uint32"

@@ -53,14 +53,14 @@ def get_gdal_command(preset: str, epsg: int, data_type: str) -> list[str]:
         preset: gdal preset to use. Defined in `gdal.gdal_presets.py`
         epsg: the EPSG code of the file
         data_type: the data type of the dataset. Defined in `gdal.gdal_presets.py`. Defaults to `uint8`.
-                   RGBNIR_ZSTD `uint16` and `uint32` are written as a BIGTIFF as the tiffs may exceed 4GB.
+                   RGBNIR_ZSTD `uint16` is written as a BIGTIFF as the tiffs may exceed 4GB.
 
     Returns:
         a list of arguments to run `gdal_translate`
     """
     get_log().info("gdal_preset_and_data_type", preset=preset, data_type=data_type)
 
-    needs_bigtiff = data_type in (DataType.UINT16.value, DataType.UINT32.value)
+    needs_bigtiff = data_type == DataType.UINT16.value
 
     base_command = [
         "gdal_translate",

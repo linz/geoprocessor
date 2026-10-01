@@ -17,12 +17,31 @@ from geoprocessor_common.datetimes import RFC_3339_DATETIME_FORMAT, format_rfc_3
 from geoprocessor_common.files.files_helper import SUFFIX_JSON, ContentType
 from geoprocessor_common.files.fs import exists, write
 from geoprocessor_gdal.gdal.gdal_helper import get_gdal_version, get_srs, get_vfs_path
+from geoprocessor_gdal.gdal.gdal_presets import CompressionPreset
 from geoprocessor_gdal.standardising import StandardisingConfig, run_standardising
 from geoprocessor_gdal.tiff.file_tiff import FileTiff
 from geoprocessor_raster.create_item import create_item_from_tiff
-from geoprocessor_stac.imagery.constants import DATA_CATEGORIES
+from geoprocessor_stac.imagery.constants import (
+    ANCILLARY_AERIAL_PHOTOS,
+    ANCILLARY_NEAR_INFRARED_AERIAL_PHOTOS,
+    DATA_CATEGORIES,
+    NEAR_INFRARED_AERIAL_PHOTOS,
+    RURAL_AERIAL_PHOTOS,
+    SCANNED_AERIAL_PHOTOS,
+    URBAN_AERIAL_PHOTOS,
+)
 from geoprocessor_stac.json_codec import dict_to_json_bytes
 from linz_logger import get_log
+
+# UINT16 WEBP imagery is only supported for aerial-photo categories
+AERIAL_PHOTO_CATEGORIES = {
+    ANCILLARY_AERIAL_PHOTOS,
+    ANCILLARY_NEAR_INFRARED_AERIAL_PHOTOS,
+    SCANNED_AERIAL_PHOTOS,
+    RURAL_AERIAL_PHOTOS,
+    NEAR_INFRARED_AERIAL_PHOTOS,
+    URBAN_AERIAL_PHOTOS,
+}
 
 
 def get_args_parser() -> ArgumentParser:
@@ -155,6 +174,14 @@ def report_non_visual_qa_errors(file: FileTiff) -> None:
 def main() -> None:
     arguments = get_args_parser().parse_args()
     force = arguments.force
+
+    # Validate UINT16 WEBP imagery is only used with aerial-photo categories
+    if arguments.data_type == DataType.UINT16.value and arguments.preset == CompressionPreset.WEBP.value:
+        if arguments.category not in AERIAL_PHOTO_CATEGORIES:
+            raise ValueError(
+                f"Data type {arguments.data_type} is only supported with the "
+                f"{CompressionPreset.WEBP.value} preset for aerial-photo categories, category supplied was {arguments.category}"
+            )
 
     standardising_config = StandardisingConfig(
         gdal_preset=arguments.preset,
