@@ -4,7 +4,6 @@ from geoprocessor_common.data_type import DataType
 from geoprocessor_common.epsg import EpsgNumber
 from geoprocessor_gdal.gdal.gdal_presets import CompressionPreset
 from geoprocessor_gdal.standardising import StandardisingConfig
-from geoprocessor_stac.imagery.constants import RURAL_AERIAL_PHOTOS, SATELLITE_IMAGERY
 from pytest import raises
 from pytest_subtests import SubTests
 
@@ -24,25 +23,11 @@ def standardising_config(preset: str, data_type: str, category: str | None = Non
 
 
 def test_config_allows_high_bit_depth_rgbnir(subtests: SubTests) -> None:
-    for data_type in [DataType.UINT8, DataType.UINT16, DataType.UINT32]:
+    for data_type in [DataType.UINT8, DataType.UINT16]:
         with subtests.test(msg=f"{data_type.value} is valid with {CompressionPreset.RGBNIR_ZSTD.value}"):
             config = standardising_config(CompressionPreset.RGBNIR_ZSTD.value, data_type.value)
 
             assert config.data_type == data_type.value
-
-
-def test_config_allows_uint16_for_webp() -> None:
-    config = standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, RURAL_AERIAL_PHOTOS)
-
-    assert config.data_type == DataType.UINT16.value
-
-
-def test_config_rejects_uint16_for_webp_without_aerial_category() -> None:
-    with raises(
-        ValueError,
-        match=f"is only supported with the {CompressionPreset.WEBP.value} preset for aerial-photo categories",
-    ):
-        standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, SATELLITE_IMAGERY)
 
 
 def test_config_allows_uint8_for_any_preset(subtests: SubTests) -> None:
@@ -68,16 +53,9 @@ def test_config_rejects_uint16_for_presets_other_than_rgbnir_or_webp(subtests: S
         with subtests.test(msg=f"{DataType.UINT16.value} is invalid with {preset.value}"):
             with raises(
                 ValueError,
-                match=f"is only supported with the {CompressionPreset.RGBNIR_ZSTD.value} preset",
+                match=f"is only supported with the {CompressionPreset.RGBNIR_ZSTD.value} or {CompressionPreset.WEBP.value} presets",
             ):
                 standardising_config(preset.value, DataType.UINT16.value)
-
-
-def test_config_rejects_uint32_for_presets_other_than_rgbnir(subtests: SubTests) -> None:
-    for preset in [preset for preset in CompressionPreset if preset != CompressionPreset.RGBNIR_ZSTD]:
-        with subtests.test(msg=f"{DataType.UINT32.value} is invalid with {preset.value}"):
-            with raises(ValueError, match=f"is only supported with the {CompressionPreset.RGBNIR_ZSTD.value} preset"):
-                standardising_config(preset.value, DataType.UINT32.value)
 
 
 def test_config_rejects_unknown_data_type() -> None:
