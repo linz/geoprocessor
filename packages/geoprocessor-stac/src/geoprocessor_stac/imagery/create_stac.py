@@ -256,6 +256,7 @@ def create_or_load_base_item(
         commit_url = "GIT_HASH not specified"
 
     # The software name is a STAC field name, so it is set explicitly
+    # TODO: get packages to pass in their version instead of adding a dependency to the raster/pointcloud package
     stac_processing_software: STACProcessingSoftware
     processing_version = os.environ.get("GIT_VERSION", "GIT_VERSION not specified")
     if processing_software == "pdal":
