@@ -1,5 +1,6 @@
 import json
 import os
+from importlib.metadata import version
 from typing import Any, Literal
 
 from geoprocessor_common.files import fs
@@ -261,13 +262,17 @@ def create_or_load_base_item(
         stac_processing_software = STACProcessingSoftwarePdal(
             **{
                 "pdal": processing_software_version,
-                "geoprocessor/pointcloud": processing_version,
+                "geoprocessor/pointcloud": version("geoprocessor-pointcloud"),
                 "linz/geoprocessor": commit_url,
             }
         )
     else:
         stac_processing_software = STACProcessingSoftwareGdal(
-            **{"gdal": processing_software_version, "geoprocessor/raster": processing_version, "linz/geoprocessor": commit_url}
+            **{
+                "gdal": processing_software_version,
+                "geoprocessor/raster": version("geoprocessor-raster"),
+                "linz/geoprocessor": commit_url,
+            }
         )
 
     stac_processing = STACProcessing(
