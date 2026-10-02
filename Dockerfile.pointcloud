@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:0.11.14@sha256:1025398289b62de8269e70c45b91ffa37c373f38118d7da036fb8bb8efc85d97 AS uv_source
+FROM ghcr.io/astral-sh/uv:0.12.22@sha256:f513a91fc62fe7c17567eee97230dd198e43edb8a9fbecca843714a4358fe1bc AS uv_source
 
 FROM ghcr.io/linz/pdal-docker:2.10.2@sha256:6c581725d6f62d20ab7db1f3120abec0c889652de27085370fff4c9a8cb5ed9f AS builder
 
