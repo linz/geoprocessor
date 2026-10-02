@@ -1,3 +1,5 @@
+from importlib.metadata import version
+
 from geoprocessor_gdal.gdal.gdal_helper import gdal_info
 from geoprocessor_gdal.gdal.gdalinfo import GdalInfo
 from geoprocessor_gdal.tiff.geotiff import get_extents
@@ -49,6 +51,7 @@ def create_item_from_tiff(
         current_datetime,
         geometry,
         bbox,
+        geoprocessor_package_version=version("geoprocessor-raster"),
         derived_from=derived_from,
         odr_url=odr_url,
         asset_checksum=asset_checksum,
