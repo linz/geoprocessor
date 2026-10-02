@@ -54,4 +54,4 @@ def any_geometry_and_bbox() -> tuple[GeojsonPolygon, BoundingBox]:
 
 
 def any_gdal_processing_package(gdal_version: str = "any GDAL version") -> STACProcessingPackage:
-    return STACProcessingPackage("gdal", gdal_version)
+    return STACProcessingPackage("gdal", gdal_version, "any raster version")

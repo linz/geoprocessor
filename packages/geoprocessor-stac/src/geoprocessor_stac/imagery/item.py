@@ -1,6 +1,5 @@
 import json
 from dataclasses import dataclass
-from importlib.metadata import version
 from typing import Any, Literal, TypedDict, cast
 
 from geoprocessor_common.files.fs import read
@@ -31,20 +30,21 @@ and never neither.
 
 @dataclass(frozen=True)
 class STACProcessingPackage:
-    """The software that produced an asset."""
+    """The software that produced an asset, and the geoprocessor package that ran it."""
 
     software: Literal["gdal", "pdal"]
     """name of the software, which is also the `processing:software` field its version is recorded under"""
     software_version: str
+    package_version: str
+    """version of the calling geoprocessor package (raster for `gdal`, pointcloud for `pdal`)"""
 
     def to_stac_software(self, commit_url: str) -> STACProcessingSoftware:
-        # TODO: get packages to pass in their version instead of adding a dependency to the raster/pointcloud package
         package = "geoprocessor-raster" if self.software == "gdal" else "geoprocessor-pointcloud"
         return cast(
             STACProcessingSoftware,
             {
                 self.software: self.software_version,
-                package: version(package),
+                package: self.package_version,
                 "linz/geoprocessor": commit_url,
             },
         )
