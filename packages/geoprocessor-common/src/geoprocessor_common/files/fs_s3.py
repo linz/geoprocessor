@@ -1,19 +1,23 @@
+import os
+import shutil
 from collections.abc import Generator
 from concurrent import futures
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any
 
 from boto3 import client
+from botocore.exceptions import ClientError
 from geoprocessor_common.aws.aws_helper import get_session, parse_path
-from geoprocessor_common.files import checksum
+from geoprocessor_common.files import checksum, fs_local
 from geoprocessor_common.log.time_helper import time_in_ms
 from linz_logger import get_log
 
 if TYPE_CHECKING:
+    from botocore.response import StreamingBody
     from mypy_boto3_s3 import S3Client
     from mypy_boto3_s3.type_defs import GetObjectOutputTypeDef
 else:
-    S3Client = GetObjectOutputTypeDef = dict
+    S3Client = GetObjectOutputTypeDef = StreamingBody = dict
 
 
 def write(destination: str, source: bytes, content_type: str | None = None) -> None:
@@ -30,19 +34,92 @@ def write(destination: str, source: bytes, content_type: str | None = None) -> N
         raise Exception("The 'source' is None.")
     bucket, key = parse_path(destination)
     s3_client: S3Client = client("s3")
-    multihash = checksum.multihash_as_hex(source)
+    file_multihash = checksum.multihash_as_hex(source)
 
     try:
         if content_type:
             s3_client.put_object(
-                Bucket=bucket, Key=key, Body=source, ContentType=content_type, Metadata={"multihash": multihash}
+                Bucket=bucket, Key=key, Body=source, ContentType=content_type, Metadata={"multihash": file_multihash}
             )
         else:
-            s3_client.put_object(Bucket=bucket, Key=key, Body=source, Metadata={"multihash": multihash})
+            s3_client.put_object(Bucket=bucket, Key=key, Body=source, Metadata={"multihash": file_multihash})
         get_log().debug("write_s3_success", path=destination, duration=time_in_ms() - start_time)
-    except s3_client.exceptions.ClientError as ce:
+    except ClientError as ce:
         get_log().error("write_s3_error", path=destination, error=f"Unable to write the file: {ce}")
         raise ce
+
+
+def upload(source_path: str, destination: str, content_type: str | None = None) -> str:
+    """Upload a local file to an AWS s3 destination (path in a bucket).
+
+    Streams from disk using multipart uploads, so unlike `write()` it is not limited to 5GB.
+
+    Args:
+        source_path: The local path to the file to upload.
+        destination: The AWS S3 path to the file to write.
+        content_type: A standard Media Type describing the format of the contents.
+
+    Returns:
+        the multihash of the file content
+    """
+    start_time = time_in_ms()
+    bucket, key = parse_path(destination)
+    s3_client: S3Client = client("s3")
+    file_multihash = checksum.multihash_from_path(source_path)
+    extra_args: dict[str, Any] = {"Metadata": {"multihash": file_multihash}}
+    if content_type:
+        extra_args["ContentType"] = content_type
+
+    try:
+        s3_client.upload_file(Filename=source_path, Bucket=bucket, Key=key, ExtraArgs=extra_args)
+    except ClientError as ce:
+        get_log().error("upload_s3_error", path=destination, error=f"Unable to upload the file: {ce}")
+        raise ce
+
+    get_log().debug(
+        "upload_s3_success",
+        path=destination,
+        size=os.path.getsize(source_path),
+        multihash=file_multihash,
+        duration=time_in_ms() - start_time,
+    )
+    return file_multihash
+
+
+def _get_object_body(path: str, needs_credentials: bool = False) -> StreamingBody:
+    """Get the body of a file on a AWS S3 bucket as a stream.
+
+    Args:
+        path: The AWS S3 path to the file to read.
+        needs_credentials: Tells if credentials are needed. Defaults to False.
+
+    Raises:
+        ClientError
+
+    Returns:
+        The body of the object, to be read by the caller.
+    """
+    bucket, key = parse_path(path)
+    s3_client: S3Client = client("s3")
+
+    try:
+        if needs_credentials:
+            s3_client = get_session(path).client("s3")
+
+        s3_object: GetObjectOutputTypeDef = s3_client.get_object(Bucket=bucket, Key=key)
+        return s3_object["Body"]
+    except s3_client.exceptions.NoSuchBucket as nsb:
+        get_log().error("s3_bucket_not_found", path=path, error=f"The specified bucket does not seem to exist: {nsb}")
+        raise
+    except s3_client.exceptions.NoSuchKey as nsk:
+        get_log().error("s3_key_not_found", path=path, error=f"The specified file does not seem to exist: {nsk}")
+        raise
+    except ClientError as ce:
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/guide/error-handling.html#parsing-error-responses-and-catching-exceptions-from-aws-services
+        if not needs_credentials and ce.response["Error"]["Code"] == "AccessDenied":
+            get_log().debug("read_s3_needs_credentials", path=path)
+            return _get_object_body(path, True)
+        raise
 
 
 def read(path: str, needs_credentials: bool = False) -> bytes:
@@ -59,30 +136,48 @@ def read(path: str, needs_credentials: bool = False) -> bytes:
         The file in bytes.
     """
     start_time = time_in_ms()
-    bucket, key = parse_path(path)
-    s3_client: S3Client = client("s3")
-
-    try:
-        if needs_credentials:
-            s3_client = get_session(path).client("s3")
-
-        s3_object: GetObjectOutputTypeDef = s3_client.get_object(Bucket=bucket, Key=key)
-        file: bytes = s3_object["Body"].read()
-    except s3_client.exceptions.NoSuchBucket as nsb:
-        get_log().error("s3_bucket_not_found", path=path, error=f"The specified bucket does not seem to exist: {nsb}")
-        raise
-    except s3_client.exceptions.NoSuchKey as nsk:
-        get_log().error("s3_key_not_found", path=path, error=f"The specified file does not seem to exist: {nsk}")
-        raise
-    except s3_client.exceptions.ClientError as ce:
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/guide/error-handling.html#parsing-error-responses-and-catching-exceptions-from-aws-services
-        if not needs_credentials and ce.response["Error"]["Code"] == "AccessDenied":
-            get_log().debug("read_s3_needs_credentials", path=path)
-            return read(path, True)
-        raise
-
+    with _get_object_body(path, needs_credentials) as body:
+        file: bytes = body.read()
     get_log().debug("read_s3_success", path=path, duration=time_in_ms() - start_time)
     return file
+
+
+def download(path: str, destination: str, needs_credentials: bool = False) -> None:
+    """Download a file from an AWS s3 bucket to a local path without loading it into memory.
+
+    Args:
+        path: The AWS S3 path to the file to read.
+        destination: The local path to the file to write.
+        needs_credentials: Tells if credentials are needed. Defaults to False.
+
+    Raises:
+        ClientError
+    """
+    start_time = time_in_ms()
+    with fs_local.atomic_write_path(destination) as partial_destination:
+        with _get_object_body(path, needs_credentials) as body, open(partial_destination, "wb") as file:
+            shutil.copyfileobj(body, file, checksum.CHUNK_SIZE)
+    get_log().debug("download_s3_success", path=path, duration=time_in_ms() - start_time)
+
+
+def multihash(path: str, needs_credentials: bool = False) -> str:
+    """Get the multihash of a file on a AWS S3 bucket without loading it into memory.
+
+    Args:
+        path: The AWS S3 path to the file to hash.
+        needs_credentials: Tells if credentials are needed. Defaults to False.
+
+    Raises:
+        ClientError
+
+    Returns:
+        the multihash of the file content
+    """
+    start_time = time_in_ms()
+    with _get_object_body(path, needs_credentials) as body:
+        file_multihash = checksum.multihash_from_stream(body)
+    get_log().debug("multihash_s3_success", path=path, multihash=file_multihash, duration=time_in_ms() - start_time)
+    return file_multihash
 
 
 def exists(path: str, needs_credentials: bool = False) -> bool:
@@ -93,7 +188,7 @@ def exists(path: str, needs_credentials: bool = False) -> bool:
         needs_credentials: if acces to object needs credentials. Defaults to False.
 
     Raises:
-        s3_client.exceptions.ClientError
+        ClientError
         NoSuchBucket
 
     Returns:
@@ -119,7 +214,7 @@ def exists(path: str, needs_credentials: bool = False) -> bool:
     except s3_client.exceptions.NoSuchBucket as nsb:
         get_log().debug("s3_bucket_not_found", path=path, info=f"The specified bucket does not seem to exist: {nsb}")
         return False
-    except s3_client.exceptions.ClientError as ce:
+    except ClientError as ce:
         if not needs_credentials and ce.response["Error"]["Code"] == "AccessDenied":
             get_log().debug("read_s3_needs_credentials", path=path)
             return exists(path, True)

@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.3](https://github.com/linz/geoprocessor/compare/geoprocessor-common-v0.1.2...geoprocessor-common-v0.1.3) (2026-09-30)
+
+
+### Bug Fixes
+
+* raise clear error when intermediate files disappear TDE-2099 ([#1665](https://github.com/linz/geoprocessor/issues/1665)) ([0fb3b3a](https://github.com/linz/geoprocessor/commit/0fb3b3aec7457b73e37978d83c3d447da839345d))
+
+
+### Reverts
+
+* "revert: "fix: stream file copies to allow outputs over 5GB TDE-2072" TDE-2090" ([#1663](https://github.com/linz/geoprocessor/issues/1663)) ([c546acd](https://github.com/linz/geoprocessor/commit/c546acde61d17b3eb5394e49fef4548c9cfff083))
+
 ## [0.1.2](https://github.com/linz/geoprocessor/compare/geoprocessor-common-v0.1.1...geoprocessor-common-v0.1.2) (2026-09-25)
 
 

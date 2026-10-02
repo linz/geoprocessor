@@ -2,7 +2,7 @@ import json
 import os
 from typing import Any, Literal
 
-from geoprocessor_common.files import checksum, fs
+from geoprocessor_common.files import fs
 from geoprocessor_common.files.files_helper import get_file_name_from_path
 from geoprocessor_common.files.fs import NoSuchFileError, read
 from geoprocessor_common.geometry import BoundingBox, GeojsonPolygon
@@ -162,6 +162,7 @@ def create_item(
     processing_software: Literal["gdal", "pdal"] = "gdal",
     derived_from: list[str] | None = None,
     odr_url: str | None = None,
+    asset_checksum: str | None = None,
 ) -> ImageryItem:
     """Create an ImageryItem (STAC) to be linked to a Collection.
 
@@ -177,11 +178,14 @@ def create_item(
         processing_software: name of the processing software. Defaults to "gdal".
         derived_from: list of STAC Items from where this Item is derived. Defaults to None.
         odr_url: S3 URL of the already published files in ODR (if this is a resupply). Defaults to None.
+        asset_checksum: multihash of the asset, if it has already been computed. Defaults to None = compute it.
 
     Returns:
         a STAC Item wrapped in ImageryItem
     """
-    item = create_or_load_base_item(asset_path, processing_software, processing_software_version, current_datetime, odr_url)
+    item = create_or_load_base_item(
+        asset_path, processing_software, processing_software_version, current_datetime, odr_url, asset_checksum
+    )
     base_stac = item.stac.copy()
 
     if item.stac.get("links") is not None:
@@ -224,6 +228,7 @@ def create_or_load_base_item(
     processing_software_version: str,
     current_datetime: str,
     odr_url: str | None = None,
+    asset_checksum: str | None = None,
 ) -> ImageryItem:
     """
     Args:
@@ -233,13 +238,16 @@ def create_or_load_base_item(
         processing_software_version: version of the software used to produce the asset
         current_datetime: date and time used for setting consistent update and/or creation timestamp
         odr_url: S3 URL of the already published files in ODR (if this is a resupply). Defaults to None.
+        asset_checksum: multihash of the asset, if it has already been computed. Defaults to None = compute it.
 
     Returns:
         An ImageryItem with basic information.
     """
     id_ = get_file_name_from_path(asset_path)
-    file_content = fs.read(asset_path)
-    file_content_checksum = checksum.multihash_as_hex(file_content)
+    file_content_checksum = asset_checksum
+    if file_content_checksum is None:
+        get_log().debug("checksum_not_supplied", path=asset_path)
+        file_content_checksum = fs.multihash(asset_path)
 
     if (topo_imagery_hash := os.environ.get("GIT_HASH")) is not None:
         commit_url = f"https://github.com/linz/topo-imagery/commit/{topo_imagery_hash}"
