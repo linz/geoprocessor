@@ -1,6 +1,5 @@
 import json
 import os
-from importlib.metadata import version
 from typing import Any, Literal
 
 from geoprocessor_common.files import fs
@@ -160,6 +159,7 @@ def create_item(
     geometry: GeojsonPolygon,
     bbox: BoundingBox,
     *,
+    geoprocessor_package_version: str,
     processing_software: Literal["gdal", "pdal"] = "gdal",
     derived_from: list[str] | None = None,
     odr_url: str | None = None,
@@ -176,6 +176,8 @@ def create_item(
         current_datetime: date and time for setting consistent update and/or creation timestamp
         geometry: geometry of the asset
         bbox: bounding box of the asset
+        geoprocessor_package_version: version of the calling geoprocessor package (raster for "gdal",
+            pointcloud for "pdal"), recorded in the `processing:software` field
         processing_software: name of the processing software. Defaults to "gdal".
         derived_from: list of STAC Items from where this Item is derived. Defaults to None.
         odr_url: S3 URL of the already published files in ODR (if this is a resupply). Defaults to None.
@@ -185,7 +187,13 @@ def create_item(
         a STAC Item wrapped in ImageryItem
     """
     item = create_or_load_base_item(
-        asset_path, processing_software, processing_software_version, current_datetime, odr_url, asset_checksum
+        asset_path,
+        processing_software,
+        processing_software_version,
+        geoprocessor_package_version,
+        current_datetime,
+        odr_url,
+        asset_checksum,
     )
     base_stac = item.stac.copy()
 
@@ -227,6 +235,7 @@ def create_or_load_base_item(
     asset_path: str,
     processing_software: Literal["gdal", "pdal"],
     processing_software_version: str,
+    geoprocessor_package_version: str,
     current_datetime: str,
     odr_url: str | None = None,
     asset_checksum: str | None = None,
@@ -237,6 +246,7 @@ def create_or_load_base_item(
         processing_software: name of the processing software, which is also the
             `processing:software` field the version is recorded under
         processing_software_version: version of the software used to produce the asset
+        geoprocessor_package_version: version of the calling geoprocessor package (raster or pointcloud)
         current_datetime: date and time used for setting consistent update and/or creation timestamp
         odr_url: S3 URL of the already published files in ODR (if this is a resupply). Defaults to None.
         asset_checksum: multihash of the asset, if it has already been computed. Defaults to None = compute it.
@@ -256,14 +266,13 @@ def create_or_load_base_item(
         commit_url = "GIT_HASH not specified"
 
     # The software name is a STAC field name, so it is set explicitly
-    # TODO: get packages to pass in their version instead of adding a dependency to the raster/pointcloud package
     stac_processing_software: STACProcessingSoftware
     processing_version = os.environ.get("GIT_VERSION", "GIT_VERSION not specified")
     if processing_software == "pdal":
         stac_processing_software = STACProcessingSoftwarePdal(
             **{
                 "pdal": processing_software_version,
-                "geoprocessor/pointcloud": version("geoprocessor-pointcloud"),
+                "geoprocessor/pointcloud": geoprocessor_package_version,
                 "linz/geoprocessor": commit_url,
             }
         )
@@ -271,7 +280,7 @@ def create_or_load_base_item(
         stac_processing_software = STACProcessingSoftwareGdal(
             **{
                 "gdal": processing_software_version,
-                "geoprocessor/raster": version("geoprocessor-raster"),
+                "geoprocessor/raster": geoprocessor_package_version,
                 "linz/geoprocessor": commit_url,
             }
         )
