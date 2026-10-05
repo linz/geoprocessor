@@ -38,7 +38,6 @@ class CollectionContext:  # pylint:disable=too-many-instance-attributes
         delete_existing_items (bool): Whether to delete existing items in the collection.
     """
 
-    category: str
     domain: str
     region: str
     gsd: Decimal

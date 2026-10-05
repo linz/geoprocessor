@@ -164,7 +164,6 @@ def main() -> None:
         create_footprints=arguments.create_footprints,
         simplify_footprints=arguments.simplify_footprints,
         cutline=arguments.cutline,
-        category=arguments.category,
         data_type=arguments.data_type,
         scale_to_resolution=arguments.scale_to_resolution,
         force=force,

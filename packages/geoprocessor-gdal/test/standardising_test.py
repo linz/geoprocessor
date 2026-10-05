@@ -8,7 +8,7 @@ from pytest import raises
 from pytest_subtests import SubTests
 
 
-def standardising_config(preset: str, data_type: str, category: str | None = None) -> StandardisingConfig:
+def standardising_config(preset: str, data_type: str) -> StandardisingConfig:
     return StandardisingConfig(
         gdal_preset=preset,
         source_epsg=EpsgNumber.NZTM_2000.value,
@@ -17,7 +17,6 @@ def standardising_config(preset: str, data_type: str, category: str | None = Non
         create_footprints=False,
         simplify_footprints=False,
         cutline=None,
-        category=category,
         data_type=data_type,
     )
 
