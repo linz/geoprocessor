@@ -20,7 +20,6 @@ from geoprocessor_gdal.gdal.gdal_helper import get_gdal_version, get_srs, get_vf
 from geoprocessor_gdal.standardising import StandardisingConfig, run_standardising
 from geoprocessor_gdal.tiff.file_tiff import FileTiff
 from geoprocessor_raster.create_item import create_item_from_tiff
-from geoprocessor_stac.imagery.constants import DATA_CATEGORIES
 from geoprocessor_stac.json_codec import dict_to_json_bytes
 from linz_logger import get_log
 
@@ -58,14 +57,6 @@ def get_args_parser() -> ArgumentParser:
         type=str,
         choices=[data_type.value for data_type in DataType],
         required=True,
-    )
-    parser.add_argument(
-        "--category",
-        dest="category",
-        help="Optional imagery category",
-        type=str,
-        choices=DATA_CATEGORIES.keys(),
-        required=False,
     )
     parser.add_argument(
         "--create-footprints",

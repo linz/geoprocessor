@@ -58,7 +58,6 @@ class StandardisingConfig:
     simplify_footprints: bool
     cutline: str | None
     data_type: str
-    category: str | None = None
     scale_to_resolution: list[Decimal] | None = None
     force: bool = False
 
