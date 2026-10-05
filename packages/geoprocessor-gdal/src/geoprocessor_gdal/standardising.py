@@ -68,11 +68,10 @@ class StandardisingConfig:
             raise ValueError(f"scale_to_resolution must be exactly two items [xres, yres]: {self.scale_to_resolution}")
         if self.data_type not in [data_type.value for data_type in DataType]:
             raise ValueError(f"Unsupported data type: {self.data_type}")
-        # Only RGBNIR imagery is standardised with `UINT16` or `UINT32`
-        if (
-            self.data_type in (DataType.UINT16.value, DataType.UINT32.value)
-            and self.gdal_preset != CompressionPreset.RGBNIR_ZSTD.value
-        ):
+        if self.data_type == DataType.UINT32.value:
+            raise ValueError(f"Unsupported data type: {self.data_type}")
+        # Only RGBNIR imagery is standardised with `UINT16`
+        if self.data_type == DataType.UINT16.value and self.gdal_preset != CompressionPreset.RGBNIR_ZSTD.value:
             raise ValueError(
                 f"Data type {self.data_type} is only supported with the "
                 f"{CompressionPreset.RGBNIR_ZSTD.value} preset, preset supplied was {self.gdal_preset}"

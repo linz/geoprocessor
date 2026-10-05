@@ -91,7 +91,7 @@ def test_preset_zstd(subtests: SubTests) -> None:
 
 
 def test_preset_zstd_high_bit_depth_uses_bigtiff(subtests: SubTests) -> None:
-    for data_type in (DataType.UINT16, DataType.UINT32):
+    for data_type in (DataType.UINT16,):
         gdal_command = get_gdal_command(
             CompressionPreset.RGBNIR_ZSTD.value,
             epsg=EpsgNumber.NZTM_2000.value,
@@ -103,6 +103,19 @@ def test_preset_zstd_high_bit_depth_uses_bigtiff(subtests: SubTests) -> None:
 
         with subtests.test(msg=f"{data_type.value} does not use bigtiff=no"):
             assert "bigtiff=no" not in gdal_command
+
+
+def test_preset_zstd_rejects_uint32() -> None:
+    try:
+        get_gdal_command(
+            CompressionPreset.RGBNIR_ZSTD.value,
+            epsg=EpsgNumber.NZTM_2000.value,
+            data_type=DataType.UINT32.value,
+        )
+    except ValueError as error:
+        assert str(error) == "Unsupported data type: uint32"
+    else:
+        raise AssertionError("Expected get_gdal_command to reject uint32")
 
 
 def test_preset_zstd_uint8_keeps_bigtiff_no(subtests: SubTests) -> None:
