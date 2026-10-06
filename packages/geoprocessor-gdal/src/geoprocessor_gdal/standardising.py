@@ -68,6 +68,7 @@ class StandardisingConfig:
             raise ValueError(f"scale_to_resolution must be exactly two items [xres, yres]: {self.scale_to_resolution}")
         if self.data_type not in [data_type.value for data_type in DataType]:
             raise ValueError(f"Unsupported data type: {self.data_type}")
+
         if (
             self.data_type == DataType.UINT16.value
             and self.gdal_preset != CompressionPreset.RGBNIR_ZSTD.value
