@@ -1,10 +1,25 @@
+from dataclasses import dataclass
 from importlib.metadata import version
 
 from geoprocessor_gdal.gdal.gdal_helper import gdal_info
 from geoprocessor_gdal.gdal.gdalinfo import GdalInfo
 from geoprocessor_gdal.tiff.geotiff import get_extents
 from geoprocessor_stac.imagery.create_stac import create_item
-from geoprocessor_stac.imagery.item import ImageryItem, STACProcessingPackage
+from geoprocessor_stac.imagery.item import ImageryItem, STACProcessingPackage, STACProcessingSoftwareGdal
+
+
+@dataclass(frozen=True)
+class GdalProcessingPackage(STACProcessingPackage):
+    """GDAL, run by geoprocessor-raster."""
+
+    def to_stac_software(self, commit_url: str) -> STACProcessingSoftwareGdal:
+        return STACProcessingSoftwareGdal(
+            **{
+                "gdal": self.software_version,
+                "geoprocessor-raster": self.package_version,
+                "linz/geoprocessor": commit_url,
+            }
+        )
 
 
 # pylint: disable=too-many-arguments
@@ -47,7 +62,7 @@ def create_item_from_tiff(
         start_datetime,
         end_datetime,
         collection_id,
-        STACProcessingPackage("gdal", gdal_version, version("geoprocessor-raster")),
+        GdalProcessingPackage(gdal_version, version("geoprocessor-raster")),
         current_datetime,
         geometry,
         bbox,
