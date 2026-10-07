@@ -1,6 +1,7 @@
 import json
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Literal, TypedDict, cast
+from typing import Any, TypedDict
 
 from geoprocessor_common.files.fs import read
 from geoprocessor_common.geometry import BoundingBox, GeojsonPolygon
@@ -29,25 +30,17 @@ and never neither.
 
 
 @dataclass(frozen=True)
-class STACProcessingPackage:
+class STACProcessingPackage(ABC):
     """The software that produced an asset, and the geoprocessor package that ran it."""
 
-    software: Literal["gdal", "pdal"]
-    """name of the software, which is also the `processing:software` field its version is recorded under"""
     software_version: str
+    """version of the external software used by geoprocessor"""
     package_version: str
-    """version of the calling geoprocessor package (raster for `gdal`, pointcloud for `pdal`)"""
+    """version of the geoprocessor package that ran the software"""
 
+    @abstractmethod
     def to_stac_software(self, commit_url: str) -> STACProcessingSoftware:
-        package = "geoprocessor-raster" if self.software == "gdal" else "geoprocessor-pointcloud"
-        return cast(
-            STACProcessingSoftware,
-            {
-                self.software: self.software_version,
-                package: self.package_version,
-                "linz/geoprocessor": commit_url,
-            },
-        )
+        """The `processing:software` fields, with `commit_url` as the `linz/geoprocessor` version."""
 
 
 STACProcessing = TypedDict(

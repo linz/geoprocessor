@@ -15,7 +15,6 @@ from geoprocessor_stac.imagery.create_stac import (
     get_items_to_replace,
     merge_item_list_for_resupply,
 )
-from geoprocessor_stac.imagery.item import STACProcessingPackage
 from geoprocessor_stac.testing.generators import any_gdal_processing_package, any_geometry_and_bbox, any_multihash_as_hex
 from geoprocessor_stac.testing.helpers import any_epoch_datetime, any_epoch_datetime_string
 from geoprocessor_stac.util.STAC_VERSION import STAC_VERSION
@@ -787,52 +786,26 @@ def test_merge_item_list_for_resupply(fake_collection_context: CollectionContext
         ]
 
 
-def test_create_item_processing_software_gdal(subtests: SubTests) -> None:
+def test_create_item_processing_software_from_processing_package() -> None:
+    """`create_item` records what the processing package returns, with the commit URL from `GIT_HASH`."""
     fake_geometry, fake_bbox = any_geometry_and_bbox()
-    item = create_item(
-        str(DATA_DIR / "empty.tiff"),
-        "",
-        "",
-        "abc123",
-        STACProcessingPackage("gdal", "any GDAL version", "any raster version"),
-        any_epoch_datetime_string(),
-        fake_geometry,
-        fake_bbox,
-    )
-    software = item.stac["properties"]["processing:software"]
+    with patch.dict(environ, {"GIT_HASH": "any Git hash"}):
+        item = create_item(
+            str(DATA_DIR / "empty.tiff"),
+            "",
+            "",
+            "abc123",
+            any_gdal_processing_package("any GDAL version"),
+            any_epoch_datetime_string(),
+            fake_geometry,
+            fake_bbox,
+        )
 
-    with subtests.test(msg="gdal version"):
-        assert software["gdal"] == "any GDAL version"
-
-    with subtests.test(msg="raster processing version"):
-        assert software["geoprocessor-raster"] == "any raster version"
-
-    with subtests.test(msg="no pdal"):
-        assert "pdal" not in software
-
-
-def test_create_item_processing_software_pdal(subtests: SubTests) -> None:
-    fake_geometry, fake_bbox = any_geometry_and_bbox()
-    item = create_item(
-        str(DATA_DIR / "empty.tiff"),
-        "",
-        "",
-        "abc123",
-        STACProcessingPackage("pdal", "any PDAL version", "any pointcloud version"),
-        any_epoch_datetime_string(),
-        fake_geometry,
-        fake_bbox,
-    )
-    software = item.stac["properties"]["processing:software"]
-
-    with subtests.test(msg="pdal version"):
-        assert software["pdal"] == "any PDAL version"
-
-    with subtests.test(msg="pointcloud processing version"):
-        assert software["geoprocessor-pointcloud"] == "any pointcloud version"
-
-    with subtests.test(msg="no gdal"):
-        assert "gdal" not in software
+    assert item.stac["properties"]["processing:software"] == {
+        "gdal": "any GDAL version",
+        "geoprocessor-raster": "any raster version",
+        "linz/geoprocessor": "https://github.com/linz/geoprocessor/commit/any Git hash",
+    }
 
 
 def test_create_item_processing_version_from_git_version() -> None:

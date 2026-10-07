@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import datetime
 from os import urandom
 from typing import Callable
@@ -53,5 +54,15 @@ def any_geometry_and_bbox() -> tuple[GeojsonPolygon, BoundingBox]:
     return geometry, Polygon(geometry["coordinates"][0]).bounds
 
 
+@dataclass(frozen=True)
+class FakeGdalProcessingPackage(STACProcessingPackage):
+    """Fake dataclass as implemented by the geoprocessor-raster (and in future -pointcloud) package"""
+
+    def to_stac_software(self, commit_url: str) -> STACProcessingSoftwareGdal:
+        return STACProcessingSoftwareGdal(
+            **{"gdal": self.software_version, "geoprocessor-raster": self.package_version, "linz/geoprocessor": commit_url}
+        )
+
+
 def any_gdal_processing_package(gdal_version: str = "any GDAL version") -> STACProcessingPackage:
-    return STACProcessingPackage("gdal", gdal_version, "any raster version")
+    return FakeGdalProcessingPackage(gdal_version, "any raster version")
