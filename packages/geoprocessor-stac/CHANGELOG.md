@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0](https://github.com/linz/geoprocessor/compare/geoprocessor-stac-v0.1.3...geoprocessor-stac-v1.0.0) (2026-10-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* rename topo-imagery repo, project and container TDE-2073 TDE-2008 ([#1655](https://github.com/linz/geoprocessor/issues/1655))
+
+### Code Refactoring
+
+* rename topo-imagery repo, project and container TDE-2073 TDE-2008 ([#1655](https://github.com/linz/geoprocessor/issues/1655)) ([42e5ad3](https://github.com/linz/geoprocessor/commit/42e5ad39b35be8fb86bf4078e6ec54c5ea6d55bf))
+
 ## [0.1.3](https://github.com/linz/geoprocessor/compare/geoprocessor-stac-v0.1.2...geoprocessor-stac-v0.1.3) (2026-09-30)
 
 
