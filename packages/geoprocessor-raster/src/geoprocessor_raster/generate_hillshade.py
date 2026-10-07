@@ -15,7 +15,7 @@ from geoprocessor_common.files.fs import copy, exists, write, write_all
 from geoprocessor_common.log.time_helper import time_in_ms
 from geoprocessor_gdal.gdal.gdal_commands import get_gdal_command, get_hillshade_command
 from geoprocessor_gdal.gdal.gdal_helper import get_gdal_version, run_gdal
-from geoprocessor_gdal.gdal.gdal_presets import SCALE_254_ADD_NO_DATA, CompressionPreset, HillshadePreset
+from geoprocessor_gdal.gdal.gdal_presets import CompressionPreset, HillshadePreset
 from geoprocessor_gdal.standardising import create_vrt
 from geoprocessor_raster.create_item import create_item_from_tiff
 from geoprocessor_stac.json_codec import dict_to_json_bytes

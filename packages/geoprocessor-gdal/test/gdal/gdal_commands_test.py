@@ -17,7 +17,7 @@ def test_get_webp_rescaled(subtests: SubTests) -> None:
     """Test the get_webp_rescaled helper function."""
     # uint8 should return empty list (no rescaling needed)
     with subtests.test(msg="uint8 returns empty list"):
-        assert get_webp_rescaled(DataType.UINT8.value) == []
+        assert not get_webp_rescaled(DataType.UINT8.value)
 
     # Other data types should return SCALE_254_ADD_NO_DATA
     for data_type in [DataType.FLOAT32, DataType.UINT16]:
