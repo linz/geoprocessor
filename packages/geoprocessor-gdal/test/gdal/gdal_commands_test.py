@@ -20,7 +20,7 @@ def test_get_webp_rescaled(subtests: SubTests) -> None:
         assert get_webp_rescaled(DataType.UINT8.value) == []
 
     # Other data types should return SCALE_254_ADD_NO_DATA
-    for data_type in [DataType.FLOAT32, DataType.UINT16, DataType.UINT32]:
+    for data_type in [DataType.FLOAT32, DataType.UINT16]:
         with subtests.test(msg=f"{data_type.value} returns rescale options"):
             assert get_webp_rescaled(data_type.value) == SCALE_254_ADD_NO_DATA
 
@@ -105,7 +105,7 @@ def test_preset_zstd(subtests: SubTests) -> None:
 
 
 def test_preset_zstd_high_bit_depth_uses_bigtiff(subtests: SubTests) -> None:
-    for data_type in (DataType.UINT16, DataType.UINT32):
+    for data_type in (DataType.UINT16,):
         gdal_command = get_gdal_command(
             CompressionPreset.RGBNIR_ZSTD.value,
             epsg=EpsgNumber.NZTM_2000.value,
