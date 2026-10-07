@@ -25,6 +25,23 @@ BIGTIFF_NO = "bigtiff=no"
 BIGTIFF_YES = "bigtiff=yes"
 
 
+def get_webp_rescaled(data_type: str) -> list[str]:
+    """Get WEBP rescale options for non-uint8 data types.
+
+    When compressing non-uint8 data as WEBP, we need to scale the data to 0-254
+    and mark 255 as NO_DATA, matching the rescaling strategy used for other imagery types.
+
+    Args:
+        data_type: the data type of the dataset
+
+    Returns:
+        A list of rescale arguments, or empty list if already uint8
+    """
+    if data_type == DataType.UINT8.value:
+        return []
+    return SCALE_254_ADD_NO_DATA
+
+
 def get_gdal_command(preset: str, epsg: int, data_type: str) -> list[str]:
     """Build a `gdal_translate` command based on the `preset`, `epsg` code, with conversion to 8bits if required.
 
@@ -60,9 +77,13 @@ def get_gdal_command(preset: str, epsg: int, data_type: str) -> list[str]:
         CompressionPreset.DEM_LERC.value: DEM_LERC,
     }
 
-    preset_options = PRESET_OPTIONS.get(preset)
+    preset_options: list[str] | None = PRESET_OPTIONS.get(preset)
+
     if preset_options is None:
         raise ValueError(f"Unsupported compression preset: {preset}")
+
+    if preset == CompressionPreset.WEBP.value and data_type != DataType.UINT8.value:
+        preset_options = get_webp_rescaled(data_type) + preset_options
 
     return base_command + preset_options
 
