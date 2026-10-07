@@ -9,7 +9,7 @@ from geoprocessor_gdal.gdal.gdal_commands import (
     get_gdal_command,
     get_webp_rescaled,
 )
-from geoprocessor_gdal.gdal.gdal_presets import CompressionPreset, SCALE_254_ADD_NO_DATA, HillshadePreset
+from geoprocessor_gdal.gdal.gdal_presets import SCALE_254_ADD_NO_DATA, CompressionPreset, HillshadePreset
 from pytest_subtests import SubTests
 
 
