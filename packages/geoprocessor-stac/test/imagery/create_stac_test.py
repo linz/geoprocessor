@@ -789,18 +789,16 @@ def test_merge_item_list_for_resupply(fake_collection_context: CollectionContext
 
 def test_create_item_processing_software_gdal(subtests: SubTests) -> None:
     fake_geometry, fake_bbox = any_geometry_and_bbox()
-    with patch("geoprocessor_stac.imagery.item.version", return_value="any raster version") as mock_version:
-        item = create_item(
-            str(DATA_DIR / "empty.tiff"),
-            "",
-            "",
-            "abc123",
-            STACProcessingPackage("gdal", "any GDAL version"),
-            any_epoch_datetime_string(),
-            fake_geometry,
-            fake_bbox,
-        )
-    mock_version.assert_called_once_with("geoprocessor-raster")
+    item = create_item(
+        str(DATA_DIR / "empty.tiff"),
+        "",
+        "",
+        "abc123",
+        STACProcessingPackage("gdal", "any GDAL version", "any raster version"),
+        any_epoch_datetime_string(),
+        fake_geometry,
+        fake_bbox,
+    )
     software = item.stac["properties"]["processing:software"]
 
     with subtests.test(msg="gdal version"):
@@ -815,18 +813,16 @@ def test_create_item_processing_software_gdal(subtests: SubTests) -> None:
 
 def test_create_item_processing_software_pdal(subtests: SubTests) -> None:
     fake_geometry, fake_bbox = any_geometry_and_bbox()
-    with patch("geoprocessor_stac.imagery.item.version", return_value="any pointcloud version") as mock_version:
-        item = create_item(
-            str(DATA_DIR / "empty.tiff"),
-            "",
-            "",
-            "abc123",
-            STACProcessingPackage("pdal", "any PDAL version"),
-            any_epoch_datetime_string(),
-            fake_geometry,
-            fake_bbox,
-        )
-    mock_version.assert_called_once_with("geoprocessor-pointcloud")
+    item = create_item(
+        str(DATA_DIR / "empty.tiff"),
+        "",
+        "",
+        "abc123",
+        STACProcessingPackage("pdal", "any PDAL version", "any pointcloud version"),
+        any_epoch_datetime_string(),
+        fake_geometry,
+        fake_bbox,
+    )
     software = item.stac["properties"]["processing:software"]
 
     with subtests.test(msg="pdal version"):
