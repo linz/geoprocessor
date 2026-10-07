@@ -1,5 +1,7 @@
 import json
-from typing import Any, TypedDict
+from dataclasses import dataclass
+from importlib.metadata import version
+from typing import Any, Literal, TypedDict, cast
 
 from geoprocessor_common.files.fs import read
 from geoprocessor_common.geometry import BoundingBox, GeojsonPolygon
@@ -10,10 +12,14 @@ from geoprocessor_stac.util.stac_extensions import StacExtensions
 
 STACAsset = TypedDict("STACAsset", {"href": str, "file:checksum": str, "created": str, "updated": str})
 
-STACProcessingSoftwareGdal = TypedDict("STACProcessingSoftwareGdal", {"gdal": str, "linz/topo-imagery": str})
+STACProcessingSoftwareGdal = TypedDict(
+    "STACProcessingSoftwareGdal", {"gdal": str, "geoprocessor-raster": str, "linz/geoprocessor": str}
+)
 """STAC Processing extension LINZ specific fields for a raster asset produced by GDAL"""
 
-STACProcessingSoftwarePdal = TypedDict("STACProcessingSoftwarePdal", {"pdal": str, "linz/topo-imagery": str})
+STACProcessingSoftwarePdal = TypedDict(
+    "STACProcessingSoftwarePdal", {"pdal": str, "geoprocessor-pointcloud": str, "linz/geoprocessor": str}
+)
 """STAC Processing extension LINZ specific fields for a point cloud asset produced by PDAL"""
 
 type STACProcessingSoftware = STACProcessingSoftwareGdal | STACProcessingSoftwarePdal
@@ -21,6 +27,28 @@ type STACProcessingSoftware = STACProcessingSoftwareGdal | STACProcessingSoftwar
 optional fields: a raster Item carries `gdal` and a point cloud Item carries `pdal`, never both
 and never neither.
 """
+
+
+@dataclass(frozen=True)
+class STACProcessingPackage:
+    """The software that produced an asset."""
+
+    software: Literal["gdal", "pdal"]
+    """name of the software, which is also the `processing:software` field its version is recorded under"""
+    software_version: str
+
+    def to_stac_software(self, commit_url: str) -> STACProcessingSoftware:
+        # TODO: get packages to pass in their version instead of adding a dependency to the raster/pointcloud package
+        package = "geoprocessor-raster" if self.software == "gdal" else "geoprocessor-pointcloud"
+        return cast(
+            STACProcessingSoftware,
+            {
+                self.software: self.software_version,
+                package: version(package),
+                "linz/geoprocessor": commit_url,
+            },
+        )
+
 
 STACProcessing = TypedDict(
     "STACProcessing",

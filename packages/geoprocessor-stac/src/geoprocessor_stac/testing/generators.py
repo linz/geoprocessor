@@ -4,7 +4,7 @@ from typing import Callable
 
 from geoprocessor_common.files.checksum import multihash_as_hex
 from geoprocessor_common.geometry import BoundingBox, GeojsonPolygon
-from geoprocessor_stac.imagery.item import STACAsset, STACProcessing, STACProcessingSoftwareGdal
+from geoprocessor_stac.imagery.item import STACAsset, STACProcessing, STACProcessingPackage, STACProcessingSoftwareGdal
 from shapely.geometry import Polygon
 
 
@@ -31,7 +31,11 @@ def any_stac_processing() -> STACProcessing:
         **{
             "processing:datetime": "any processing datetime",
             "processing:software": STACProcessingSoftwareGdal(
-                **{"gdal": "any GDAL version", "linz/topo-imagery": "any topo imagery version"}
+                **{
+                    "gdal": "any GDAL version",
+                    "geoprocessor-raster": "any geoprocessor-raster version",
+                    "linz/geoprocessor": "any linz/geoprocessor commit-sha",
+                }
             ),
             "processing:version": "any processing version",
         }
@@ -47,3 +51,7 @@ def any_geometry_and_bbox() -> tuple[GeojsonPolygon, BoundingBox]:
     geometry: GeojsonPolygon = {"type": "Polygon", "coordinates": [[[0, 1], [1, 1], [1, 0], [0, 0]]]}
 
     return geometry, Polygon(geometry["coordinates"][0]).bounds
+
+
+def any_gdal_processing_package(gdal_version: str = "any GDAL version") -> STACProcessingPackage:
+    return STACProcessingPackage("gdal", gdal_version)

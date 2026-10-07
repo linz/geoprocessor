@@ -2,7 +2,7 @@ from geoprocessor_gdal.gdal.gdal_helper import gdal_info
 from geoprocessor_gdal.gdal.gdalinfo import GdalInfo
 from geoprocessor_gdal.tiff.geotiff import get_extents
 from geoprocessor_stac.imagery.create_stac import create_item
-from geoprocessor_stac.imagery.item import ImageryItem
+from geoprocessor_stac.imagery.item import ImageryItem, STACProcessingPackage
 
 
 # pylint: disable=too-many-arguments
@@ -45,7 +45,7 @@ def create_item_from_tiff(
         start_datetime,
         end_datetime,
         collection_id,
-        gdal_version,
+        STACProcessingPackage("gdal", gdal_version),
         current_datetime,
         geometry,
         bbox,

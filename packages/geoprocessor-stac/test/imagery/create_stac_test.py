@@ -1,7 +1,9 @@
 import json
 from datetime import timedelta
+from os import environ
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 from data_dir import DATA_DIR
 from geoprocessor_common.datetimes import format_rfc_3339_datetime_string
@@ -13,7 +15,8 @@ from geoprocessor_stac.imagery.create_stac import (
     get_items_to_replace,
     merge_item_list_for_resupply,
 )
-from geoprocessor_stac.testing.generators import any_geometry_and_bbox, any_multihash_as_hex
+from geoprocessor_stac.imagery.item import STACProcessingPackage
+from geoprocessor_stac.testing.generators import any_gdal_processing_package, any_geometry_and_bbox, any_multihash_as_hex
 from geoprocessor_stac.testing.helpers import any_epoch_datetime, any_epoch_datetime_string
 from geoprocessor_stac.util.STAC_VERSION import STAC_VERSION
 from pytest_subtests import SubTests
@@ -29,7 +32,7 @@ def test_create_item(subtests: SubTests) -> None:
         "",
         "",
         "abc123",
-        "any GDAL version",
+        any_gdal_processing_package(),
         current_datetime,
         fake_geometry,
         fake_bbox,
@@ -56,7 +59,7 @@ def test_create_item_computes_checksum_from_the_asset() -> None:
         "",
         "",
         "abc123",
-        "any GDAL version",
+        any_gdal_processing_package(),
         any_epoch_datetime_string(),
         fake_geometry,
         fake_bbox,
@@ -75,7 +78,7 @@ def test_create_item_uses_the_supplied_checksum() -> None:
         "",
         "",
         "abc123",
-        "any GDAL version",
+        any_gdal_processing_package(),
         any_epoch_datetime_string(),
         fake_geometry,
         fake_bbox,
@@ -131,7 +134,7 @@ def test_create_item_when_resupplying(subtests: SubTests, tmp_path: Path) -> Non
         "",
         "",
         "abc123",
-        "any GDAL version",
+        any_gdal_processing_package(),
         current_datetime,
         fake_geometry,
         fake_bbox,
@@ -185,7 +188,7 @@ def test_create_item_when_resupplying_with_changed_file(subtests: SubTests, tmp_
         "",
         "",
         "abc123",
-        "any GDAL version",
+        any_gdal_processing_package(),
         current_datetime,
         fake_geometry,
         fake_bbox,
@@ -214,7 +217,7 @@ def test_create_item_with_derived_from(tmp_path: Path) -> None:
         "",
         "",
         "abc123",
-        "any GDAL version",
+        any_gdal_processing_package(),
         "any current datetime",
         fake_geometry,
         fake_bbox,
@@ -251,7 +254,7 @@ def test_create_item_with_derived_from_datetimes(tmp_path: Path) -> None:
         "",
         "",
         "abc123",
-        "any GDAL version",
+        any_gdal_processing_package(),
         "any current datetime",
         fake_geometry,
         fake_bbox,
@@ -607,7 +610,7 @@ def test_create_item_with_odr_url(tmp_path: Path) -> None:
         "a start datetime",
         "an end datetime",
         item_name,
-        "any GDAL version",
+        any_gdal_processing_package(),
         "this current datetime",
         fake_geometry,
         fake_bbox,
@@ -618,7 +621,7 @@ def test_create_item_with_odr_url(tmp_path: Path) -> None:
         "a start datetime",
         "an end datetime",
         item_name,
-        "any GDAL version",
+        any_gdal_processing_package(),
         "this current datetime",
         fake_geometry,
         fake_bbox,
@@ -631,7 +634,7 @@ def test_create_item_with_odr_url(tmp_path: Path) -> None:
         "another start datetime",
         "another end datetime",
         item_name,
-        "another GDAL version",
+        any_gdal_processing_package("another GDAL version"),
         "another current datetime",
         fake_geometry,
         fake_bbox,
@@ -653,7 +656,7 @@ def test_create_item_when_resupplying_with_new_file(subtests: SubTests, tmp_path
         "",
         "",
         "abc123",
-        "any GDAL version",
+        any_gdal_processing_package(),
         current_datetime,
         fake_geometry,
         fake_bbox,
@@ -697,7 +700,7 @@ def test_create_item_when_resupplying_with_changed_asset_file(subtests: SubTests
         "",
         "",
         "abc123",
-        "any GDAL version",
+        any_gdal_processing_package(),
         current_datetime,
         fake_geometry,
         fake_bbox,
@@ -782,3 +785,90 @@ def test_merge_item_list_for_resupply(fake_collection_context: CollectionContext
             {"type": "Feature", "id": "item_a"},
             {"type": "Feature", "id": "item_c"},
         ]
+
+
+def test_create_item_processing_software_gdal(subtests: SubTests) -> None:
+    fake_geometry, fake_bbox = any_geometry_and_bbox()
+    with patch("geoprocessor_stac.imagery.item.version", return_value="any raster version") as mock_version:
+        item = create_item(
+            str(DATA_DIR / "empty.tiff"),
+            "",
+            "",
+            "abc123",
+            STACProcessingPackage("gdal", "any GDAL version"),
+            any_epoch_datetime_string(),
+            fake_geometry,
+            fake_bbox,
+        )
+    mock_version.assert_called_once_with("geoprocessor-raster")
+    software = item.stac["properties"]["processing:software"]
+
+    with subtests.test(msg="gdal version"):
+        assert software["gdal"] == "any GDAL version"
+
+    with subtests.test(msg="raster processing version"):
+        assert software["geoprocessor-raster"] == "any raster version"
+
+    with subtests.test(msg="no pdal"):
+        assert "pdal" not in software
+
+
+def test_create_item_processing_software_pdal(subtests: SubTests) -> None:
+    fake_geometry, fake_bbox = any_geometry_and_bbox()
+    with patch("geoprocessor_stac.imagery.item.version", return_value="any pointcloud version") as mock_version:
+        item = create_item(
+            str(DATA_DIR / "empty.tiff"),
+            "",
+            "",
+            "abc123",
+            STACProcessingPackage("pdal", "any PDAL version"),
+            any_epoch_datetime_string(),
+            fake_geometry,
+            fake_bbox,
+        )
+    mock_version.assert_called_once_with("geoprocessor-pointcloud")
+    software = item.stac["properties"]["processing:software"]
+
+    with subtests.test(msg="pdal version"):
+        assert software["pdal"] == "any PDAL version"
+
+    with subtests.test(msg="pointcloud processing version"):
+        assert software["geoprocessor-pointcloud"] == "any pointcloud version"
+
+    with subtests.test(msg="no gdal"):
+        assert "gdal" not in software
+
+
+def test_create_item_processing_version_from_git_version() -> None:
+    fake_geometry, fake_bbox = any_geometry_and_bbox()
+    with patch.dict(environ, {"GIT_VERSION": "any Git version"}):
+        item = create_item(
+            str(DATA_DIR / "empty.tiff"),
+            "",
+            "",
+            "abc123",
+            any_gdal_processing_package(),
+            any_epoch_datetime_string(),
+            fake_geometry,
+            fake_bbox,
+        )
+
+    assert item.stac["properties"]["processing:version"] == "any Git version"
+
+
+def test_create_item_processing_version_without_git_version() -> None:
+    fake_geometry, fake_bbox = any_geometry_and_bbox()
+    with patch.dict(environ):
+        environ.pop("GIT_VERSION", None)
+        item = create_item(
+            str(DATA_DIR / "empty.tiff"),
+            "",
+            "",
+            "abc123",
+            any_gdal_processing_package(),
+            any_epoch_datetime_string(),
+            fake_geometry,
+            fake_bbox,
+        )
+
+    assert item.stac["properties"]["processing:version"] == "GIT_VERSION not specified"

@@ -20,11 +20,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # TODO: remove `image` tag and switch to <repo>/<container> once repo is renamed to geoprocessor
           - container: raster
-            image: topo-imagery
           - container: pointcloud
-            image: geoprocessor/pointcloud
     environment: ${{ inputs.publish != '' && 'prod' || '' }}
     permissions:
       id-token: write
@@ -54,8 +51,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@818d4b7b91585d195f67373fd9cb0332e31a7175 # v4
         with:
-          # TODO: switch to ${{ github.repository }}/${{ matrix.container }} once repo is renamed to geoprocessor
-          images: ${{ github.repository_owner }}/${{ matrix.image }}
+          images: ${{ github.repository }}/${{ matrix.container }}
           labels: |
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
 
@@ -128,10 +124,9 @@ jobs:
           esac
 
           # ghcr namespaces by owner, ECR does not.
-          # TODO: switch to ${{ github.repository }}/${{ matrix.container }} once repo is renamed to geoprocessor
-          repositories=("ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}")
+          repositories=("ghcr.io/${{ github.repository }}/${{ matrix.container }}")
           if [[ -n "$ECR_REGISTRY" ]]; then
-            repositories+=("${ECR_REGISTRY}/${{ matrix.image }}")
+            repositories+=("${ECR_REGISTRY}/${GITHUB_REPOSITORY#*/}/${{ matrix.container }}")
           fi
 
           for repository in "${repositories[@]}"; do
