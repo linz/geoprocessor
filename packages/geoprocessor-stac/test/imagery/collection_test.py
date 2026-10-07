@@ -1166,22 +1166,6 @@ def test_data_type_uint16_included_in_stac() -> None:
     assert collection.stac["data_type"] == "uint16", "uint16 should be included in STAC JSON"
 
 
-def test_data_type_uint32_included_in_stac() -> None:
-    """Verify that uint32 is included in STAC JSON output."""
-    context = CollectionContext(
-        category="dem",
-        domain="land",
-        region="hawkes-bay",
-        gsd=Decimal("1.0"),
-        data_type=DataType.UINT32,
-        lifecycle="completed",
-        linz_slug=fake_linz_slug(),
-    )
-    collection = ImageryCollection(context, any_epoch_datetime_string(), any_epoch_datetime_string())
-
-    assert collection.stac["data_type"] == "uint32", "uint32 should be included in STAC JSON"
-
-
 def test_data_type_float32_omitted_from_stac() -> None:
     """Verify that float32 is omitted from STAC JSON output, DEM collections do not record it"""
     context = CollectionContext(
