@@ -49,8 +49,8 @@ def get_args_parser() -> CommonArgumentParser:
     parser.add_argument("--gsd", dest="gsd", help="GSD of imagery Dataset, for example 0.3", type=str_to_gsd, required=True)
     parser.add_argument(
         "--data-type",
-        dest="data_type",
-        help="Dataset data type",
+        dest="collection_data_type",
+        help="Resulting collection data type",
         choices=[dt.value for dt in DataType],
         type=str,
         required=True,
@@ -177,12 +177,13 @@ def main(args: list[str] | None = None) -> None:
         msg = f"uri is not a s3 path: {uri}"
         raise argparse.ArgumentTypeError(msg)
 
+    output_data_type = DataType(arguments.collection_data_type)
     collection_context = CollectionContext(
         category=arguments.category,
         domain=arguments.domain,
         region=arguments.region,
         gsd=arguments.gsd,
-        data_type=DataType(arguments.data_type),
+        data_type=output_data_type,
         lifecycle=arguments.lifecycle,
         linz_slug=arguments.linz_slug,
         collection_id=arguments.collection_id,
