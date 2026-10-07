@@ -7,9 +7,22 @@ from geoprocessor_gdal.gdal.gdal_commands import (
     get_cutline_command,
     get_footprint_command,
     get_gdal_command,
+    get_webp_rescaled,
 )
-from geoprocessor_gdal.gdal.gdal_presets import CompressionPreset, HillshadePreset
+from geoprocessor_gdal.gdal.gdal_presets import CompressionPreset, SCALE_254_ADD_NO_DATA, HillshadePreset
 from pytest_subtests import SubTests
+
+
+def test_get_webp_rescaled(subtests: SubTests) -> None:
+    """Test the get_webp_rescaled helper function."""
+    # uint8 should return empty list (no rescaling needed)
+    with subtests.test(msg="uint8 returns empty list"):
+        assert get_webp_rescaled(DataType.UINT8.value) == []
+
+    # Other data types should return SCALE_254_ADD_NO_DATA
+    for data_type in [DataType.FLOAT32, DataType.UINT16, DataType.UINT32]:
+        with subtests.test(msg=f"{data_type.value} returns rescale options"):
+            assert get_webp_rescaled(data_type.value) == SCALE_254_ADD_NO_DATA
 
 
 def test_preset_webp(subtests: SubTests) -> None:
