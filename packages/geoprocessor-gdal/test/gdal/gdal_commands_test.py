@@ -40,6 +40,17 @@ def test_preset_webp(subtests: SubTests) -> None:
 
     with subtests.test():
         assert "bigtiff=no" in gdal_command
+    with subtests.test():
+        assert "bigtiff=yes" not in gdal_command
+
+    gdal_command = get_gdal_command(
+        CompressionPreset.WEBP.value,
+        epsg=EpsgNumber.NZTM_2000.value,
+        data_type=DataType.UINT16.value,
+    )
+
+    with subtests.test():
+        assert "bigtiff=no" in gdal_command
 
     # Webp lossless
     with subtests.test():

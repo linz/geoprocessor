@@ -56,7 +56,7 @@ def get_gdal_command(preset: str, epsg: int, data_type: str) -> list[str]:
     """
     get_log().info("gdal_preset_and_data_type", preset=preset, data_type=data_type)
 
-    needs_bigtiff = data_type == DataType.UINT16.value
+    needs_bigtiff = data_type == DataType.UINT16.value and preset != CompressionPreset.WEBP.value
 
     base_command = [
         "gdal_translate",
