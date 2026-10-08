@@ -32,4 +32,13 @@ cmp --silent "${output}/pdal_good_header_1.laz" "$(fixture pdal_good_header_1.la
 cmp --silent "${output}/pdal_bad_header_1.laz" "$(fixture pdal_bad_header_1.laz)" && exit 1 || echo "bad header fixed, as expected"
 echo "::endgroup::"
 
+echo "::group::Convert LAZ to COPC with pdal translate"
+run standardise-copc --files ./tests/data/pdal_good_header_1.laz --target /tmp/
+copc_metadata=$(run pdal info /tmp/pdal_good_header_1.copc.laz --metadata)
+grep --quiet '"copc": true' <<< "${copc_metadata}"
+grep --quiet '"count": 10,' <<< "${copc_metadata}"
+grep --quiet '/tmp/pdal_good_header_1.copc.laz' "${output}/processed.json"
+echo "COPC file written with every point, as expected"
+echo "::endgroup::"
+
 echo "all pointcloud end to end tests passed"
