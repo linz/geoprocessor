@@ -1151,9 +1151,9 @@ def test_data_type_uint8_omitted_from_stac() -> None:
 
 
 def test_data_type_uint16_included_in_stac() -> None:
-    """Verify that uint16 is included in STAC JSON output."""
+    """Verify that uint16 is included in STAC JSON output for near-infrared imagery."""
     context = CollectionContext(
-        category="dem",
+        category="near-infrared-aerial-photos",
         domain="land",
         region="hawkes-bay",
         gsd=Decimal("1.0"),
@@ -1180,3 +1180,19 @@ def test_data_type_float32_omitted_from_stac() -> None:
     collection = ImageryCollection(context, any_epoch_datetime_string(), any_epoch_datetime_string())
 
     assert "data_type" not in collection.stac, "float32 should be omitted from STAC"
+
+
+def test_data_type_uint16_omitted_from_stac_for_rgb() -> None:
+    """Verify that uint16 is omitted from STAC JSON output for RGB imagery, as it is the input data type"""
+    context = CollectionContext(
+        category="rural-aerial-photos",
+        domain="land",
+        region="hawkes-bay",
+        gsd=Decimal("0.3"),
+        data_type=DataType.UINT16,
+        lifecycle="completed",
+        linz_slug=fake_linz_slug(),
+    )
+    collection = ImageryCollection(context, any_epoch_datetime_string(), any_epoch_datetime_string())
+
+    assert "data_type" not in collection.stac, "uint16 should be omitted from STAC for RGB imagery"

@@ -22,7 +22,7 @@ class CollectionContext:  # pylint:disable=too-many-instance-attributes
         domain (str): The domain of the dataset (e.g., "land").
         region (str): The region of the dataset (e.g., "auckland").
         gsd (Decimal): Ground Sample Distance in meters.
-        data_type (DataType): The data type of the resulting collection output (e.g., `DataType.UINT8`, `DataType.UINT16`).
+        data_type (DataType): The data type of the dataset (only recorded for `UINT16` near-infrared imagery).
         lifecycle (str): Lifecycle status of the dataset (e.g., "completed").
         linz_slug (str): LINZ slug for the dataset.
         producers (list[str]): List of producers for the dataset.
