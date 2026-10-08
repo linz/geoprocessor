@@ -257,3 +257,15 @@ def test_copy_local_source_not_found_with_s3_target() -> None:
 
     with raises(NoSuchFileError):
         copy("test_dir/test.file", "s3://testbucket/test.file")
+
+
+def test_copy_does_not_blame_the_source_for_a_target_failure(setup: str) -> None:
+    """A failure writing the target must not be reported as a missing input."""
+    source_path = os.path.join(setup, "source.tiff")
+    write(source_path, b"test content")
+    error = FileNotFoundError(2, "No such file or directory")
+    error.filename = os.path.join(setup, "target/source.tiff.part")
+
+    with patch("geoprocessor_common.files.fs_local.copy_file", side_effect=error):
+        with raises(FileNotFoundError):
+            copy(source_path, os.path.join(setup, "target/source.tiff"))
