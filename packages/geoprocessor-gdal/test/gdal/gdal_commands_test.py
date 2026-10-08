@@ -64,6 +64,22 @@ def test_preset_webp(subtests: SubTests) -> None:
     with subtests.test():
         assert f"EPSG:{EpsgNumber.NZTM_2000.value}" in gdal_command
 
+    with subtests.test(msg=f"{DataType.UINT8.value} is not rescaled"):
+        assert "-scale" not in gdal_command
+
+
+def test_preset_webp_uint16_is_rescaled(subtests: SubTests) -> None:
+    gdal_command = get_gdal_command(CompressionPreset.WEBP.value, epsg=EpsgNumber.NZTM_2000, data_type=DataType.UINT16.value)
+
+    with subtests.test(msg=f"{DataType.UINT16.value} is rescaled to 8-bit"):
+        assert "-scale" in gdal_command
+
+    with subtests.test():
+        assert "Byte" in gdal_command
+
+    with subtests.test():
+        assert "compress=webp" in gdal_command
+
 
 def test_preset_zstd(subtests: SubTests) -> None:
     gdal_command = get_gdal_command(
