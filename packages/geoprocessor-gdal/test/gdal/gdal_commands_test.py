@@ -7,9 +7,22 @@ from geoprocessor_gdal.gdal.gdal_commands import (
     get_cutline_command,
     get_footprint_command,
     get_gdal_command,
+    get_webp_rescaled,
 )
 from geoprocessor_gdal.gdal.gdal_presets import CompressionPreset, HillshadePreset
 from pytest_subtests import SubTests
+
+
+def test_get_webp_rescaled() -> None:
+    assert get_webp_rescaled(DataType.UINT16.value) == [
+        "-scale",
+        "0",
+        "65535",
+        "0",
+        "255",
+        "-ot",
+        "Byte",
+    ]
 
 
 def test_preset_webp(subtests: SubTests) -> None:
@@ -92,18 +105,17 @@ def test_preset_zstd(subtests: SubTests) -> None:
 
 
 def test_preset_zstd_high_bit_depth_uses_bigtiff(subtests: SubTests) -> None:
-    for data_type in (DataType.UINT16, DataType.UINT32):
-        gdal_command = get_gdal_command(
-            CompressionPreset.RGBNIR_ZSTD.value,
-            epsg=EpsgNumber.NZTM_2000.value,
-            data_type=data_type.value,
-        )
+    gdal_command = get_gdal_command(
+        CompressionPreset.RGBNIR_ZSTD.value,
+        epsg=EpsgNumber.NZTM_2000.value,
+        data_type=DataType.UINT16.value,
+    )
 
-        with subtests.test(msg=f"{data_type.value} uses bigtiff=yes"):
-            assert "bigtiff=yes" in gdal_command
+    with subtests.test(msg=f"{DataType.UINT16.value} uses bigtiff=yes"):
+        assert "bigtiff=yes" in gdal_command
 
-        with subtests.test(msg=f"{data_type.value} does not use bigtiff=no"):
-            assert "bigtiff=no" not in gdal_command
+    with subtests.test(msg=f"{DataType.UINT16.value} does not use bigtiff=no"):
+        assert "bigtiff=no" not in gdal_command
 
 
 def test_preset_zstd_uint8_keeps_bigtiff_no(subtests: SubTests) -> None:

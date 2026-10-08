@@ -124,8 +124,8 @@ class ImageryCollection:  # pylint: disable=too-many-instance-attributes
             "updated": updated_datetime,
         }
 
-        # Only include data_type for `UINT16` and `UINT32`
-        if self.data_type in (DataType.UINT16, DataType.UINT32):
+        # Only include data_type for `UINT16`
+        if self.data_type == DataType.UINT16:
             self.stac["data_type"] = self.data_type.value
 
         # Optional metadata - if not provided, the field will not be added to the Collection
@@ -171,8 +171,8 @@ class ImageryCollection:  # pylint: disable=too-many-instance-attributes
             updated_datetime: The updated datetime of the Collection.
         """
         self.stac["gsd"] = float(context.gsd)
-        # Only include data_type for `UINT16` and `UINT32`
-        if context.data_type in (DataType.UINT16, DataType.UINT32):
+        # Only include data_type for `UINT16`
+        if context.data_type == DataType.UINT16:
             self.stac["data_type"] = context.data_type.value
         else:
             self.stac.pop("data_type", None)
