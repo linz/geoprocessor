@@ -25,6 +25,27 @@ BIGTIFF_NO = "bigtiff=no"
 BIGTIFF_YES = "bigtiff=yes"
 
 
+def get_webp_rescaled(data_type: str) -> list[str]:
+    """Get GDAL args to scale 16-bit WEBP imagery down to 8-bit."""
+    src_max_by_type = {
+        DataType.UINT16.value: "65535",
+    }
+
+    src_max = src_max_by_type.get(data_type)
+    if src_max is None:
+        raise ValueError(f"Unsupported data type for WEBP scaling: {data_type}")
+
+    return [
+        "-scale",
+        "0",
+        src_max,
+        "0",
+        "255",
+        "-ot",
+        "Byte",
+    ]
+
+
 def get_gdal_command(preset: str, epsg: int, data_type: str) -> list[str]:
     """Build a `gdal_translate` command based on the `preset`, `epsg` code, with conversion to 8bits if required.
 
@@ -32,14 +53,14 @@ def get_gdal_command(preset: str, epsg: int, data_type: str) -> list[str]:
         preset: gdal preset to use. Defined in `gdal.gdal_presets.py`
         epsg: the EPSG code of the file
         data_type: the data type of the dataset. Defined in `gdal.gdal_presets.py`. Defaults to `uint8`.
-                   RGBNIR_ZSTD `uint16` and `uint32` are written as a BIGTIFF as the tiffs may exceed 4GB.
+                   RGBNIR_ZSTD `uint16` is written as a BIGTIFF as the tiffs may exceed 4GB.
 
     Returns:
         a list of arguments to run `gdal_translate`
     """
     get_log().info("gdal_preset_and_data_type", preset=preset, data_type=data_type)
 
-    needs_bigtiff = data_type in (DataType.UINT16.value, DataType.UINT32.value)
+    needs_bigtiff = data_type == DataType.UINT16.value and preset == CompressionPreset.RGBNIR_ZSTD.value
 
     base_command = [
         "gdal_translate",
@@ -60,9 +81,13 @@ def get_gdal_command(preset: str, epsg: int, data_type: str) -> list[str]:
         CompressionPreset.DEM_LERC.value: DEM_LERC,
     }
 
-    preset_options = PRESET_OPTIONS.get(preset)
+    preset_options: list[str] | None = PRESET_OPTIONS.get(preset)
+
     if preset_options is None:
         raise ValueError(f"Unsupported compression preset: {preset}")
+
+    if preset == CompressionPreset.WEBP.value and data_type != DataType.UINT8.value:
+        preset_options = get_webp_rescaled(data_type) + preset_options
 
     return base_command + preset_options
 

@@ -50,6 +50,11 @@ ANY_ORTHO_AERIAL_PHOTOS = {
     NEAR_INFRARED_AERIAL_PHOTOS,
 }
 ANY_SATELLITE_IMAGERY = {SATELLITE_IMAGERY, NEAR_INFRARED_SATELLITE_IMAGERY}
+NEAR_INFRARED_CATEGORIES = {
+    ANCILLARY_NEAR_INFRARED_AERIAL_PHOTOS,
+    NEAR_INFRARED_AERIAL_PHOTOS,
+    NEAR_INFRARED_SATELLITE_IMAGERY,
+}
 IMAGERY = {SCANNED_AERIAL_PHOTOS, *ANY_SATELLITE_IMAGERY, *ANY_ORTHO_AERIAL_PHOTOS}
 ELEVATION = {DEM, DSM}
 HILLSHADES = {DEM_HILLSHADE, DEM_HILLSHADE_IGOR, DSM_HILLSHADE, DSM_HILLSHADE_IGOR}
@@ -124,8 +129,9 @@ class ImageryCollection:  # pylint: disable=too-many-instance-attributes
             "updated": updated_datetime,
         }
 
-        # Only include data_type for `UINT16` and `UINT32`
-        if self.data_type in (DataType.UINT16, DataType.UINT32):
+        # Only include data_type for `UINT16` near-infrared imagery
+        # as only near-infrared output stays 16-bit, other `UINT16` sources are rescaled to 8-bit (WEBP)
+        if self.data_type == DataType.UINT16 and context.category in NEAR_INFRARED_CATEGORIES:
             self.stac["data_type"] = self.data_type.value
 
         # Optional metadata - if not provided, the field will not be added to the Collection
@@ -171,8 +177,9 @@ class ImageryCollection:  # pylint: disable=too-many-instance-attributes
             updated_datetime: The updated datetime of the Collection.
         """
         self.stac["gsd"] = float(context.gsd)
-        # Only include data_type for `UINT16` and `UINT32`
-        if context.data_type in (DataType.UINT16, DataType.UINT32):
+        # Only include data_type for `UINT16` near-infrared imagery
+        # as only near-infrared output stays 16-bit, other `UINT16` sources are rescaled to 8-bit (WEBP)
+        if context.data_type == DataType.UINT16 and context.category in NEAR_INFRARED_CATEGORIES:
             self.stac["data_type"] = context.data_type.value
         else:
             self.stac.pop("data_type", None)
