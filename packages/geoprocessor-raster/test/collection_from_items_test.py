@@ -162,8 +162,6 @@ def test_should_pass_with_empty_supplied_capture_area_and_capture_dates(
     write("s3://stacfiles/capture-dates.geojson", dict_to_json_bytes(capture_dates))
 
     args = base_args(fake_collection_context.linz_slug) + [
-        "--supplied-capture-area",
-        "",
         "--capture-dates",
         "true",
     ]
