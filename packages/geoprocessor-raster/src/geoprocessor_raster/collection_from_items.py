@@ -138,7 +138,6 @@ def get_args_parser() -> CommonArgumentParser:
         required=False,
         default=datetime.now(timezone.utc).strftime(RFC_3339_DATETIME_FORMAT),
     )
-    # capture_area_arguments = parser.add_mutually_exclusive_group()
     parser.add_argument(
         "--supplied-capture-area",
         dest="supplied_capture_area",
@@ -172,14 +171,18 @@ def main(args: list[str] | None = None) -> None:
     parser = get_args_parser()
     arguments = parser.parse_args(args)
 
-    if arguments.supplied_capture_area and arguments.simplified_capture_area and arguments.capture_dates:
-        parser.error("--simplified-capture-area, --supplied-capture-area and --capture-dates cannot be used together")
-    elif arguments.supplied_capture_area and arguments.simplified_capture_area:
-        parser.error("--supplied-capture-area and --simplified-capture-area cannot be used together")
-    elif arguments.supplied_capture_area and arguments.capture_dates:
-        parser.error("--supplied-capture-area and --capture-dates cannot be used together")
-    elif arguments.simplified_capture_area and arguments.capture_dates:
-        parser.error("--simplified-capture-area and --capture-dates cannot be used together")
+    enabled_arguments = [
+    name
+    for name, value in [
+            ("--supplied-capture-area", arguments.supplied_capture_area),
+            ("--simplified-capture-area", arguments.simplified_capture_area),
+            ("--capture-dates", arguments.capture_dates),
+        ]
+        if value
+    ]
+
+    if len(enabled_arguments) > 1:
+        parser.error(f"{' and '.join(enabled_arguments)} cannot be used together")
 
     uri = arguments.uri
 
