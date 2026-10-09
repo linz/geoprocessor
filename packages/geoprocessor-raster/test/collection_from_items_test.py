@@ -102,7 +102,7 @@ def test_should_fail_with_both_supplied_and_simplified_capture_area(
         main(args)
 
     assert (
-        "error: argument --simplified-capture-area: not allowed with argument --supplied-capture-area"
+        "error: --supplied-capture-area and --simplified-capture-area cannot be used together"
         in capsys.readouterr().err
     )
 
@@ -127,8 +127,7 @@ def test_should_fail_with_both_supplied_capture_area_and_capture_dates(
     with raises(SystemExit):
         main(args)
 
-    assert "error: argument --capture-dates: not allowed with argument --supplied-capture-area" in capsys.readouterr().err
-
+    assert "error: --supplied-capture-area and --capture-dates cannot be used together" in capsys.readouterr().err
 
 @mock_aws
 def test_should_pass_with_empty_supplied_capture_area_and_capture_dates(
@@ -162,6 +161,52 @@ def test_should_pass_with_empty_supplied_capture_area_and_capture_dates(
     write("s3://stacfiles/capture-dates.geojson", dict_to_json_bytes(capture_dates))
 
     args = base_args(fake_collection_context.linz_slug) + [
+        "--supplied-capture-area",
+        "",
+        "--capture-dates",
+        "true",
+    ]
+
+    main(args)
+
+    assert "error:" not in capsys.readouterr().err
+
+@mock_aws
+def test_should_pass_with_default_capture_area_arguments_and_capture_dates(
+ item: ImageryItem, fake_collection_context: CollectionContext, capsys: CaptureFixture[str]
+) -> None:
+    s3_client: S3Client = client("s3", region_name=DEFAULT_REGION_NAME)
+    s3_client.create_bucket(Bucket="stacfiles")
+    item.add_collection("abc")
+    write("s3://stacfiles/item.json", dict_to_json_bytes(item.stac))
+
+    capture_dates: dict[str, Any] = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [173.08592083, -41.23816732],
+                            [173.08596333, -41.2705955],
+                            [173.11461773, -41.27057054],
+                            [173.11456106, -41.23814238],
+                            [173.08592083, -41.23816732],
+                        ]
+                    ],
+                },
+            }
+        ],
+    }
+    write("s3://stacfiles/capture-dates.geojson", dict_to_json_bytes(capture_dates))
+
+    args = base_args(fake_collection_context.linz_slug) + [
+        "--supplied-capture-area",
+        "",
+        "--simplified-capture-area",
+        "false",
         "--capture-dates",
         "true",
     ]

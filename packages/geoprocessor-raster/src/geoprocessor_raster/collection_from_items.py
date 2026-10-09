@@ -138,8 +138,8 @@ def get_args_parser() -> CommonArgumentParser:
         required=False,
         default=datetime.now(timezone.utc).strftime(RFC_3339_DATETIME_FORMAT),
     )
-    capture_area_arguments = parser.add_mutually_exclusive_group()
-    capture_area_arguments.add_argument(
+    # capture_area_arguments = parser.add_mutually_exclusive_group()
+    parser.add_argument(
         "--supplied-capture-area",
         dest="supplied_capture_area",
         help="S3 path to optional externally supplied EPSG:4326 capture area",
@@ -149,7 +149,7 @@ def get_args_parser() -> CommonArgumentParser:
         nargs="?",
         type=empty_str_to_false,
     )
-    capture_area_arguments.add_argument(
+    parser.add_argument(
         "--simplified-capture-area",
         dest="simplified_capture_area",
         help="Whether the individual item footprints have been simplified.",
@@ -157,7 +157,7 @@ def get_args_parser() -> CommonArgumentParser:
         default=False,
         type=str_to_bool,
     )
-    capture_area_arguments.add_argument(
+    parser.add_argument(
         "--capture-dates",
         dest="capture_dates",
         help="Add a capture-dates.geojson.gz file to the Collection assets",
@@ -165,12 +165,23 @@ def get_args_parser() -> CommonArgumentParser:
         default=False,
         type=str_to_bool,
     )
-
     return parser
 
 
 def main(args: list[str] | None = None) -> None:
-    arguments = get_args_parser().parse_args(args)
+    parser = get_args_parser()
+    arguments = parser.parse_args(args)
+
+    if arguments.supplied_capture_area and arguments.simplified_capture_area and arguments.capture_dates:
+        parser.error("--simplified-capture-area, --supplied-capture-area and --capture-dates cannot be used together")
+    elif arguments.supplied_capture_area and arguments.simplified_capture_area:
+        parser.error("--supplied-capture-area and --simplified-capture-area cannot be used together")
+    elif arguments.supplied_capture_area and arguments.capture_dates:
+        parser.error("--supplied-capture-area and --capture-dates cannot be used together")
+    elif arguments.simplified_capture_area and arguments.capture_dates:
+        parser.error("--simplified-capture-area and --capture-dates cannot be used together")
+
+
     uri = arguments.uri
 
     if not uri.startswith("s3://"):
