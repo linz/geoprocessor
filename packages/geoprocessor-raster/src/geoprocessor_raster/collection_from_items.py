@@ -138,8 +138,7 @@ def get_args_parser() -> CommonArgumentParser:
         required=False,
         default=datetime.now(timezone.utc).strftime(RFC_3339_DATETIME_FORMAT),
     )
-    capture_area_arguments = parser.add_mutually_exclusive_group()
-    capture_area_arguments.add_argument(
+    parser.add_argument(
         "--supplied-capture-area",
         dest="supplied_capture_area",
         help="S3 path to optional externally supplied EPSG:4326 capture area",
@@ -149,7 +148,7 @@ def get_args_parser() -> CommonArgumentParser:
         nargs="?",
         type=empty_str_to_false,
     )
-    capture_area_arguments.add_argument(
+    parser.add_argument(
         "--simplified-capture-area",
         dest="simplified_capture_area",
         help="Whether the individual item footprints have been simplified.",
@@ -157,7 +156,7 @@ def get_args_parser() -> CommonArgumentParser:
         default=False,
         type=str_to_bool,
     )
-    capture_area_arguments.add_argument(
+    parser.add_argument(
         "--capture-dates",
         dest="capture_dates",
         help="Add a capture-dates.geojson.gz file to the Collection assets",
@@ -165,12 +164,26 @@ def get_args_parser() -> CommonArgumentParser:
         default=False,
         type=str_to_bool,
     )
-
     return parser
 
 
 def main(args: list[str] | None = None) -> None:
-    arguments = get_args_parser().parse_args(args)
+    parser = get_args_parser()
+    arguments = parser.parse_args(args)
+
+    enabled_arguments = [
+    name
+    for name, value in [
+            ("--supplied-capture-area", arguments.supplied_capture_area),
+            ("--simplified-capture-area", arguments.simplified_capture_area),
+            ("--capture-dates", arguments.capture_dates),
+        ]
+        if value
+    ]
+
+    if len(enabled_arguments) > 1:
+        parser.error(f"{' and '.join(enabled_arguments)} cannot be used together")
+
     uri = arguments.uri
 
     if not uri.startswith("s3://"):
