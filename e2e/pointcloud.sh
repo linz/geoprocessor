@@ -33,12 +33,17 @@ cmp --silent "${output}/pdal_bad_header_1.laz" "$(fixture pdal_bad_header_1.laz)
 echo "::endgroup::"
 
 echo "::group::Convert LAZ to COPC with pdal translate"
-run standardise-copc --files ./tests/data/pdal_good_header_1.laz --target /tmp/
+run standardise-copc --files ./tests/data/pdal_bad_header_1.laz ./tests/data/pdal_good_header_1.laz --target /tmp/
 copc_metadata=$(run pdal info /tmp/pdal_good_header_1.copc.laz --metadata)
 grep --quiet '"copc": true' <<< "${copc_metadata}"
 grep --quiet '"count": 10,' <<< "${copc_metadata}"
 grep --quiet '/tmp/pdal_good_header_1.copc.laz' "${output}/processed.json"
 echo "COPC file written with every point, as expected"
+# The bad header's CRS has a malformed name, which must be replaced by the good header's CRS.
+expected_crs=$(run pdal info ./tests/data/pdal_good_header_1.laz --metadata | grep '"compoundwkt"')
+fixed_crs=$(run pdal info /tmp/pdal_bad_header_1.copc.laz --metadata | grep '"compoundwkt"')
+[[ "${fixed_crs}" == "${expected_crs}" ]]
+echo "bad header CRS fixed, as expected"
 echo "::endgroup::"
 
 echo "all pointcloud end to end tests passed"

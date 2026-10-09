@@ -14,7 +14,9 @@ from linz_logger import get_log
 
 
 def get_args_parser() -> CommonArgumentParser:
-    parser = CommonArgumentParser(description="Convert LAS/LAZ files to Cloud Optimized Point Cloud (COPC) files.")
+    parser = CommonArgumentParser(
+        description="Convert LAS/LAZ files to Cloud Optimized Point Cloud (COPC) files with consistent CRS information."
+    )
 
     parser.add_argument(
         "--force",
@@ -141,7 +143,7 @@ def pdal_standardise_copc(
     target: str = "/tmp/",
     force: bool = False,
 ) -> str:
-    """Convert a LAS/LAZ file to COPC, keeping its header, CRS and extra dimensions.
+    """Convert a LAS/LAZ file to COPC with a NZTM2000 + NZVD2016 CRS, keeping its header and extra dimensions.
 
     Args:
         source_file: /path/to/a/file to process (S3 or local).
