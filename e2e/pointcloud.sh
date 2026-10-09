@@ -44,6 +44,14 @@ expected_crs=$(run pdal info ./tests/data/pdal_good_header_1.laz --metadata | gr
 fixed_crs=$(run pdal info /tmp/pdal_bad_header_1.copc.laz --metadata | grep '"compoundwkt"')
 [[ "${fixed_crs}" == "${expected_crs}" ]]
 echo "bad header CRS fixed, as expected"
+# A COPC source must not be overwritten by its own output, even with --force.
+copc_checksum=$(sha256sum "${output}/pdal_good_header_1.copc.laz")
+if refusal=$(run standardise-copc --force --files /tmp/pdal_good_header_1.copc.laz --target /tmp/ 2>&1); then
+  exit 1
+fi
+grep --quiet "would overwrite the source file" <<< "${refusal}"
+[[ "$(sha256sum "${output}/pdal_good_header_1.copc.laz")" == "${copc_checksum}" ]]
+echo "refused to overwrite the source, as expected"
 echo "::endgroup::"
 
 echo "all pointcloud end to end tests passed"

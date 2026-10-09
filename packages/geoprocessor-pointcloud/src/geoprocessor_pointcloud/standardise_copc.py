@@ -5,6 +5,7 @@ from functools import partial
 from multiprocessing import Pool
 from typing import Any, Iterable
 
+from geoprocessor_common.aws.aws_helper import is_s3
 from geoprocessor_common.cli.common_args import CommonArgumentParser
 from geoprocessor_common.files.files_helper import ContentType
 from geoprocessor_common.files.fs import NoSuchFileError, copy, exists, read, write
@@ -138,6 +139,23 @@ def get_copc_file_name(source_file: str) -> str:
     return f"{stem}.copc.laz"
 
 
+def is_same_file(path_a: str, path_b: str) -> bool:
+    """Check whether two paths are the same file. Local paths are resolved first, so `./a.laz` and `a.laz` are the same
+    file. S3 paths are compared as they are, because S3 keys are not resolved: `a//b.laz` and `a/b.laz` are different
+    objects.
+
+    Args:
+        path_a: /path/to/a/file (S3 or local).
+        path_b: /path/to/a/file (S3 or local).
+
+    Returns:
+        True if both paths are the same file.
+    """
+    if is_s3(path_a) or is_s3(path_b):
+        return path_a == path_b
+    return os.path.realpath(path_a) == os.path.realpath(path_b)
+
+
 def pdal_standardise_copc(
     source_file: str,
     target: str = "/tmp/",
@@ -150,11 +168,20 @@ def pdal_standardise_copc(
         target: path where the output files need to be saved to. Defaults to "/tmp/".
         force: overwrite existing output file. Defaults to False.
 
+    Raises:
+        ValueError: if the COPC file would overwrite the source file, which happens when a COPC source file is
+            processed into its own directory.
+
     Returns:
         The path of the COPC file.
     """
     copc_file_name = get_copc_file_name(source_file)
     target_file = os.path.join(target, copc_file_name)
+
+    if is_same_file(source_file, target_file):
+        error_message = f"The output file would overwrite the source file, use a different target: {source_file}"
+        get_log().error(error_message, target=target)
+        raise ValueError(error_message)
 
     # Already processed can skip processing
     if exists(target_file):

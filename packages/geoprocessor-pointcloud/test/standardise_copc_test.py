@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from geoprocessor_pdal.pdal_commands import pdal_translate_copc_command
 from geoprocessor_pointcloud.standardise_copc import (
     flatten,
@@ -125,3 +126,43 @@ def test_pdal_standardise_copc_overwrites_an_existing_output_when_forced(tmp_pat
 
     assert result == str(target_file)
     assert target_file.read_bytes() == b"copc"
+
+
+@pytest.mark.parametrize("force", [False, True])
+def test_pdal_standardise_copc_refuses_to_overwrite_its_source(tmp_path: Path, force: bool) -> None:
+    """A COPC source processed into its own directory would be replaced by its output."""
+    source_file = tmp_path / "a.copc.laz"
+    source_file.write_bytes(b"source")
+
+    with (
+        patch("geoprocessor_pointcloud.standardise_copc.run_pdal") as run_pdal,
+        pytest.raises(ValueError, match="would overwrite the source file"),
+    ):
+        pdal_standardise_copc(str(source_file), target=f"{tmp_path}/./", force=force)
+
+    assert source_file.read_bytes() == b"source"
+    run_pdal.assert_not_called()
+
+
+def test_pdal_standardise_copc_refuses_to_overwrite_its_source_on_s3() -> None:
+    with (
+        patch("geoprocessor_pointcloud.standardise_copc.run_pdal") as run_pdal,
+        pytest.raises(ValueError, match="would overwrite the source file"),
+    ):
+        pdal_standardise_copc("s3://bucket/path/a.copc.laz", target="s3://bucket/path", force=True)
+
+    run_pdal.assert_not_called()
+
+
+def test_pdal_standardise_copc_converts_a_copc_source_into_another_directory(tmp_path: Path) -> None:
+    source_file = tmp_path / "a.copc.laz"
+    source_file.write_bytes(b"source")
+    target = tmp_path / "target"
+    target.mkdir()
+
+    with patch("geoprocessor_pointcloud.standardise_copc.run_pdal", side_effect=fake_run_pdal):
+        result = pdal_standardise_copc(str(source_file), target=str(target))
+
+    assert result == str(target / "a.copc.laz")
+    assert (target / "a.copc.laz").read_bytes() == b"copc"
+    assert source_file.read_bytes() == b"source"
