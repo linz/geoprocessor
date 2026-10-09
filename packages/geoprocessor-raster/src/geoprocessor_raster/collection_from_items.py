@@ -181,7 +181,6 @@ def main(args: list[str] | None = None) -> None:
     elif arguments.simplified_capture_area and arguments.capture_dates:
         parser.error("--simplified-capture-area and --capture-dates cannot be used together")
 
-
     uri = arguments.uri
 
     if not uri.startswith("s3://"):

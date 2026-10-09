@@ -101,10 +101,7 @@ def test_should_fail_with_both_supplied_and_simplified_capture_area(
     with raises(SystemExit):
         main(args)
 
-    assert (
-        "error: --supplied-capture-area and --simplified-capture-area cannot be used together"
-        in capsys.readouterr().err
-    )
+    assert "error: --supplied-capture-area and --simplified-capture-area cannot be used together" in capsys.readouterr().err
 
 
 @mock_aws
@@ -128,6 +125,7 @@ def test_should_fail_with_both_supplied_capture_area_and_capture_dates(
         main(args)
 
     assert "error: --supplied-capture-area and --capture-dates cannot be used together" in capsys.readouterr().err
+
 
 @mock_aws
 def test_should_pass_with_empty_supplied_capture_area_and_capture_dates(
@@ -171,9 +169,10 @@ def test_should_pass_with_empty_supplied_capture_area_and_capture_dates(
 
     assert "error:" not in capsys.readouterr().err
 
+
 @mock_aws
 def test_should_pass_with_default_capture_area_arguments_and_capture_dates(
- item: ImageryItem, fake_collection_context: CollectionContext, capsys: CaptureFixture[str]
+    item: ImageryItem, fake_collection_context: CollectionContext, capsys: CaptureFixture[str]
 ) -> None:
     s3_client: S3Client = client("s3", region_name=DEFAULT_REGION_NAME)
     s3_client.create_bucket(Bucket="stacfiles")
