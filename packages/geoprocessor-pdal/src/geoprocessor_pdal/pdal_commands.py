@@ -70,7 +70,9 @@ pdal_translate_add_proj_command = get_pdal_command(
     ],
 )
 
-# `forward=all` keeps the scale, offset, header fields and VLRs of the input file.
+# `forward` keeps the scale, offset, header fields and VLRs of the input file. It lists everything `all` would, except
+# `software_id`, which is left to the writer so that it names the PDAL version that did the reprocessing.
+# `filesource_id` is set explicitly, as in `pdal_translate_add_proj_command`.
 # `a_srs` replaces the CRS of the input file, which may be malformed (see `pdal_translate_add_proj_command`), without
 # reprojecting. It is set on the writer because `readers.las` options fail when the input is read by `readers.copc`.
 # The writer is named so that it doesn't depend on the output file name ending in `.copc.laz`.
@@ -78,7 +80,8 @@ pdal_translate_copc_command = get_pdal_command(
     "translate",
     [
         "--writer=writers.copc",
-        "--writers.copc.forward=all",
+        "--writers.copc.forward=global_encoding,project_id,system_id,creation_doy,creation_year,scale,offset,vlr",
+        "--writers.copc.filesource_id=0",
         "--writers.copc.extra_dims=all",
         f"--writers.copc.a_srs=EPSG:{EpsgNumber.NZTM_2000}+{EpsgNumber.NZVD_2016}",
     ],
