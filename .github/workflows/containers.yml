@@ -104,7 +104,7 @@ jobs:
       - name: Login to Amazon ECR
         id: login-ecr
         if: ${{ inputs.publish != '' && env.AWS_CI_ROLE != '' }}
-        uses: aws-actions/amazon-ecr-login@2fc7aceee09e9e4a7105c0d060c656fad0b4f63d # v1
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v1
 
       - name: Push the tested image
         if: ${{ inputs.publish != '' }}
