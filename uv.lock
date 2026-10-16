@@ -895,7 +895,7 @@ wheels = [
 
 [[package]]
 name = "geoprocessor"
-version = "10.1.0"
+version = "10.1.1"
 source = { virtual = "." }
 dependencies = [
     { name = "boto3" },
@@ -1117,7 +1117,7 @@ dev = [
 
 [[package]]
 name = "geoprocessor-stac"
-version = "1.1.0"
+version = "1.1.1"
 source = { editable = "packages/geoprocessor-stac" }
 dependencies = [
     { name = "boto3" },

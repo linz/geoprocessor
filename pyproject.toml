@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "geoprocessor"
-version = "10.1.0"
+version = "10.1.1"
 description = "A collection of scripts for processing geospatial datasets"
 authors = [
     { name = "Blayne Chard", email = "bchard@linz.govt.nz" },

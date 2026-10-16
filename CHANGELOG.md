@@ -1,5 +1,12 @@
 # Changelog
 
+## [10.1.1](https://github.com/linz/geoprocessor/compare/v10.1.0...v10.1.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* extension reference missing on update TDE-2118 ([#1687](https://github.com/linz/geoprocessor/issues/1687)) ([c6e7fac](https://github.com/linz/geoprocessor/commit/c6e7fac4ee9b776e2e8e821baf7c96fe862cec8d))
+
 ## [10.1.0](https://github.com/linz/geoprocessor/compare/v10.0.0...v10.1.0) (2026-10-13)
 
 

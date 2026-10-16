@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "geoprocessor-stac"
-version = "1.1.0"
+version = "1.1.1"
 description = "STAC utilities for LINZ geoprocessor workflows"
 requires-python = "~=3.12.3"
 dependencies = [
