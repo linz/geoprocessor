@@ -658,15 +658,14 @@ wheels = [
 
 [[package]]
 name = "linz-logger"
-version = "0.11.0"
+version = "0.8.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "python-ulid" },
     { name = "structlog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/71/29/de1a703fae473d8014d1770e86e7f6b46b9b02dbe84ea6c2dc4bf1476902/linz_logger-0.11.0.tar.gz", hash = "sha256:7454e18f613b5aafbb38cad1478d48eab15bacd4d3fe8bb70fcc55f4ea139a6b", size = 4368, upload-time = "2022-12-05T23:30:00.917Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8e/d0/6285deea2904510c53c63492aa10365dd5832bab097daa8526e663aada5b/linz_logger-0.8.0.tar.gz", hash = "sha256:80b8e637500ad7219892950fa961c0d0bcb1b966842ce602d499f57a8ba17786", size = 4345, upload-time = "2022-08-05T03:50:04.683Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7a/b5/310ff8b62f7607d8b127ebe222acfc1394aca0b5f490832903b70672fa7e/linz_logger-0.11.0-py3-none-any.whl", hash = "sha256:1e8ef3f85a77e9506728a022e7b9b6b835c32a7d784ee8d78b6bb28755cc264a", size = 4798, upload-time = "2022-12-05T23:29:59.669Z" },
+    { url = "https://files.pythonhosted.org/packages/cc/db/0b26a0403abfa6c6633d46dfe32db6d83505341787cb28891363041197e1/linz_logger-0.8.0-py3-none-any.whl", hash = "sha256:a169b62fe251c80dce16adaf87285da4ea14405c031dbb56b9b90ebbab51f783", size = 4745, upload-time = "2022-08-05T03:50:03.316Z" },
 ]
 
 [[package]]
@@ -987,11 +986,11 @@ wheels = [
 
 [[package]]
 name = "python-ulid"
-version = "1.1.0"
+version = "4.0.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/e8/8b/0580d8ee0a73a3f3869488856737c429cbaa08b63c3506275f383c4771a8/python-ulid-1.1.0.tar.gz", hash = "sha256:5fb5e4a91db8ca93e8938a613360b3def299b60d41f847279a8c39c9b2e9c65e", size = 19992, upload-time = "2022-03-10T15:11:41.968Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d6/41/65079023c81491a21799c0120bce5925366b6913596bf797806f19973290/python_ulid-4.0.1.tar.gz", hash = "sha256:bbeec02556190bb9dc3401faa7268696acbfbe7b6db9908c155dc3548629f20c", size = 101683, upload-time = "2026-07-20T15:21:41.256Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/89/8e/c30b08ee9b8dc9b4a10e782c2a7fd5de55388201ddebfe0f7ab99dfbb349/python_ulid-1.1.0-py3-none-any.whl", hash = "sha256:88c952f6be133dbede19c907d72d26717d2691ec8421512b573144794d891e24", size = 9360, upload-time = "2022-03-10T15:11:40.405Z" },
+    { url = "https://files.pythonhosted.org/packages/b4/15/8b39b36f55b6618ec4ca9b55134dcfd9c04cecbc72709f5d8e6bdebed9cd/python_ulid-4.0.1-py3-none-any.whl", hash = "sha256:6f1d69ceb97e99fe542df8476ebcd7a668284bf53ee14b3106bcc6a341a95ed9", size = 14609, upload-time = "2026-07-20T15:21:40.214Z" },
 ]
 
 [[package]]
