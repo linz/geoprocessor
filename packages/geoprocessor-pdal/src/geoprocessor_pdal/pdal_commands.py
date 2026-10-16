@@ -70,6 +70,23 @@ pdal_translate_add_proj_command = get_pdal_command(
     ],
 )
 
+# `forward` keeps the scale, offset, header fields and VLRs of the input file. It lists everything `all` would, except
+# `software_id`, which is left to the writer so that it names the PDAL version that did the reprocessing.
+# `filesource_id` is set explicitly, as in `pdal_translate_add_proj_command`.
+# `a_srs` replaces the CRS of the input file, which may be malformed (see `pdal_translate_add_proj_command`), without
+# reprojecting.
+# Exact options and forwarding TBD
+pdal_translate_copc_command = get_pdal_command(
+    "translate",
+    [
+        "--writer=writers.copc",
+        "--writers.copc.forward=global_encoding,project_id,system_id,creation_doy,creation_year,scale,offset,vlr",
+        "--writers.copc.filesource_id=0",
+        "--writers.copc.extra_dims=all",
+        f"--writers.copc.a_srs=EPSG:{EpsgNumber.NZTM_2000}+{EpsgNumber.NZVD_2016}",
+    ],
+)
+
 pdal_info_command = get_pdal_command(
     "info",
     ["--metadata", "--summary", "--json"],
