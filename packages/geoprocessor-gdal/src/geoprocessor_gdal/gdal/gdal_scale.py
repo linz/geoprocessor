@@ -1,13 +1,23 @@
 from __future__ import annotations
 
+import os
+import tempfile
 from dataclasses import dataclass
+from functools import reduce
+from multiprocessing import Pool
 from typing import NamedTuple
 
 import numpy as np
 import numpy.typing as npt
+import tifffile
+from geoprocessor_gdal.gdal.gdal_bands import find_band, get_rgb_bands_args
+from geoprocessor_gdal.gdal.gdal_helper import gdal_info, run_gdal
+from geoprocessor_gdal.gdal.gdalinfo import GdalInfo
+from linz_logger import get_log
 
 UINT16_MAX = 65535
 UINT16_VALUE_COUNT = UINT16_MAX + 1
+SAMPLE_SIZE = 1024
 
 
 class BandRange(NamedTuple):
@@ -115,3 +125,82 @@ def scale_range_from_histograms(
     if per_band:
         return ScaleRange(ranges)
     return ScaleRange((BandRange(min(band_range.min for band_range in ranges), max(band_range.max for band_range in ranges)),))
+
+
+def get_sample_command(info: GdalInfo, size: int = SAMPLE_SIZE) -> list[str]:
+    """Get a `gdal_translate` command to read the colour and alpha bands at reduced resolution.
+
+    Args:
+        info: gdalinfo of the source file
+        size: maximum width and height of the sample
+
+    Returns:
+        a list of arguments to run `gdal_translate`
+    """
+    width, height = info["size"]
+    factor = min(1.0, size / max(width, height))
+    bands = info["bands"]
+    if band_gray := find_band(bands, "Gray"):
+        band_args = ["-b", str(band_gray["band"])]
+    else:
+        band_args = get_rgb_bands_args(bands)
+    if band_alpha := find_band(bands, "Alpha"):
+        band_args += ["-b", str(band_alpha["band"])]
+    return [
+        "gdal_translate",
+        "-q",
+        "-of",
+        "GTiff",
+        "-co",
+        "interleave=band",
+        "-outsize",
+        str(max(1, round(width * factor))),
+        str(max(1, round(height * factor))),
+        "-r",
+        "nearest",
+        *band_args,
+    ]
+
+
+def get_histograms(path: str, size: int = SAMPLE_SIZE) -> npt.NDArray[np.int64]:
+    """Get the colour band histograms of a TIFF read at reduced resolution.
+
+    Args:
+        path: path to the TIFF
+        size: maximum width and height of the sample
+
+    Returns:
+        value counts with shape (bands, 65536)
+    """
+    info = gdal_info(path, vsis3=True)
+    with tempfile.TemporaryDirectory() as tmp_path:
+        sample_path = os.path.join(tmp_path, "sample.tiff")
+        run_gdal(get_sample_command(info, size), input_file=path, output_file=sample_path, vsis3=True)
+        pixels = tifffile.imread(sample_path)
+    if pixels.dtype != np.uint16:
+        raise ValueError(f"Expected uint16 pixels, got {pixels.dtype}: {path}")
+    if pixels.ndim == 2:
+        pixels = pixels[np.newaxis]
+    alpha = None
+    if find_band(info["bands"], "Alpha"):
+        alpha = pixels[-1]
+        pixels = pixels[:-1]
+    nodata = info["bands"][0].get("noDataValue")
+    histograms = histogram_from_pixels(pixels, alpha=alpha, nodata=None if nodata is None else int(nodata))
+    get_log().debug("histograms_computed", path=path, pixelCount=int(histograms[0].sum()))
+    return histograms
+
+
+def get_dataset_histograms(files: list[str], concurrency: int = 1) -> npt.NDArray[np.int64]:
+    """Sum the colour band histograms of all TIFFs.
+
+    Args:
+        files: paths to the TIFFs
+        concurrency: number of TIFFs to read concurrently
+
+    Returns:
+        value counts with shape (bands, 65536)
+    """
+    with Pool(concurrency) as p:
+        histograms: npt.NDArray[np.int64] = reduce(np.add, p.imap_unordered(get_histograms, files))
+    return histograms

@@ -181,11 +181,12 @@ def get_srs(epsg: int = EpsgNumber.NZTM_2000) -> bytes:
     return gdalsrsinfo_result.stdout
 
 
-def gdal_info(path: str) -> GdalInfo:
+def gdal_info(path: str, vsis3: bool = False) -> GdalInfo:
     """run gdalinfo on the provided file
 
     Args:
         path: path to file to gdalinfo
+        vsis3: read an `s3` file through `/vsis3/` instead of downloading it
 
     Returns:
         GdalInfo output
@@ -194,7 +195,7 @@ def gdal_info(path: str) -> GdalInfo:
     gdalinfo_command = ["gdalinfo", "-json", "--config", "GDAL_PAM_ENABLED", "NO"]
 
     try:
-        gdalinfo_process = run_gdal(gdalinfo_command, path)
+        gdalinfo_process = run_gdal(gdalinfo_command, path, vsis3=vsis3)
         return cast(GdalInfo, json.loads(gdalinfo_process.stdout))
     except json.JSONDecodeError as e:
         get_log().error("load_gdalinfo_result_error", file=path, error=e)

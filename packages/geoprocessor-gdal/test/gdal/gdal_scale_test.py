@@ -1,11 +1,21 @@
+from typing import Any, Callable
+from unittest.mock import patch
+
 import numpy as np
+import numpy.typing as npt
+import tifffile
+from fake_gdalinfo import add_band, fake_gdalinfo
 from geoprocessor_gdal.gdal.gdal_scale import (
     BandRange,
     ScaleRange,
+    get_dataset_histograms,
+    get_histograms,
+    get_sample_command,
     histogram_from_pixels,
     percentile_from_histogram,
     scale_range_from_histograms,
 )
+from geoprocessor_gdal.gdal.gdalinfo import GdalInfo
 from pytest import raises
 from pytest_subtests import SubTests
 
@@ -87,3 +97,75 @@ def test_scale_range_from_histograms(subtests: SubTests) -> None:
         assert scale_range_from_histograms(histograms, 0, 100, per_band=True) == ScaleRange(
             (BandRange(100, 199), BandRange(150, 399), BandRange(50, 299))
         )
+
+
+def rgb_gdalinfo(width: int, height: int, alpha: bool = True, no_data_value: int | None = None) -> GdalInfo:
+    gdalinfo: GdalInfo = fake_gdalinfo()
+    gdalinfo["size"] = [width, height]
+    for color in ["Red", "Green", "Blue"] + (["Alpha"] if alpha else []):
+        add_band(gdalinfo, color, no_data_value)
+    return gdalinfo
+
+
+def test_get_sample_command(subtests: SubTests) -> None:
+    with subtests.test(msg="rgb with alpha is downsampled"):
+        command = get_sample_command(rgb_gdalinfo(4800, 7200), size=1024)
+        assert command[command.index("-outsize") + 1 : command.index("-outsize") + 3] == ["683", "1024"]
+        assert command[-8:] == ["-b", "1", "-b", "2", "-b", "3", "-b", "4"]
+
+    with subtests.test(msg="small tiff is not upsampled"):
+        command = get_sample_command(rgb_gdalinfo(500, 400, alpha=False), size=1024)
+        assert command[command.index("-outsize") + 1 : command.index("-outsize") + 3] == ["500", "400"]
+        assert command[-6:] == ["-b", "1", "-b", "2", "-b", "3"]
+
+    with subtests.test(msg="gray"):
+        gdalinfo = fake_gdalinfo()
+        gdalinfo["size"] = [100, 100]
+        add_band(gdalinfo, "Gray")
+        assert get_sample_command(gdalinfo)[-2:] == ["-b", "1"]
+
+
+def sample_writer(pixels: npt.NDArray[Any]) -> Callable[..., None]:
+    def write_sample(_command: list[str], **kwargs: Any) -> None:
+        tifffile.imwrite(kwargs["output_file"], pixels, photometric="minisblack", planarconfig="separate")
+
+    return write_sample
+
+
+def test_get_histograms_masks_alpha_and_nodata() -> None:
+    pixels = np.array(
+        [[[100, 200], [300, 7]], [[110, 210], [310, 7]], [[120, 220], [320, 7]], [[65535, 0], [65535, 65535]]],
+        dtype=np.uint16,
+    )
+
+    with (
+        patch("geoprocessor_gdal.gdal.gdal_scale.gdal_info", return_value=rgb_gdalinfo(2, 2, no_data_value=7)),
+        patch("geoprocessor_gdal.gdal.gdal_scale.run_gdal", side_effect=sample_writer(pixels)),
+    ):
+        histograms = get_histograms("s3://bucket/file.tiff")
+
+    assert histograms.shape == (3, 65536)
+    assert np.flatnonzero(histograms[0]).tolist() == [100, 300]
+    assert np.flatnonzero(histograms[2]).tolist() == [120, 320]
+
+
+def test_get_histograms_rejects_non_uint16() -> None:
+    with (
+        patch("geoprocessor_gdal.gdal.gdal_scale.gdal_info", return_value=rgb_gdalinfo(2, 2, alpha=False)),
+        patch("geoprocessor_gdal.gdal.gdal_scale.run_gdal", side_effect=sample_writer(np.ones((3, 2, 2), dtype=np.uint8))),
+    ):
+        with raises(ValueError, match="Expected uint16"):
+            get_histograms("file.tiff")
+
+
+def test_get_dataset_histograms_sums_files() -> None:
+    with (
+        patch("geoprocessor_gdal.gdal.gdal_scale.gdal_info", return_value=rgb_gdalinfo(2, 2, alpha=False)),
+        patch(
+            "geoprocessor_gdal.gdal.gdal_scale.run_gdal",
+            side_effect=sample_writer(np.full((3, 2, 2), 100, dtype=np.uint16)),
+        ),
+    ):
+        total = get_dataset_histograms(["a.tiff", "b.tiff", "c.tiff"], concurrency=2)
+
+    assert total[:, 100].tolist() == [12, 12, 12]
