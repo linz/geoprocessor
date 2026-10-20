@@ -18,15 +18,27 @@ from geoprocessor_gdal.gdal.gdal_presets import (
     CompressionPreset,
     HillshadePreset,
 )
+from geoprocessor_gdal.gdal.gdal_scale import ScaleRange
 from geoprocessor_gdal.gdal.gdalinfo import GdalInfo
 from linz_logger import get_log
 
 BIGTIFF_NO = "bigtiff=no"
 BIGTIFF_YES = "bigtiff=yes"
+COLOUR_BAND_COUNT = 3
+SCALE_RANGE_METADATA = "LINZ_SCALE_SOURCE_RANGE"
 
 
-def get_webp_rescaled(data_type: str) -> list[str]:
-    """Get GDAL args to scale 16-bit WEBP imagery down to 8-bit."""
+def get_webp_rescaled(data_type: str, scale_range: ScaleRange | None = None, band_count: int | None = None) -> list[str]:
+    """Get GDAL args to scale 16-bit WEBP imagery down to 8-bit.
+
+    Args:
+        data_type: the data type of the source
+        scale_range: source ranges of the colour bands. Defaults to the full range of `data_type`.
+        band_count: number of output bands, required with `scale_range`
+
+    Returns:
+        a list of arguments for `gdal_translate`
+    """
     src_max_by_type = {
         DataType.UINT16.value: "65535",
     }
@@ -35,18 +47,33 @@ def get_webp_rescaled(data_type: str) -> list[str]:
     if src_max is None:
         raise ValueError(f"Unsupported data type for WEBP scaling: {data_type}")
 
-    return [
-        "-scale",
-        "0",
-        src_max,
-        "0",
-        "255",
-        "-ot",
-        "Byte",
-    ]
+    if scale_range is None:
+        get_log().warning("webp_rescale_full_range", dataType=data_type)
+        return [
+            "-scale",
+            "0",
+            src_max,
+            "0",
+            "255",
+            "-ot",
+            "Byte",
+        ]
+
+    if band_count is None or band_count < COLOUR_BAND_COUNT:
+        raise ValueError(f"Expected at least {COLOUR_BAND_COUNT} output bands to apply a scale range, got {band_count}")
+
+    scale_args: list[str] = []
+    for band in range(1, band_count + 1):
+        # Bands after the colour bands (alpha) keep the full range
+        band_min, band_max = scale_range.for_band(band) if band <= COLOUR_BAND_COUNT else (0, src_max)
+        scale_args += [f"-scale_{band}", str(band_min), str(band_max), "0", "255"]
+
+    return scale_args + ["-ot", "Byte", "-mo", f"{SCALE_RANGE_METADATA}={scale_range}"]
 
 
-def get_gdal_command(preset: str, epsg: int, data_type: str) -> list[str]:
+def get_gdal_command(
+    preset: str, epsg: int, data_type: str, scale_range: ScaleRange | None = None, band_count: int | None = None
+) -> list[str]:
     """Build a `gdal_translate` command based on the `preset`, `epsg` code, with conversion to 8bits if required.
 
     Args:
@@ -54,6 +81,8 @@ def get_gdal_command(preset: str, epsg: int, data_type: str) -> list[str]:
         epsg: the EPSG code of the file
         data_type: the data type of the dataset. Defined in `gdal.gdal_presets.py`. Defaults to `uint8`.
                    RGBNIR_ZSTD `uint16` is written as a BIGTIFF as the tiffs may exceed 4GB.
+        scale_range: source ranges of the colour bands when rescaling to 8-bit
+        band_count: number of output bands, required with `scale_range`
 
     Returns:
         a list of arguments to run `gdal_translate`
@@ -62,6 +91,9 @@ def get_gdal_command(preset: str, epsg: int, data_type: str) -> list[str]:
 
     rescale_to_8bit = preset == CompressionPreset.WEBP.value and data_type != DataType.UINT8.value
     needs_bigtiff = data_type == DataType.UINT16.value and not rescale_to_8bit
+
+    if scale_range is not None and not rescale_to_8bit:
+        raise ValueError(f"A scale range is only supported when rescaling to 8-bit, preset: {preset}, data type: {data_type}")
 
     base_command = [
         "gdal_translate",
@@ -88,7 +120,7 @@ def get_gdal_command(preset: str, epsg: int, data_type: str) -> list[str]:
         raise ValueError(f"Unsupported compression preset: {preset}")
 
     if rescale_to_8bit:
-        preset_options = get_webp_rescaled(data_type) + preset_options
+        preset_options = get_webp_rescaled(data_type, scale_range, band_count) + preset_options
 
     return base_command + preset_options
 

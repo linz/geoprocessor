@@ -64,6 +64,21 @@ class ScaleRange:
     def __str__(self) -> str:
         return ";".join(f"{band_range.min},{band_range.max}" for band_range in self.ranges)
 
+    def for_band(self, band: int) -> BandRange:
+        """Get the range of a colour band.
+
+        Args:
+            band: band number, starting at 1
+
+        Returns:
+            the `BandRange` of the band
+
+        Examples:
+            >>> ScaleRange.parse("301,4012").for_band(3)
+            BandRange(min=301, max=4012)
+        """
+        return self.ranges[0] if len(self.ranges) == 1 else self.ranges[band - 1]
+
 
 def histogram_from_pixels(
     pixels: npt.NDArray[np.uint16], alpha: npt.NDArray[np.uint16] | None = None, nodata: int | None = None
