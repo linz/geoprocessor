@@ -79,6 +79,16 @@ near_infrared_aerial_imagery() {
   cmp --silent "${directory}/BR33_500_040034.tiff" "$(expected BR33_500_040034.tiff)"
 }
 
+compute_scale() {
+  run compute-scale --from-file ./tests/data/aerial_uint16.json --target /tmp/
+  [[ "$(cat "${directory}/scale-range")" == "1240,4648" ]]
+}
+
+aerial_imagery_uint16() {
+  run standardise-validate --from-file ./tests/data/aerial_uint16.json --preset webp --data-type uint16 --scale-range 1240,4648 --target-epsg 2193 --source-epsg 2193 --target /tmp/ --collection-id 123 --start-datetime 2023-01-01 --end-datetime 2023-01-01 --gsd 10 --create-footprints=true --current-datetime=2010-09-18T12:34:56Z
+  cmp --silent "${directory}/BG35_1000_4829.tiff" "$(expected BG35_1000_4829_uint16.tiff)"
+}
+
 cutline_aerial_imagery() {
   run standardise-validate --from-file ./tests/data/aerial.json --preset webp --data-type uint8 --target-epsg 2193 --source-epsg 2193 --target /tmp/cutline/ --collection-id 123 --start-datetime 2023-01-01 --end-datetime 2023-01-01 --cutline ./tests/data/cutline_aerial.fgb --gsd 10 --create-footprints=true --current-datetime=2010-09-18T12:34:56Z
   cmp --silent "${directory}/cutline/BG35_1000_4829.tiff" "$(expected BG35_1000_4829_cut.tiff)"
@@ -127,6 +137,8 @@ start "Hillshade Igor" hillshade_igor
 start "Historical Aerial Imagery" historical_aerial_imagery
 start "DEM ZSTD" dem_zstd
 start "Near Infrared Aerial Imagery" near_infrared_aerial_imagery
+start "Compute Scale" compute_scale
+start "Aerial Imagery (uint16)" aerial_imagery_uint16
 start "Cutline (Aerial Imagery)" cutline_aerial_imagery
 start "Footprint" footprint
 start "Footprint simplification" footprint_simplification
