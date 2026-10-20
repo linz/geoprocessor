@@ -17,11 +17,24 @@ from geoprocessor_common.datetimes import RFC_3339_DATETIME_FORMAT, format_rfc_3
 from geoprocessor_common.files.files_helper import SUFFIX_JSON, ContentType
 from geoprocessor_common.files.fs import exists, write
 from geoprocessor_gdal.gdal.gdal_helper import get_gdal_version, get_srs, get_vfs_path
+from geoprocessor_gdal.gdal.gdal_scale import ScaleRange
 from geoprocessor_gdal.standardising import StandardisingConfig, run_standardising
 from geoprocessor_gdal.tiff.file_tiff import FileTiff
 from geoprocessor_raster.create_item import create_item_from_tiff
 from geoprocessor_stac.json_codec import dict_to_json_bytes
 from linz_logger import get_log
+
+
+def str_to_scale_range(value: str) -> ScaleRange | None:
+    """Parse a scale range, blank for none.
+
+    Args:
+        value: `min,max` or `min,max;min,max;min,max`
+
+    Returns:
+        the `ScaleRange` or None
+    """
+    return ScaleRange.parse(value) if value.strip() else None
 
 
 def get_args_parser() -> ArgumentParser:
@@ -106,6 +119,17 @@ def get_args_parser() -> ArgumentParser:
         required=False,
     )
     parser.add_argument(
+        "--scale-range",
+        dest="scale_range",
+        type=str_to_scale_range,
+        nargs="?",
+        help=(
+            "Source range scaled to 8-bit for uint16 webp, 'min,max' or 'min,max;min,max;min,max' "
+            "(leave blank for the full range)"
+        ),
+        required=False,
+    )
+    parser.add_argument(
         "--force",
         dest="force",
         help="Regenerate the standardised TIFF and STAC files if already exist. Defaults to False.",
@@ -157,6 +181,7 @@ def main() -> None:
         cutline=arguments.cutline,
         data_type=arguments.data_type,
         scale_to_resolution=arguments.scale_to_resolution,
+        scale_range=arguments.scale_range,
         force=force,
     )
 
