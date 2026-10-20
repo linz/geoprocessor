@@ -16,6 +16,7 @@ dependencies = [
 
 [project.scripts]
 collection-from-items = "geoprocessor_raster.collection_from_items:main"
+compute-scale = "geoprocessor_raster.compute_scale:main"
 generate-hillshade = "geoprocessor_raster.generate_hillshade:main"
 standardise-validate = "geoprocessor_raster.standardise_validate:main"
 thumbnails = "geoprocessor_raster.thumbnails:main"
