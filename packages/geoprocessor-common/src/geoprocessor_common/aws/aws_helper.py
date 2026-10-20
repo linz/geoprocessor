@@ -124,6 +124,18 @@ def get_session_credentials(prefix: str, retry_count: int = 3) -> ReadOnlyCreden
     raise last_error
 
 
+def has_role(prefix: str) -> bool:
+    """Check whether an AWS role is configured for the `prefix`.
+
+    Args:
+        prefix: the `s3` object path (key)
+
+    Returns:
+        True if a role is configured
+    """
+    return _get_credential_config(prefix) is not None
+
+
 def _get_credential_config(prefix: str) -> CredentialSource | None:
     """Get the credential config (`bucket-config`) for the `prefix`.
 

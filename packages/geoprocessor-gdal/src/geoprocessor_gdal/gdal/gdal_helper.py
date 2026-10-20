@@ -6,7 +6,7 @@ from shutil import rmtree
 from tempfile import mkdtemp
 from typing import cast
 
-from geoprocessor_common.aws.aws_helper import is_s3
+from geoprocessor_common.aws.aws_helper import get_session_credentials, has_role, is_s3
 from geoprocessor_common.epsg import EpsgNumber
 from geoprocessor_common.files.files_helper import get_file_name_from_path
 from geoprocessor_common.files.fs import copy
@@ -46,10 +46,30 @@ def command_to_string(command: list[str]) -> str:
     return " ".join(command)
 
 
+def get_vsis3_env(path: str) -> dict[str, str]:
+    """Get the GDAL environment to read an `s3` path through `/vsis3/`.
+
+    Args:
+        path: the `s3` path
+
+    Returns:
+        environment variables for GDAL
+    """
+    env = {"GDAL_DISABLE_READDIR_ON_OPEN": "EMPTY_DIR"}
+    if has_role(path):
+        credentials = get_session_credentials(path)
+        env["AWS_ACCESS_KEY_ID"] = credentials.access_key
+        env["AWS_SECRET_ACCESS_KEY"] = credentials.secret_key
+        if credentials.token:
+            env["AWS_SESSION_TOKEN"] = credentials.token
+    return env
+
+
 def run_gdal(
     command: list[str],
     input_file: str | None = None,
     output_file: str | None = None,
+    vsis3: bool = False,
 ) -> "subprocess.CompletedProcess[bytes]":
     """Run the GDAL command. The permissions to access to the input file are applied to the gdal environment.
 
@@ -57,6 +77,7 @@ def run_gdal(
         command: each arguments of the GDAL command
         input_file: the input file path
         output_file: the output file path
+        vsis3: read an `s3` input file through `/vsis3/` instead of downloading it
 
     Raises:
         CalledProcessError is raised if something goes wrong during the execution of the command
@@ -69,7 +90,10 @@ def run_gdal(
     temp_dir = None
 
     if input_file:
-        if is_s3(input_file):
+        if is_s3(input_file) and vsis3:
+            gdal_env.update(get_vsis3_env(input_file))
+            input_file = get_vfs_path(input_file)
+        elif is_s3(input_file):
             # Download the file from S3
             temp_dir = mkdtemp()
             local_input_file = os.path.join(temp_dir, get_file_name_from_path(input_file))
