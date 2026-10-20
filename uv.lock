@@ -417,6 +417,7 @@ source = { editable = "packages/geoprocessor-gdal" }
 dependencies = [
     { name = "geoprocessor-common" },
     { name = "linz-logger" },
+    { name = "numpy" },
     { name = "shapely" },
     { name = "tifffile" },
 ]
@@ -432,6 +433,7 @@ dev = [
 requires-dist = [
     { name = "geoprocessor-common", editable = "packages/geoprocessor-common" },
     { name = "linz-logger", specifier = ">=0.13.1" },
+    { name = "numpy" },
     { name = "shapely", specifier = ">=2.0" },
     { name = "tifffile" },
 ]
