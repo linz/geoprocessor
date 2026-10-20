@@ -51,6 +51,7 @@ class StandardisingConfig:
     data_type: data type of the dataset. See `gdal.gdal_presets.py`.
     scale_to_resolution: scale TIFFs to the specified x,y resolution. Defaults to None = no scaling.
     scale_range: source ranges of the colour bands to scale 16-bit to 8-bit. Defaults to None = full range.
+    scale_gamma: gamma applied with `scale_range`. Defaults to 1 = linear.
     force: overwrite existing output file. Defaults to False.
     """
 
@@ -64,6 +65,7 @@ class StandardisingConfig:
     data_type: str
     scale_to_resolution: list[Decimal] | None = None
     scale_range: ScaleRange | None = None
+    scale_gamma: float = 1.0
     force: bool = False
 
     def __post_init__(self) -> None:
@@ -88,6 +90,11 @@ class StandardisingConfig:
                 f"A scale range is only supported with data type {DataType.UINT16.value} and the "
                 f"{CompressionPreset.WEBP.value} preset, got {self.data_type} and {self.gdal_preset}"
             )
+
+        if self.scale_gamma <= 0:
+            raise ValueError(f"Expected a positive scale gamma, got {self.scale_gamma}")
+        if self.scale_gamma != 1 and self.scale_range is None:
+            raise ValueError(f"A scale gamma requires a scale range, got gamma {self.scale_gamma}")
 
 
 def run_standardising(
@@ -353,6 +360,7 @@ def apply_gdal_transformation(input_file: str, config: StandardisingConfig, tmp_
         epsg=config.target_epsg,
         data_type=config.data_type,
         scale_range=config.scale_range,
+        gamma=config.scale_gamma,
         band_count=band_args.count("-b"),
     )
     command.extend(band_args)

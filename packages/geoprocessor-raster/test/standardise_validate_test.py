@@ -1,4 +1,6 @@
-from geoprocessor_raster.standardise_validate import get_args_parser, str_to_scale_range
+from argparse import ArgumentTypeError
+
+from geoprocessor_raster.standardise_validate import get_args_parser, str_to_gamma, str_to_scale_range
 from pytest import CaptureFixture, raises
 from pytest_subtests import SubTests
 
@@ -36,3 +38,24 @@ def test_scale_range_argument_rejects_invalid(capsys: CaptureFixture[str]) -> No
         get_args_parser().parse_args([*REQUIRED_ARGS, "--scale-range", "4012,301"])
 
     assert "--scale-range" in capsys.readouterr().err
+
+
+def test_str_to_gamma(subtests: SubTests) -> None:
+    for value, expected in [("", 1.0), (" ", 1.0), ("1", 1.0), ("1.3", 1.3)]:
+        with subtests.test(msg=repr(value)):
+            assert str_to_gamma(value) == expected
+
+    for value in ["0", "-1.3", "a"]:
+        with subtests.test(msg=value):
+            with raises(ArgumentTypeError):
+                str_to_gamma(value)
+
+
+def test_scale_gamma_argument(subtests: SubTests) -> None:
+    parser = get_args_parser()
+
+    with subtests.test(msg="not provided"):
+        assert parser.parse_args(REQUIRED_ARGS).scale_gamma == 1.0
+
+    with subtests.test(msg="provided"):
+        assert parser.parse_args([*REQUIRED_ARGS, "--scale-gamma", "1.3"]).scale_gamma == 1.3

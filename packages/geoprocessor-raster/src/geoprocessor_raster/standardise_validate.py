@@ -1,6 +1,6 @@
 import os
 import sys
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentTypeError
 from datetime import datetime, timezone
 
 from geoprocessor_common.cli.cli_helper import (
@@ -35,6 +35,26 @@ def str_to_scale_range(value: str) -> ScaleRange | None:
         the `ScaleRange` or None
     """
     return ScaleRange.parse(value) if value.strip() else None
+
+
+def str_to_gamma(value: str) -> float:
+    """Parse a positive gamma, blank for linear.
+
+    Args:
+        value: the gamma, e.g. `1.3`
+
+    Returns:
+        the gamma
+    """
+    if not value.strip():
+        return 1.0
+    try:
+        gamma = float(value)
+    except ValueError as e:
+        raise ArgumentTypeError(f"not a number: {value}") from e
+    if gamma <= 0:
+        raise ArgumentTypeError(f"not positive: {value}")
+    return gamma
 
 
 def get_args_parser() -> ArgumentParser:
@@ -130,6 +150,14 @@ def get_args_parser() -> ArgumentParser:
         required=False,
     )
     parser.add_argument(
+        "--scale-gamma",
+        dest="scale_gamma",
+        type=str_to_gamma,
+        default=1.0,
+        help="Gamma applied with --scale-range, e.g. 1.3. Defaults to 1 (linear).",
+        required=False,
+    )
+    parser.add_argument(
         "--force",
         dest="force",
         help="Regenerate the standardised TIFF and STAC files if already exist. Defaults to False.",
@@ -182,6 +210,7 @@ def main() -> None:
         data_type=arguments.data_type,
         scale_to_resolution=arguments.scale_to_resolution,
         scale_range=arguments.scale_range,
+        scale_gamma=arguments.scale_gamma,
         force=force,
     )
 
