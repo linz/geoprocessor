@@ -11,6 +11,7 @@ from geoprocessor_stac.json_codec import dict_to_json_bytes
 from linz_logger import get_log
 
 SCALE_RANGE_FILE_NAME = "scale-range"
+BAND_NAMES = {1: ("gray",), 3: ("red", "green", "blue")}
 
 
 def str_to_percentile(value: str) -> float:
@@ -103,11 +104,12 @@ def main(args: list[str] | None = None) -> None:
                 "perBand": arguments.per_band,
                 "bands": [
                     {
+                        "name": name,
                         "low": percentile_from_histogram(histogram, arguments.low_percentile),
                         "high": percentile_from_histogram(histogram, arguments.high_percentile),
                         "pixelCount": int(histogram.sum()),
                     }
-                    for histogram in histograms
+                    for name, histogram in zip(BAND_NAMES[len(histograms)], histograms, strict=True)
                 ],
                 "fileCount": len(files),
             }

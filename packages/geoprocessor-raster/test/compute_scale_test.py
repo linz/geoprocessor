@@ -34,7 +34,7 @@ def test_should_write_scale_range(tmp_path: Path) -> None:
     get_histograms.assert_called_once_with(["a.tiff", "b.tif"], 1)
     assert (tmp_path / "scale-range").read_text() == "50,399"
     details = json.loads((tmp_path / "scale-range.json").read_text())
-    assert details["bands"][1] == {"low": 150, "high": 399, "pixelCount": 250}
+    assert details["bands"][1] == {"name": "green", "low": 150, "high": 399, "pixelCount": 250}
     assert details["fileCount"] == 2
 
 
