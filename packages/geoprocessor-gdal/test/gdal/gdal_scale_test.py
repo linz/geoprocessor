@@ -8,6 +8,7 @@ from fake_gdalinfo import add_band, fake_gdalinfo
 from geoprocessor_gdal.gdal.gdal_scale import (
     BandRange,
     ScaleRange,
+    get_clip_percentiles,
     get_dataset_histograms,
     get_histograms,
     get_sample_command,
@@ -169,3 +170,15 @@ def test_get_dataset_histograms_sums_files() -> None:
         total = get_dataset_histograms(["a.tiff", "b.tiff", "c.tiff"], concurrency=2)
 
     assert total[:, 100].tolist() == [12, 12, 12]
+
+
+def test_get_clip_percentiles() -> None:
+    histograms = np.zeros((3, 65536), dtype=np.int64)
+    histograms[0, 100:200] = 1
+    histograms[1, 150:400] = 1
+    histograms[2, 50:300] = 1
+
+    assert get_clip_percentiles(histograms, ("red", "green", "blue"), [100, 0], max) == [
+        {"percentile": 0, "value": 150, "bands": {"red": 100, "green": 150, "blue": 50}},
+        {"percentile": 100, "value": 399, "bands": {"red": 199, "green": 399, "blue": 299}},
+    ]

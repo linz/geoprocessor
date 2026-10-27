@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import os
 import tempfile
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from functools import reduce
 from multiprocessing import Pool
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 import numpy as np
 import numpy.typing as npt
@@ -140,6 +141,32 @@ def scale_range_from_histograms(
     if per_band:
         return ScaleRange(ranges)
     return ScaleRange((BandRange(min(band_range.min for band_range in ranges), max(band_range.max for band_range in ranges)),))
+
+
+def get_clip_percentiles(
+    histograms: npt.NDArray[np.int64],
+    names: Sequence[str],
+    percentiles: Iterable[float],
+    combine: Callable[[Iterable[int]], int],
+) -> list[dict[str, Any]]:
+    """Get the value at each percentile per band and combined for all bands.
+
+    Args:
+        histograms: value counts with shape (bands, 65536)
+        names: band names
+        percentiles: percentiles between 0 and 100
+        combine: combines the band values into one value, `min` for low and `max` for high percentiles
+
+    Returns:
+        one entry per percentile with the combined value and the value of each band
+    """
+    entries = []
+    for percentile in sorted(percentiles):
+        values = {
+            name: percentile_from_histogram(histogram, percentile) for name, histogram in zip(names, histograms, strict=True)
+        }
+        entries.append({"percentile": percentile, "value": combine(values.values()), "bands": values})
+    return entries
 
 
 def get_sample_command(info: GdalInfo, size: int = SAMPLE_SIZE) -> list[str]:

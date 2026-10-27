@@ -6,12 +6,19 @@ from geoprocessor_common.cli.cli_helper import InputParameterError, load_input_f
 from geoprocessor_common.files.files_helper import ContentType, is_tiff
 from geoprocessor_common.files.fs import write
 from geoprocessor_common.log.time_helper import time_in_ms
-from geoprocessor_gdal.gdal.gdal_scale import get_dataset_histograms, percentile_from_histogram, scale_range_from_histograms
+from geoprocessor_gdal.gdal.gdal_scale import (
+    get_clip_percentiles,
+    get_dataset_histograms,
+    percentile_from_histogram,
+    scale_range_from_histograms,
+)
 from geoprocessor_stac.json_codec import dict_to_json_bytes
 from linz_logger import get_log
 
 SCALE_RANGE_FILE_NAME = "scale-range"
 BAND_NAMES = {1: ("gray",), 3: ("red", "green", "blue")}
+# Clip percentiles at each end: 0 to 1 in 0.1 steps, then up to 5 in 0.5 steps
+CLIP_PERCENTILES = tuple(step / 10 for step in range(10)) + tuple(step / 2 for step in range(2, 11))
 
 
 def str_to_percentile(value: str) -> float:
@@ -92,6 +99,7 @@ def main(args: list[str] | None = None) -> None:
     scale_range = scale_range_from_histograms(
         histograms, arguments.low_percentile, arguments.high_percentile, arguments.per_band
     )
+    band_names = BAND_NAMES[len(histograms)]
 
     write(os.path.join(arguments.target, SCALE_RANGE_FILE_NAME), str(scale_range).encode("utf-8"))
     write(
@@ -109,8 +117,17 @@ def main(args: list[str] | None = None) -> None:
                         "high": percentile_from_histogram(histogram, arguments.high_percentile),
                         "pixelCount": int(histogram.sum()),
                     }
-                    for name, histogram in zip(BAND_NAMES[len(histograms)], histograms, strict=True)
+                    for name, histogram in zip(band_names, histograms, strict=True)
                 ],
+                "clipPercentiles": {
+                    "low": get_clip_percentiles(histograms, band_names, {*CLIP_PERCENTILES, arguments.low_percentile}, min),
+                    "high": get_clip_percentiles(
+                        histograms,
+                        band_names,
+                        {*(round(100 - p, 1) for p in CLIP_PERCENTILES), arguments.high_percentile},
+                        max,
+                    ),
+                },
                 "fileCount": len(files),
             }
         ),
