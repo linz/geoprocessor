@@ -54,15 +54,15 @@ def get_args_parser() -> ArgumentParser:
         "--low-percentile",
         dest="low_percentile",
         type=str_to_percentile,
-        default=1.0,
-        help="Percentile scaled to 0. Defaults to 1.",
+        default=0.5,
+        help="Percentile scaled to 0. Defaults to 0.5.",
     )
     parser.add_argument(
         "--high-percentile",
         dest="high_percentile",
         type=str_to_percentile,
-        default=99.0,
-        help="Percentile scaled to 255. Defaults to 99.",
+        default=99.5,
+        help="Percentile scaled to 255. Defaults to 99.5.",
     )
     parser.add_argument(
         "--per-band",

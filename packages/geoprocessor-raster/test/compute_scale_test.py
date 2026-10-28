@@ -92,7 +92,7 @@ def test_should_write_per_band_scale_range(tmp_path: Path) -> None:
     with patch("geoprocessor_raster.compute_scale.get_dataset_histograms", return_value=histograms):
         main(["--from-file", str(from_file), "--target", str(tmp_path), "--per-band", "true", "--low-percentile", "0"])
 
-    assert (tmp_path / "scale-range").read_text() == "100,198;100,198;100,198"
+    assert (tmp_path / "scale-range").read_text() == "100,199;100,199;100,199"
 
 
 def test_should_add_requested_percentiles_to_clip_percentiles(tmp_path: Path) -> None:

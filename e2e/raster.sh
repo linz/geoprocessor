@@ -81,7 +81,7 @@ near_infrared_aerial_imagery() {
 
 compute_scale() {
   run compute-scale --from-file ./tests/data/aerial_uint16.json --target /tmp/
-  [[ "$(cat "${directory}/scale-range")" == "1240,4648" ]]
+  [[ "$(cat "${directory}/scale-range")" == "1176,4824" ]]
 }
 
 aerial_imagery_uint16() {
