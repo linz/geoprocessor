@@ -84,6 +84,23 @@ compute_scale() {
   [[ "$(cat "${directory}/scale-range")" == "1176,4824" ]]
 }
 
+compute_scale_multiple_files() {
+  run compute-scale --from-file ./tests/data/scale_uint16.json --target /tmp/
+  cmp --silent <(jq -S . "${directory}/scale-range.json") <(jq -S . "$(expected scale-range.json)")
+}
+
+compute_scale_resume() {
+  run compute-scale --from-file ./tests/data/scale_uint16_partial.json --target /tmp/
+  run compute-scale --from-file ./tests/data/scale_uint16.json --target /tmp/ 2>&1 | tee "${directory}/resume.log"
+  grep --quiet '"savedCount": 2' "${directory}/resume.log"
+  cmp --silent <(jq -S . "${directory}/scale-range.json") <(jq -S . "$(expected scale-range.json)")
+}
+
+compute_scale_per_band() {
+  run compute-scale --from-file ./tests/data/scale_uint16.json --target /tmp/ --per-band true --low-percentile 1 --high-percentile 99
+  [[ "$(cat "${directory}/scale-range")" == "1688,13870;1784,14370;1864,13465" ]]
+}
+
 aerial_imagery_uint16() {
   run standardise-validate --from-file ./tests/data/aerial_uint16.json --preset webp --data-type uint16 --scale-range 1240,4648 --target-epsg 2193 --source-epsg 2193 --target /tmp/ --collection-id 123 --start-datetime 2023-01-01 --end-datetime 2023-01-01 --gsd 10 --create-footprints=true --current-datetime=2010-09-18T12:34:56Z
   cmp --silent "${directory}/BG35_1000_4829.tiff" "$(expected BG35_1000_4829_uint16.tiff)"
@@ -143,6 +160,9 @@ start "Historical Aerial Imagery" historical_aerial_imagery
 start "DEM ZSTD" dem_zstd
 start "Near Infrared Aerial Imagery" near_infrared_aerial_imagery
 start "Compute Scale" compute_scale
+start "Compute Scale (multiple files)" compute_scale_multiple_files
+start "Compute Scale (resume)" compute_scale_resume
+start "Compute Scale (per band)" compute_scale_per_band
 start "Aerial Imagery (uint16)" aerial_imagery_uint16
 start "Aerial Imagery (uint16, gamma)" aerial_imagery_uint16_gamma
 start "Cutline (Aerial Imagery)" cutline_aerial_imagery
