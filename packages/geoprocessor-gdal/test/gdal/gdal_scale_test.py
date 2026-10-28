@@ -10,9 +10,12 @@ from geoprocessor_gdal.gdal.gdal_scale import (
     ScaleRange,
     get_clip_percentiles,
     get_dataset_histograms,
+    get_histogram_file_name,
     get_histograms,
     get_sample_command,
     histogram_from_pixels,
+    histograms_from_bytes,
+    histograms_to_bytes,
     percentile_from_histogram,
     scale_range_from_histograms,
     sum_histograms,
@@ -177,6 +180,37 @@ def test_get_dataset_histograms_sums_files() -> None:
         total = get_dataset_histograms(["a.tiff", "b.tiff", "c.tiff"], concurrency=2)
 
     assert total[:, 100].tolist() == [12, 12, 12]
+
+
+def test_histogram_file_round_trip() -> None:
+    histograms = np.zeros((3, 65536), dtype=np.int64)
+    histograms[1, 100:200] = 5
+
+    data = histograms_to_bytes("s3://bucket/a.tiff", histograms)
+
+    assert len(data) < 10_000
+    assert np.array_equal(histograms_from_bytes(data, "s3://bucket/a.tiff"), histograms)
+
+
+def test_histograms_from_bytes_rejects_other_source() -> None:
+    data = histograms_to_bytes("s3://bucket/a.tiff", np.zeros((1, 65536), dtype=np.int64))
+
+    with raises(ValueError, match="Expected the histogram file of s3://bucket/b.tiff, got s3://bucket/a.tiff"):
+        histograms_from_bytes(data, "s3://bucket/b.tiff")
+
+
+def test_get_histogram_file_name(subtests: SubTests) -> None:
+    with subtests.test(msg="starts with the source file name"):
+        assert get_histogram_file_name("s3://bucket/a/CA09_1000_0808.tif").startswith("CA09_1000_0808.tif.")
+
+    with subtests.test(msg="unique per full path"):
+        assert get_histogram_file_name("s3://bucket/a/file.tiff") != get_histogram_file_name("s3://bucket/b/file.tiff")
+
+    with subtests.test(msg="replaces characters unsafe in s3 keys"):
+        assert get_histogram_file_name("s3://bucket/a?b é.tif").startswith("a_b__.tif.")
+
+    with subtests.test(msg="fits a local file name"):
+        assert len(get_histogram_file_name(f"s3://bucket/{'a' * 300}.tiff").encode()) <= 255
 
 
 def test_sum_histograms(subtests: SubTests) -> None:

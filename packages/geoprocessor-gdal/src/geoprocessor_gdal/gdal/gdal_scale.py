@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import hashlib
+import io
+import json
 import os
+import re
 import tempfile
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
@@ -20,6 +24,10 @@ from linz_logger import get_log
 UINT16_MAX = 65535
 UINT16_VALUE_COUNT = UINT16_MAX + 1
 SAMPLE_SIZE = 1024
+BAND_NAMES = {1: ("gray",), 3: ("red", "green", "blue")}
+HISTOGRAM_FILE_VERSION = 1
+HISTOGRAM_FILE_SUFFIX = ".npz"
+HISTOGRAM_FILE_HASH_LENGTH = 12
 
 
 class BandRange(NamedTuple):
@@ -235,6 +243,67 @@ def get_histograms(path: str, size: int = SAMPLE_SIZE) -> npt.NDArray[np.int64]:
     nodata = info["bands"][0].get("noDataValue")
     histograms = histogram_from_pixels(pixels, alpha=alpha, nodata=None if nodata is None else int(nodata))
     get_log().debug("histograms_computed", path=path, pixelCount=int(histograms[0].sum()))
+    return histograms
+
+
+def get_histogram_file_name(source: str) -> str:
+    """Get the name of the histogram file of a source: its file name and a hash of its full path.
+
+    Args:
+        source: path to the source TIFF
+
+    Returns:
+        the histogram file name
+
+    Examples:
+        >>> get_histogram_file_name("s3://bucket/BQ25_1000_0101.tiff")
+        'BQ25_1000_0101.tiff.5a82fdd96e42.npz'
+    """
+    digest = hashlib.sha256(source.encode()).hexdigest()[:HISTOGRAM_FILE_HASH_LENGTH]
+    # Safe in s3 keys and within the 255 byte limit of local file names
+    name = re.sub(r"[^A-Za-z0-9._-]", "_", os.path.basename(source))[:200]
+    return f"{name}.{digest}{HISTOGRAM_FILE_SUFFIX}"
+
+
+def histograms_to_bytes(source: str, histograms: npt.NDArray[np.int64], sample_size: int = SAMPLE_SIZE) -> bytes:
+    """Serialise the histograms of a source to a compressed `.npz` file.
+
+    Args:
+        source: path to the source TIFF
+        histograms: value counts with shape (bands, 65536)
+        sample_size: maximum width and height the source was sampled at
+
+    Returns:
+        the `.npz` file content
+    """
+    metadata = {
+        "version": HISTOGRAM_FILE_VERSION,
+        "source": source,
+        "bands": BAND_NAMES[len(histograms)],
+        "sampleSize": sample_size,
+    }
+    buffer = io.BytesIO()
+    np.savez_compressed(buffer, histograms=histograms, metadata=np.array(json.dumps(metadata)))
+    return buffer.getvalue()
+
+
+def histograms_from_bytes(data: bytes, source: str) -> npt.NDArray[np.int64]:
+    """Read the histograms of a source from a `.npz` file.
+
+    Args:
+        data: the `.npz` file content
+        source: path to the source TIFF the file must belong to
+
+    Returns:
+        value counts with shape (bands, 65536)
+    """
+    with np.load(io.BytesIO(data), allow_pickle=False) as npz:
+        metadata = json.loads(str(npz["metadata"]))
+        histograms: npt.NDArray[np.int64] = npz["histograms"]
+    if metadata["version"] != HISTOGRAM_FILE_VERSION:
+        raise ValueError(f"Expected histogram file version {HISTOGRAM_FILE_VERSION}, got {metadata['version']}: {source}")
+    if metadata["source"] != source:
+        raise ValueError(f"Expected the histogram file of {source}, got {metadata['source']}")
     return histograms
 
 
