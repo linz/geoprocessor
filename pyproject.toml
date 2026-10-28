@@ -50,6 +50,8 @@ pythonpath = [
 ]
 
 [tool.uv]
+# Minimum only: Dependabot runs its own bundled uv and refuses exact pins; CI pins uv in format-tests.yml
+required-version = ">=0.13.5"
 package = false
 default-groups = "all"
 
