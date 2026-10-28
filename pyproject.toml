@@ -13,7 +13,7 @@ authors = [
     { name = "Sheetal Poudel", email = "spoudel@linz.govt.nz" },
     { name = "Tobias Schmidt", email = "tschmidt@linz.govt.nz" },
 ]
-requires-python = "~=3.12.3"
+requires-python = "~=3.14.4"
 dependencies = [
     "boto3",
     "geoprocessor-pointcloud",

@@ -6,7 +6,7 @@ build-backend = "uv_build"
 name = "geoprocessor-common"
 version = "0.2.0"
 description = "Shared utilities for LINZ geoprocessor"
-requires-python = "~=3.12.3"
+requires-python = "~=3.14.4"
 dependencies = [
     "boto3",
     "linz-logger>=0.13.1",
