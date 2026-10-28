@@ -11,7 +11,7 @@ dependencies = [
     "geoprocessor-common",
     "geoprocessor-gdal",
     "geoprocessor-stac",
-    "linz-logger",
+    "linz-logger>=0.13.1",
 ]
 
 [project.scripts]
