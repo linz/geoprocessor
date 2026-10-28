@@ -27,13 +27,13 @@ from pytest import raises
 from pytest_subtests import SubTests
 
 
-def test_scale_range_round_trip(subtests: SubTests) -> None:
+def test_rescale_range_round_trip(subtests: SubTests) -> None:
     for value in ["301,4012", "301,4012;295,3980;310,4100", "0,65535"]:
         with subtests.test(msg=value):
             assert str(RescaleRange.parse(value)) == value
 
 
-def test_scale_range_rejects_invalid(subtests: SubTests) -> None:
+def test_rescale_range_rejects_invalid(subtests: SubTests) -> None:
     for value in ["", "301", "301,4012,5000", "a,b", "4012,301", "301,301", "-1,4012", "301,65536", "1,2;3,4"]:
         with subtests.test(msg=value):
             with raises(ValueError):

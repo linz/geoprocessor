@@ -102,12 +102,12 @@ compute_scale_per_band() {
 }
 
 aerial_imagery_uint16() {
-  run standardise-validate --from-file ./tests/data/aerial_uint16.json --preset webp --data-type uint16 --scale-range 1240,4648 --target-epsg 2193 --source-epsg 2193 --target /tmp/ --collection-id 123 --start-datetime 2023-01-01 --end-datetime 2023-01-01 --gsd 10 --create-footprints=true --current-datetime=2010-09-18T12:34:56Z
+  run standardise-validate --from-file ./tests/data/aerial_uint16.json --preset webp --data-type uint16 --rescale-range 1240,4648 --target-epsg 2193 --source-epsg 2193 --target /tmp/ --collection-id 123 --start-datetime 2023-01-01 --end-datetime 2023-01-01 --gsd 10 --create-footprints=true --current-datetime=2010-09-18T12:34:56Z
   cmp --silent "${directory}/BG35_1000_4829.tiff" "$(expected BG35_1000_4829_uint16.tiff)"
 }
 
 aerial_imagery_uint16_gamma() {
-  run standardise-validate --from-file ./tests/data/aerial_uint16.json --preset webp --data-type uint16 --scale-range 1240,4648 --scale-gamma 1.3 --target-epsg 2193 --source-epsg 2193 --target /tmp/ --collection-id 123 --start-datetime 2023-01-01 --end-datetime 2023-01-01 --gsd 10 --create-footprints=true --current-datetime=2010-09-18T12:34:56Z
+  run standardise-validate --from-file ./tests/data/aerial_uint16.json --preset webp --data-type uint16 --rescale-range 1240,4648 --rescale-gamma 1.3 --target-epsg 2193 --source-epsg 2193 --target /tmp/ --collection-id 123 --start-datetime 2023-01-01 --end-datetime 2023-01-01 --gsd 10 --create-footprints=true --current-datetime=2010-09-18T12:34:56Z
   cmp --silent "${directory}/BG35_1000_4829.tiff" "$(expected BG35_1000_4829_uint16_gamma.tiff)"
 }
 

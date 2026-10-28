@@ -136,7 +136,7 @@ def main(args: list[str] | None = None) -> None:
     max_download_bytes = None if arguments.max_download_gb is None else int(arguments.max_download_gb * 1e9)
     histograms = get_dataset_histograms(files, histogram_dir, arguments.concurrency, arguments.force, max_download_bytes)
     try:
-        scale_range = rescale_range_from_histograms(
+        rescale_range = rescale_range_from_histograms(
             histograms, arguments.low_percentile, arguments.high_percentile, arguments.per_band
         )
     except ValueError as e:
@@ -144,12 +144,12 @@ def main(args: list[str] | None = None) -> None:
         sys.exit(1)
     band_names = BAND_NAMES[len(histograms)]
 
-    write(os.path.join(arguments.target, SCALE_RANGE_FILE_NAME), str(scale_range).encode("utf-8"))
+    write(os.path.join(arguments.target, SCALE_RANGE_FILE_NAME), str(rescale_range).encode("utf-8"))
     write(
         os.path.join(arguments.target, f"{SCALE_RANGE_FILE_NAME}.json"),
         dict_to_json_bytes(
             {
-                "scaleRange": str(scale_range),
+                "scaleRange": str(rescale_range),
                 "lowPercentile": arguments.low_percentile,
                 "highPercentile": arguments.high_percentile,
                 "perBand": arguments.per_band,
@@ -177,7 +177,9 @@ def main(args: list[str] | None = None) -> None:
         content_type=ContentType.JSON.value,
     )
 
-    get_log().info("compute_scale_end", scaleRange=str(scale_range), fileCount=len(files), duration=time_in_ms() - start_time)
+    get_log().info(
+        "compute_scale_end", scaleRange=str(rescale_range), fileCount=len(files), duration=time_in_ms() - start_time
+    )
 
 
 if __name__ == "__main__":

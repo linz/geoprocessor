@@ -13,7 +13,7 @@ from pytest_subtests import SubTests
 
 
 def standardising_config(
-    preset: str, data_type: str, scale_range: RescaleRange | None = None, scale_gamma: float = 1.0
+    preset: str, data_type: str, rescale_range: RescaleRange | None = None, rescale_gamma: float = 1.0
 ) -> StandardisingConfig:
     return StandardisingConfig(
         gdal_preset=preset,
@@ -24,8 +24,8 @@ def standardising_config(
         simplify_footprints=False,
         cutline=None,
         data_type=data_type,
-        scale_range=scale_range,
-        scale_gamma=scale_gamma,
+        rescale_range=rescale_range,
+        rescale_gamma=rescale_gamma,
     )
 
 
@@ -73,26 +73,26 @@ def test_config_rejects_unknown_data_type() -> None:
         standardising_config(CompressionPreset.RGBNIR_ZSTD.value, "int16")
 
 
-def test_config_allows_scale_range_for_uint16_webp() -> None:
+def test_config_allows_rescale_range_for_uint16_webp() -> None:
     config = standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, RescaleRange.parse("301,4012"))
 
-    assert str(config.scale_range) == "301,4012"
+    assert str(config.rescale_range) == "301,4012"
 
 
 def test_config_warns_about_full_range_uint16_webp(subtests: SubTests, capsys: CaptureFixture[str]) -> None:
-    with subtests.test(msg="without a scale range"):
+    with subtests.test(msg="without a rescale range"):
         standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value)
         assert "webp_rescale_full_range" in capsys.readouterr().out
 
-    with subtests.test(msg="with a scale range"):
+    with subtests.test(msg="with a rescale range"):
         standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, RescaleRange.parse("301,4012"))
         assert "webp_rescale_full_range" not in capsys.readouterr().out
 
 
-def test_config_rejects_scale_range_without_uint16_webp(subtests: SubTests) -> None:
+def test_config_rejects_rescale_range_without_uint16_webp(subtests: SubTests) -> None:
     for preset, data_type in [(CompressionPreset.WEBP, DataType.UINT8), (CompressionPreset.RGBNIR_ZSTD, DataType.UINT16)]:
         with subtests.test(msg=f"{preset.value} {data_type.value}"):
-            with raises(ValueError, match="scale range is only supported"):
+            with raises(ValueError, match="rescale range is only supported"):
                 standardising_config(preset.value, data_type.value, RescaleRange.parse("301,4012"))
 
 
@@ -114,26 +114,26 @@ def test_apply_gdal_transformation_scales_each_output_band(tmp_path: Path) -> No
     assert "LINZ_SCALE_SOURCE_RANGE=301,4012" in command
 
 
-def test_config_allows_scale_gamma_with_scale_range() -> None:
+def test_config_allows_rescale_gamma_with_rescale_range() -> None:
     config = standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, RescaleRange.parse("301,4012"), 1.3)
 
-    assert config.scale_gamma == 1.3
+    assert config.rescale_gamma == 1.3
 
 
-def test_config_rejects_invalid_scale_gamma(subtests: SubTests) -> None:
-    with subtests.test(msg="without scale range"):
-        with raises(ValueError, match="scale gamma requires a scale range"):
-            standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, scale_gamma=1.3)
+def test_config_rejects_invalid_rescale_gamma(subtests: SubTests) -> None:
+    with subtests.test(msg="without rescale range"):
+        with raises(ValueError, match="rescale gamma requires a rescale range"):
+            standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, rescale_gamma=1.3)
 
     for gamma in [0, -1.3]:
         with subtests.test(msg=f"gamma {gamma}"):
-            with raises(ValueError, match="positive scale gamma"):
+            with raises(ValueError, match="positive rescale gamma"):
                 standardising_config(
                     CompressionPreset.WEBP.value, DataType.UINT16.value, RescaleRange.parse("301,4012"), gamma
                 )
 
 
-def test_apply_gdal_transformation_applies_scale_gamma(tmp_path: Path) -> None:
+def test_apply_gdal_transformation_applies_rescale_gamma(tmp_path: Path) -> None:
     config = standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, RescaleRange.parse("301,4012"), 1.3)
 
     with (

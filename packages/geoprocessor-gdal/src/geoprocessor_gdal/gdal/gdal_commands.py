@@ -30,15 +30,15 @@ SCALE_GAMMA_METADATA = "LINZ_SCALE_GAMMA"
 
 
 def get_webp_rescaled(
-    data_type: str, scale_range: RescaleRange | None = None, band_count: int | None = None, gamma: float = 1.0
+    data_type: str, rescale_range: RescaleRange | None = None, band_count: int | None = None, rescale_gamma: float = 1.0
 ) -> list[str]:
     """Get GDAL args to scale 16-bit WEBP imagery down to 8-bit.
 
     Args:
         data_type: the data type of the source
-        scale_range: source ranges of the colour bands. Defaults to the full range of `data_type`.
-        band_count: number of output bands, required with `scale_range`
-        gamma: gamma applied to the colour bands with `scale_range`, 1 is linear
+        rescale_range: source ranges of the colour bands. Defaults to the full range of `data_type`.
+        band_count: number of output bands, required with `rescale_range`
+        rescale_gamma: gamma applied to the colour bands with `rescale_range`, 1 is linear
 
     Returns:
         a list of arguments for `gdal_translate`
@@ -51,9 +51,9 @@ def get_webp_rescaled(
     if src_max is None:
         raise ValueError(f"Unsupported data type for WEBP scaling: {data_type}")
 
-    if scale_range is None:
-        if gamma != 1:
-            raise ValueError(f"A gamma requires a scale range, got gamma {gamma}")
+    if rescale_range is None:
+        if rescale_gamma != 1:
+            raise ValueError(f"A gamma requires a rescale range, got gamma {rescale_gamma}")
         return [
             "-scale",
             "0",
@@ -69,9 +69,9 @@ def get_webp_rescaled(
         ]
 
     if band_count is None or band_count < COLOUR_BAND_COUNT:
-        raise ValueError(f"Expected at least {COLOUR_BAND_COUNT} output bands to apply a scale range, got {band_count}")
-    if gamma <= 0:
-        raise ValueError(f"Expected a positive gamma, got {gamma}")
+        raise ValueError(f"Expected at least {COLOUR_BAND_COUNT} output bands to apply a rescale range, got {band_count}")
+    if rescale_gamma <= 0:
+        raise ValueError(f"Expected a positive gamma, got {rescale_gamma}")
 
     scale_args: list[str] = []
     for band in range(1, band_count + 1):
@@ -79,18 +79,18 @@ def get_webp_rescaled(
             # Bands after the colour bands (alpha) keep the full range
             scale_args += [f"-scale_{band}", "0", src_max, "0", "255"]
             continue
-        band_range = scale_range.for_band(band)
+        band_range = rescale_range.for_band(band)
         scale_args += [f"-scale_{band}", str(band_range.min), str(band_range.max), "0", "255"]
-        if gamma != 1:
-            scale_args += [f"-exponent_{band}", f"{1 / gamma:.6g}"]
+        if rescale_gamma != 1:
+            scale_args += [f"-exponent_{band}", f"{1 / rescale_gamma:.6g}"]
 
     return scale_args + [
         "-ot",
         "Byte",
         "-mo",
-        f"{SCALE_RANGE_METADATA}={scale_range}",
+        f"{SCALE_RANGE_METADATA}={rescale_range}",
         "-mo",
-        f"{SCALE_GAMMA_METADATA}={gamma:g}",
+        f"{SCALE_GAMMA_METADATA}={rescale_gamma:g}",
     ]
 
 
@@ -99,9 +99,9 @@ def get_gdal_command(
     epsg: int,
     data_type: str,
     *,
-    scale_range: RescaleRange | None = None,
+    rescale_range: RescaleRange | None = None,
     band_count: int | None = None,
-    gamma: float = 1.0,
+    rescale_gamma: float = 1.0,
 ) -> list[str]:
     """Build a `gdal_translate` command based on the `preset`, `epsg` code, with conversion to 8bits if required.
 
@@ -110,9 +110,9 @@ def get_gdal_command(
         epsg: the EPSG code of the file
         data_type: the data type of the dataset. Defined in `gdal.gdal_presets.py`. Defaults to `uint8`.
                    RGBNIR_ZSTD `uint16` is written as a BIGTIFF as the tiffs may exceed 4GB.
-        scale_range: source ranges of the colour bands when rescaling to 8-bit
-        band_count: number of output bands, required with `scale_range`
-        gamma: gamma applied to the colour bands with `scale_range`, 1 is linear
+        rescale_range: source ranges of the colour bands when rescaling to 8-bit
+        band_count: number of output bands, required with `rescale_range`
+        rescale_gamma: gamma applied to the colour bands with `rescale_range`, 1 is linear
 
     Returns:
         a list of arguments to run `gdal_translate`
@@ -122,9 +122,9 @@ def get_gdal_command(
     rescale_to_8bit = preset == CompressionPreset.WEBP.value and data_type != DataType.UINT8.value
     needs_bigtiff = data_type == DataType.UINT16.value and not rescale_to_8bit
 
-    if (scale_range is not None or gamma != 1) and not rescale_to_8bit:
+    if (rescale_range is not None or rescale_gamma != 1) and not rescale_to_8bit:
         raise ValueError(
-            f"A scale range or gamma is only supported when rescaling to 8-bit, preset: {preset}, data type: {data_type}"
+            f"A rescale range or gamma is only supported when rescaling to 8-bit, preset: {preset}, data type: {data_type}"
         )
 
     base_command = [
@@ -152,7 +152,7 @@ def get_gdal_command(
         raise ValueError(f"Unsupported compression preset: {preset}")
 
     if rescale_to_8bit:
-        preset_options = get_webp_rescaled(data_type, scale_range, band_count, gamma=gamma) + preset_options
+        preset_options = get_webp_rescaled(data_type, rescale_range, band_count, rescale_gamma=rescale_gamma) + preset_options
 
     return base_command + preset_options
 

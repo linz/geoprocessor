@@ -20,7 +20,7 @@ def test_str_to_percentile(subtests: SubTests) -> None:
                 str_to_percentile(value)
 
 
-def test_should_write_scale_range(tmp_path: Path) -> None:
+def test_should_write_rescale_range(tmp_path: Path) -> None:
     from_file = tmp_path / "input.json"
     from_file.write_text(json.dumps([{"output": "BQ25_1000_0101", "input": ["b.tif", "a.tiff", "a.tfw"]}]))
     histograms = np.zeros((3, 65536), dtype=np.int64)
@@ -83,7 +83,7 @@ def test_should_write_scale_range(tmp_path: Path) -> None:
     assert high[-1] == {"percentile": 100, "value": 399, "bands": {"red": 199, "green": 399, "blue": 299}}
 
 
-def test_should_write_per_band_scale_range(tmp_path: Path) -> None:
+def test_should_write_per_band_rescale_range(tmp_path: Path) -> None:
     from_file = tmp_path / "input.json"
     from_file.write_text(json.dumps([{"output": "BQ25_1000_0101", "input": ["a.tiff"]}]))
     histograms = np.zeros((3, 65536), dtype=np.int64)

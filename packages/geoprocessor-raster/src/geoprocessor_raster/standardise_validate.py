@@ -26,8 +26,8 @@ from geoprocessor_stac.json_codec import dict_to_json_bytes
 from linz_logger import get_log
 
 
-def str_to_scale_range(value: str) -> RescaleRange | None:
-    """Parse a scale range, blank for none.
+def str_to_rescale_range(value: str) -> RescaleRange | None:
+    """Parse a rescale range, blank for none.
 
     Args:
         value: `min,max` or `min,max;min,max;min,max`
@@ -43,7 +43,7 @@ def str_to_scale_range(value: str) -> RescaleRange | None:
         raise ArgumentTypeError(str(e)) from e
 
 
-def str_to_gamma(value: str) -> float:
+def str_to_rescale_gamma(value: str) -> float:
     """Parse a positive gamma, blank for linear.
 
     Args:
@@ -145,9 +145,9 @@ def get_args_parser() -> ArgumentParser:
         required=False,
     )
     parser.add_argument(
-        "--scale-range",
-        dest="scale_range",
-        type=str_to_scale_range,
+        "--rescale-range",
+        dest="rescale_range",
+        type=str_to_rescale_range,
         nargs="?",
         help=(
             "Source range scaled to 8-bit for uint16 webp, 'min,max' or 'min,max;min,max;min,max' "
@@ -156,11 +156,11 @@ def get_args_parser() -> ArgumentParser:
         required=False,
     )
     parser.add_argument(
-        "--scale-gamma",
-        dest="scale_gamma",
-        type=str_to_gamma,
+        "--rescale-gamma",
+        dest="rescale_gamma",
+        type=str_to_rescale_gamma,
         default=1.0,
-        help="Gamma applied with --scale-range, e.g. 1.3. Defaults to 1 (linear).",
+        help="Gamma applied with --rescale-range, e.g. 1.3. Defaults to 1 (linear).",
         required=False,
     )
     parser.add_argument(
@@ -215,8 +215,8 @@ def main() -> None:
         cutline=arguments.cutline,
         data_type=arguments.data_type,
         scale_to_resolution=arguments.scale_to_resolution,
-        scale_range=arguments.scale_range,
-        scale_gamma=arguments.scale_gamma,
+        rescale_range=arguments.rescale_range,
+        rescale_gamma=arguments.rescale_gamma,
         force=force,
     )
 

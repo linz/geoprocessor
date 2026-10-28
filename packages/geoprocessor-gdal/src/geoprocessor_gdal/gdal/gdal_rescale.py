@@ -61,7 +61,7 @@ class RescaleRange:
         """Parse `min,max` or `min,max;min,max;min,max`.
 
         Args:
-            value: the scale range string
+            value: the rescale range string
 
         Returns:
             the parsed `RescaleRange`
@@ -69,7 +69,7 @@ class RescaleRange:
         try:
             ranges = tuple(BandRange(*(int(number) for number in band.split(","))) for band in value.split(";"))
         except (TypeError, ValueError) as e:
-            raise ValueError(f"Invalid scale range, expected 'min,max' or 'min,max;min,max;min,max': {value}") from e
+            raise ValueError(f"Invalid rescale range, expected 'min,max' or 'min,max;min,max;min,max': {value}") from e
         return cls(ranges)
 
     def __str__(self) -> str:
@@ -133,7 +133,7 @@ def percentile_from_histogram(histogram: npt.NDArray[np.int64], percentile: floa
 def rescale_range_from_histograms(
     histograms: npt.NDArray[np.int64], low_percentile: float, high_percentile: float, per_band: bool
 ) -> RescaleRange:
-    """Get the scale range from the band histograms.
+    """Get the rescale range from the band histograms.
 
     Args:
         histograms: value counts with shape (bands, 65536)
