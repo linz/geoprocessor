@@ -153,14 +153,14 @@ def test_get_histograms_masks_alpha_and_nodata() -> None:
     )
 
     with (
-        patch("geoprocessor_gdal.gdal.gdal_scale.copy") as copy,
+        patch("geoprocessor_gdal.gdal.gdal_scale.download") as download,
         patch("geoprocessor_gdal.gdal.gdal_scale.gdal_info", return_value=rgb_gdalinfo(2, 2, no_data_value=7)) as info,
         patch("geoprocessor_gdal.gdal.gdal_scale.run_gdal", side_effect=sample_writer(pixels)) as run,
     ):
         histograms = get_histograms("s3://bucket/file.tiff")
 
-    local_path = copy.call_args.args[1]
-    assert copy.call_args.args[0] == "s3://bucket/file.tiff"
+    local_path = download.call_args.args[1]
+    assert download.call_args.args[0] == "s3://bucket/file.tiff"
     assert local_path.endswith("/file.tiff")
     info.assert_called_once_with(local_path)
     assert run.call_args.kwargs["input_file"] == local_path

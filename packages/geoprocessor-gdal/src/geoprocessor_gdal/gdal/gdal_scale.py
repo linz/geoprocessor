@@ -15,7 +15,8 @@ import numpy as np
 import numpy.typing as npt
 import tifffile
 from geoprocessor_common.aws.aws_helper import is_s3
-from geoprocessor_common.files.fs import copy, list_file_names, read, write
+from geoprocessor_common.files.fs import list_file_names, read, write
+from geoprocessor_common.files.fs_s3 import download
 from geoprocessor_gdal.gdal.gdal_bands import find_band, get_rgb_bands_args
 from geoprocessor_gdal.gdal.gdal_helper import gdal_info, run_gdal
 from geoprocessor_gdal.gdal.gdalinfo import GdalInfo
@@ -232,7 +233,7 @@ def get_histograms(path: str, size: int = SAMPLE_SIZE) -> npt.NDArray[np.int64]:
         local_path = path
         if is_s3(path):
             local_path = os.path.join(tmp_path, os.path.basename(path))
-            copy(path, local_path)
+            download(path, local_path)
         info = gdal_info(local_path)
         sample_path = os.path.join(tmp_path, "sample.tiff")
         run_gdal(get_sample_command(info, size), input_file=local_path, output_file=sample_path)
