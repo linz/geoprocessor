@@ -31,7 +31,7 @@ def test_should_write_scale_range(tmp_path: Path) -> None:
     with patch("geoprocessor_raster.compute_scale.get_dataset_histograms", return_value=histograms) as get_histograms:
         main(["--from-file", str(from_file), "--target", str(tmp_path), "--low-percentile", "0", "--high-percentile", "100"])
 
-    get_histograms.assert_called_once_with(["a.tiff", "b.tif"], 1)
+    get_histograms.assert_called_once_with(["a.tiff", "b.tif"], str(tmp_path / "histograms"), 1, False)
     assert (tmp_path / "scale-range").read_text() == "50,399"
     details = json.loads((tmp_path / "scale-range.json").read_text())
     assert details["bands"][1] == {"name": "green", "low": 150, "high": 399, "pixelCount": 250}
@@ -116,3 +116,17 @@ def test_should_reject_low_percentile_above_high(tmp_path: Path, capsys: Capture
         main(["--from-file", "input.json", "--target", str(tmp_path), "--low-percentile", "99", "--high-percentile", "1"])
 
     assert "--low-percentile must be lower than --high-percentile" in capsys.readouterr().err
+
+
+def test_should_pass_histogram_dir_and_force(tmp_path: Path) -> None:
+    from_file = tmp_path / "input.json"
+    from_file.write_text(json.dumps([{"output": "BQ25_1000_0101", "input": ["a.tiff"]}]))
+    histograms = np.zeros((3, 65536), dtype=np.int64)
+    histograms[:, 100:200] = 1
+
+    with patch("geoprocessor_raster.compute_scale.get_dataset_histograms", return_value=histograms) as get_histograms:
+        main(
+            ["--from-file", str(from_file), "--target", str(tmp_path), "--histogram-dir", "s3://bucket/histograms/", "--force"]
+        )
+
+    get_histograms.assert_called_once_with(["a.tiff"], "s3://bucket/histograms/", 1, True)

@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any, Callable
 from unittest.mock import patch
 
@@ -169,7 +170,7 @@ def test_get_histograms_rejects_non_uint16() -> None:
             get_histograms("file.tiff")
 
 
-def test_get_dataset_histograms_sums_files() -> None:
+def test_get_dataset_histograms_sums_files(tmp_path: Path) -> None:
     with (
         patch("geoprocessor_gdal.gdal.gdal_scale.gdal_info", return_value=rgb_gdalinfo(2, 2, alpha=False)),
         patch(
@@ -177,9 +178,35 @@ def test_get_dataset_histograms_sums_files() -> None:
             side_effect=sample_writer(np.full((3, 2, 2), 100, dtype=np.uint16)),
         ),
     ):
-        total = get_dataset_histograms(["a.tiff", "b.tiff", "c.tiff"], concurrency=2)
+        total = get_dataset_histograms(["a.tiff", "b.tiff", "c.tiff"], str(tmp_path), concurrency=2)
 
     assert total[:, 100].tolist() == [12, 12, 12]
+    assert {path.name for path in tmp_path.iterdir()} == {get_histogram_file_name(f) for f in ["a.tiff", "b.tiff", "c.tiff"]}
+
+
+def test_get_dataset_histograms_reads_saved_histograms(tmp_path: Path, subtests: SubTests) -> None:
+    saved = np.zeros((3, 65536), dtype=np.int64)
+    saved[:, 7] = 1000
+    (tmp_path / get_histogram_file_name("a.tiff")).write_bytes(histograms_to_bytes("a.tiff", saved))
+
+    with (
+        patch("geoprocessor_gdal.gdal.gdal_scale.gdal_info", return_value=rgb_gdalinfo(2, 2, alpha=False)),
+        patch(
+            "geoprocessor_gdal.gdal.gdal_scale.run_gdal",
+            side_effect=sample_writer(np.full((3, 2, 2), 100, dtype=np.uint16)),
+        ),
+    ):
+        with subtests.test(msg="skips sources with a histogram file"):
+            total = get_dataset_histograms(["a.tiff", "b.tiff"], str(tmp_path))
+            assert total[:, 7].tolist() == [1000, 1000, 1000]
+            assert total[:, 100].tolist() == [4, 4, 4]
+
+        with subtests.test(msg="force recomputes all sources"):
+            total = get_dataset_histograms(["a.tiff", "b.tiff"], str(tmp_path), force=True)
+            assert total[:, 7].tolist() == [0, 0, 0]
+            assert total[:, 100].tolist() == [8, 8, 8]
+            saved_file = histograms_from_bytes((tmp_path / get_histogram_file_name("a.tiff")).read_bytes(), "a.tiff")
+            assert saved_file[:, 100].tolist() == [4, 4, 4]
 
 
 def test_histogram_file_round_trip() -> None:

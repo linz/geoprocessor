@@ -7,6 +7,7 @@ from geoprocessor_common.files.files_helper import ContentType, is_tiff
 from geoprocessor_common.files.fs import write
 from geoprocessor_common.log.time_helper import time_in_ms
 from geoprocessor_gdal.gdal.gdal_scale import (
+    BAND_NAMES,
     get_clip_percentiles,
     get_dataset_histograms,
     percentile_from_histogram,
@@ -16,7 +17,6 @@ from geoprocessor_stac.json_codec import dict_to_json_bytes
 from linz_logger import get_log
 
 SCALE_RANGE_FILE_NAME = "scale-range"
-BAND_NAMES = {1: ("gray",), 3: ("red", "green", "blue")}
 # Clip percentiles at each end: 0 to 1 in 0.1 steps, then up to 5 in 0.5 steps
 CLIP_PERCENTILES = tuple(step / 10 for step in range(10)) + tuple(step / 2 for step in range(2, 11))
 
@@ -46,6 +46,11 @@ def get_args_parser() -> ArgumentParser:
     )
     parser.add_argument("--target", dest="target", required=True, help="Output directory")
     parser.add_argument(
+        "--histogram-dir",
+        dest="histogram_dir",
+        help="Directory of the histogram file of each TIFF, reused on the next run. Defaults to <target>/histograms.",
+    )
+    parser.add_argument(
         "--low-percentile",
         dest="low_percentile",
         type=str_to_percentile,
@@ -73,6 +78,12 @@ def get_args_parser() -> ArgumentParser:
         default=1,
         help="Number of concurrent tiffs to read. Defaults to 1.",
     )
+    parser.add_argument(
+        "--force",
+        dest="force",
+        help="Recompute the histogram files that already exist. Defaults to False.",
+        action="store_true",
+    )
     return parser
 
 
@@ -95,7 +106,8 @@ def main(args: list[str] | None = None) -> None:
         sys.exit(1)
 
     get_log().info("compute_scale_start", fileCount=len(files))
-    histograms = get_dataset_histograms(files, arguments.concurrency)
+    histogram_dir = arguments.histogram_dir or os.path.join(arguments.target, "histograms")
+    histograms = get_dataset_histograms(files, histogram_dir, arguments.concurrency, arguments.force)
     scale_range = scale_range_from_histograms(
         histograms, arguments.low_percentile, arguments.high_percentile, arguments.per_band
     )

@@ -15,7 +15,7 @@ import numpy as np
 import numpy.typing as npt
 import tifffile
 from geoprocessor_common.aws.aws_helper import is_s3
-from geoprocessor_common.files.fs import copy
+from geoprocessor_common.files.fs import copy, list_file_names, read, write
 from geoprocessor_gdal.gdal.gdal_bands import find_band, get_rgb_bands_args
 from geoprocessor_gdal.gdal.gdal_helper import gdal_info, run_gdal
 from geoprocessor_gdal.gdal.gdalinfo import GdalInfo
@@ -299,7 +299,7 @@ def histograms_from_bytes(data: bytes, source: str) -> npt.NDArray[np.int64]:
     """
     with np.load(io.BytesIO(data), allow_pickle=False) as npz:
         metadata = json.loads(str(npz["metadata"]))
-        histograms: npt.NDArray[np.int64] = npz["histograms"]
+        histograms: npt.NDArray[np.int64] = np.array(npz["histograms"], dtype=np.int64)
     if metadata["version"] != HISTOGRAM_FILE_VERSION:
         raise ValueError(f"Expected histogram file version {HISTOGRAM_FILE_VERSION}, got {metadata['version']}: {source}")
     if metadata["source"] != source:
@@ -307,16 +307,28 @@ def histograms_from_bytes(data: bytes, source: str) -> npt.NDArray[np.int64]:
     return histograms
 
 
-def get_source_histograms(source: str) -> tuple[str, npt.NDArray[np.int64]]:
-    """Get the colour band histograms of a source TIFF.
+def get_source_histograms(source: str, histogram_dir: str, saved: bool) -> tuple[str, npt.NDArray[np.int64]]:
+    """Read the colour band histograms of a source TIFF from its histogram file, or compute and save them.
 
     Args:
         source: path to the TIFF
+        histogram_dir: directory of the histogram files
+        saved: whether the histogram file of the source exists
 
     Returns:
         the source path and its value counts with shape (bands, 65536)
     """
-    return source, get_histograms(source)
+    path = os.path.join(histogram_dir, get_histogram_file_name(source))
+    if saved:
+        return source, histograms_from_bytes(read(path), source)
+    histograms = get_histograms(source)
+    write(path, histograms_to_bytes(source, histograms))
+    return source, histograms
+
+
+def _get_source_histograms(task: tuple[str, str, bool]) -> tuple[str, npt.NDArray[np.int64]]:
+    """Unpack the arguments of `get_source_histograms` for `Pool.imap_unordered`."""
+    return get_source_histograms(*task)
 
 
 def sum_histograms(source_histograms: Iterable[tuple[str, npt.NDArray[np.int64]]]) -> npt.NDArray[np.int64]:
@@ -341,15 +353,22 @@ def sum_histograms(source_histograms: Iterable[tuple[str, npt.NDArray[np.int64]]
     return total
 
 
-def get_dataset_histograms(files: list[str], concurrency: int = 1) -> npt.NDArray[np.int64]:
-    """Sum the colour band histograms of all TIFFs.
+def get_dataset_histograms(
+    files: list[str], histogram_dir: str, concurrency: int = 1, force: bool = False
+) -> npt.NDArray[np.int64]:
+    """Sum the colour band histograms of all TIFFs, reading the histogram files already in `histogram_dir`.
 
     Args:
         files: paths to the TIFFs
+        histogram_dir: directory of the histogram file of each TIFF
         concurrency: number of TIFFs to read concurrently
+        force: recompute the histogram files that already exist
 
     Returns:
         value counts with shape (bands, 65536)
     """
+    saved = set() if force else list_file_names(histogram_dir, HISTOGRAM_FILE_SUFFIX)
+    tasks = [(file, histogram_dir, get_histogram_file_name(file) in saved) for file in files]
+    get_log().info("dataset_histograms_start", fileCount=len(files), savedCount=sum(task[2] for task in tasks))
     with Pool(concurrency) as p:
-        return sum_histograms(p.imap_unordered(get_source_histograms, files))
+        return sum_histograms(p.imap_unordered(_get_source_histograms, tasks))
