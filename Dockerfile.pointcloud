@@ -10,12 +10,15 @@ COPY uv.lock pyproject.toml /build/
 COPY ./packages/ /build/packages/
 
 ENV UV_PROJECT_ENVIRONMENT=/venv
-ENV UV_PYTHON=/usr/bin/python3
-ENV UV_PYTHON_PREFERENCE=only-system
+# pdal-docker ships Python 3.12, so use a uv-managed Python matching the raster image
+ENV UV_PYTHON=3.14.4
+ENV UV_PYTHON_PREFERENCE=only-managed
+ENV UV_PYTHON_INSTALL_DIR=/python
 
 RUN apt-get update \
     && apt-get install --assume-yes --no-install-recommends tini
 
+RUN uv python install
 RUN uv sync --frozen --no-dev --no-editable --package geoprocessor-pointcloud
 
 FROM ghcr.io/linz/pdal-docker:2.10.2@sha256:406bd6bc89ff874b4747b27700daf4c61bc2ba77fade3434eb8e96d688ba33b5
@@ -26,6 +29,7 @@ ARG GIT_VERSION
 ENV GIT_VERSION=$GIT_VERSION
 
 COPY --from=builder /usr/bin/tini /usr/bin/tini
+COPY --from=builder /python /python
 COPY --from=builder /venv /venv
 
 ENV PATH="/venv/bin:$PATH"
