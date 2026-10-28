@@ -37,13 +37,13 @@ class BandRange(NamedTuple):
 
 
 @dataclass(frozen=True)
-class ScaleRange:
+class RescaleRange:
     """Source pixel ranges to scale to 8-bit, one for all bands or one per band.
 
     Examples:
-        >>> str(ScaleRange.parse("301,4012"))
+        >>> str(RescaleRange.parse("301,4012"))
         '301,4012'
-        >>> ScaleRange.parse("301,4012;295,3980;310,4100").ranges[1]
+        >>> RescaleRange.parse("301,4012;295,3980;310,4100").ranges[1]
         BandRange(min=295, max=3980)
     """
 
@@ -57,14 +57,14 @@ class ScaleRange:
                 raise ValueError(f"Invalid band range, expected 0 <= min < max <= {UINT16_MAX}: {self}")
 
     @classmethod
-    def parse(cls, value: str) -> ScaleRange:
+    def parse(cls, value: str) -> RescaleRange:
         """Parse `min,max` or `min,max;min,max;min,max`.
 
         Args:
             value: the scale range string
 
         Returns:
-            the parsed `ScaleRange`
+            the parsed `RescaleRange`
         """
         try:
             ranges = tuple(BandRange(*(int(number) for number in band.split(","))) for band in value.split(";"))
@@ -85,7 +85,7 @@ class ScaleRange:
             the `BandRange` of the band
 
         Examples:
-            >>> ScaleRange.parse("301,4012").for_band(3)
+            >>> RescaleRange.parse("301,4012").for_band(3)
             BandRange(min=301, max=4012)
         """
         return self.ranges[0] if len(self.ranges) == 1 else self.ranges[band - 1]
@@ -130,9 +130,9 @@ def percentile_from_histogram(histogram: npt.NDArray[np.int64], percentile: floa
     return int(np.searchsorted(cumulative, max(cumulative[-1] * percentile / 100, 1)))
 
 
-def scale_range_from_histograms(
+def rescale_range_from_histograms(
     histograms: npt.NDArray[np.int64], low_percentile: float, high_percentile: float, per_band: bool
-) -> ScaleRange:
+) -> RescaleRange:
     """Get the scale range from the band histograms.
 
     Args:
@@ -142,7 +142,7 @@ def scale_range_from_histograms(
         per_band: return one range per band instead of one range for all bands
 
     Returns:
-        the `ScaleRange`
+        the `RescaleRange`
     """
     ranges = tuple(
         BandRange(percentile_from_histogram(histogram, low_percentile), percentile_from_histogram(histogram, high_percentile))
@@ -155,7 +155,7 @@ def scale_range_from_histograms(
             raise ValueError(
                 f"Low percentile {low_percentile} and high percentile {high_percentile} both give {band_range.min}: {ranges}"
             )
-    return ScaleRange(ranges)
+    return RescaleRange(ranges)
 
 
 def get_clip_percentiles(

@@ -6,9 +6,9 @@ import numpy as np
 import numpy.typing as npt
 import tifffile
 from fake_gdalinfo import add_band, fake_gdalinfo
-from geoprocessor_gdal.gdal.gdal_scale import (
+from geoprocessor_gdal.gdal.gdal_rescale import (
     BandRange,
-    ScaleRange,
+    RescaleRange,
     get_clip_percentiles,
     get_dataset_histograms,
     get_histogram_file_name,
@@ -19,7 +19,7 @@ from geoprocessor_gdal.gdal.gdal_scale import (
     histograms_from_bytes,
     histograms_to_bytes,
     percentile_from_histogram,
-    scale_range_from_histograms,
+    rescale_range_from_histograms,
     sum_histograms,
 )
 from geoprocessor_gdal.gdal.gdalinfo import GdalInfo
@@ -30,14 +30,14 @@ from pytest_subtests import SubTests
 def test_scale_range_round_trip(subtests: SubTests) -> None:
     for value in ["301,4012", "301,4012;295,3980;310,4100", "0,65535"]:
         with subtests.test(msg=value):
-            assert str(ScaleRange.parse(value)) == value
+            assert str(RescaleRange.parse(value)) == value
 
 
 def test_scale_range_rejects_invalid(subtests: SubTests) -> None:
     for value in ["", "301", "301,4012,5000", "a,b", "4012,301", "301,301", "-1,4012", "301,65536", "1,2;3,4"]:
         with subtests.test(msg=value):
             with raises(ValueError):
-                ScaleRange.parse(value)
+                RescaleRange.parse(value)
 
 
 def test_histogram_from_pixels_counts_each_band() -> None:
@@ -91,17 +91,17 @@ def test_percentile_from_histogram_rejects_empty() -> None:
         percentile_from_histogram(np.zeros(65536, dtype=np.int64), 1)
 
 
-def test_scale_range_from_histograms(subtests: SubTests) -> None:
+def test_rescale_range_from_histograms(subtests: SubTests) -> None:
     histograms = np.zeros((3, 65536), dtype=np.int64)
     histograms[0, 100:200] = 1
     histograms[1, 150:400] = 1
     histograms[2, 50:300] = 1
 
     with subtests.test(msg="single range"):
-        assert scale_range_from_histograms(histograms, 0, 100, per_band=False) == ScaleRange((BandRange(50, 399),))
+        assert rescale_range_from_histograms(histograms, 0, 100, per_band=False) == RescaleRange((BandRange(50, 399),))
 
     with subtests.test(msg="per band"):
-        assert scale_range_from_histograms(histograms, 0, 100, per_band=True) == ScaleRange(
+        assert rescale_range_from_histograms(histograms, 0, 100, per_band=True) == RescaleRange(
             (BandRange(100, 199), BandRange(150, 399), BandRange(50, 299))
         )
 
@@ -110,8 +110,8 @@ def test_scale_range_from_histograms(subtests: SubTests) -> None:
         narrow[:, 1000] = 100
         narrow[0, 2000] = 1
         with raises(ValueError, match="Low percentile 1 and high percentile 99 both give 1000"):
-            scale_range_from_histograms(narrow, 1, 99, per_band=True)
-        assert scale_range_from_histograms(narrow, 0, 100, per_band=False) == ScaleRange((BandRange(1000, 2000),))
+            rescale_range_from_histograms(narrow, 1, 99, per_band=True)
+        assert rescale_range_from_histograms(narrow, 0, 100, per_band=False) == RescaleRange((BandRange(1000, 2000),))
 
 
 def rgb_gdalinfo(width: int, height: int, alpha: bool = True, no_data_value: int | None = None) -> GdalInfo:
@@ -154,9 +154,9 @@ def test_get_histograms_masks_alpha_and_nodata() -> None:
     )
 
     with (
-        patch("geoprocessor_gdal.gdal.gdal_scale.download") as download,
-        patch("geoprocessor_gdal.gdal.gdal_scale.gdal_info", return_value=rgb_gdalinfo(2, 2, no_data_value=7)) as info,
-        patch("geoprocessor_gdal.gdal.gdal_scale.run_gdal", side_effect=sample_writer(pixels)) as run,
+        patch("geoprocessor_gdal.gdal.gdal_rescale.download") as download,
+        patch("geoprocessor_gdal.gdal.gdal_rescale.gdal_info", return_value=rgb_gdalinfo(2, 2, no_data_value=7)) as info,
+        patch("geoprocessor_gdal.gdal.gdal_rescale.run_gdal", side_effect=sample_writer(pixels)) as run,
     ):
         histograms = get_histograms("s3://bucket/file.tiff")
 
@@ -172,8 +172,8 @@ def test_get_histograms_masks_alpha_and_nodata() -> None:
 
 def test_get_histograms_rejects_non_uint16() -> None:
     with (
-        patch("geoprocessor_gdal.gdal.gdal_scale.gdal_info", return_value=rgb_gdalinfo(2, 2, alpha=False)),
-        patch("geoprocessor_gdal.gdal.gdal_scale.run_gdal", side_effect=sample_writer(np.ones((3, 2, 2), dtype=np.uint8))),
+        patch("geoprocessor_gdal.gdal.gdal_rescale.gdal_info", return_value=rgb_gdalinfo(2, 2, alpha=False)),
+        patch("geoprocessor_gdal.gdal.gdal_rescale.run_gdal", side_effect=sample_writer(np.ones((3, 2, 2), dtype=np.uint8))),
     ):
         with raises(ValueError, match="Expected uint16"):
             get_histograms("file.tiff")
@@ -181,9 +181,9 @@ def test_get_histograms_rejects_non_uint16() -> None:
 
 def test_get_dataset_histograms_sums_files(tmp_path: Path) -> None:
     with (
-        patch("geoprocessor_gdal.gdal.gdal_scale.gdal_info", return_value=rgb_gdalinfo(2, 2, alpha=False)),
+        patch("geoprocessor_gdal.gdal.gdal_rescale.gdal_info", return_value=rgb_gdalinfo(2, 2, alpha=False)),
         patch(
-            "geoprocessor_gdal.gdal.gdal_scale.run_gdal",
+            "geoprocessor_gdal.gdal.gdal_rescale.run_gdal",
             side_effect=sample_writer(np.full((3, 2, 2), 100, dtype=np.uint16)),
         ),
     ):
@@ -199,9 +199,9 @@ def test_get_dataset_histograms_reads_saved_histograms(tmp_path: Path, subtests:
     (tmp_path / get_histogram_file_name("a.tiff")).write_bytes(histograms_to_bytes("a.tiff", saved))
 
     with (
-        patch("geoprocessor_gdal.gdal.gdal_scale.gdal_info", return_value=rgb_gdalinfo(2, 2, alpha=False)),
+        patch("geoprocessor_gdal.gdal.gdal_rescale.gdal_info", return_value=rgb_gdalinfo(2, 2, alpha=False)),
         patch(
-            "geoprocessor_gdal.gdal.gdal_scale.run_gdal",
+            "geoprocessor_gdal.gdal.gdal_rescale.run_gdal",
             side_effect=sample_writer(np.full((3, 2, 2), 100, dtype=np.uint16)),
         ),
     ):
@@ -271,11 +271,11 @@ def test_get_dataset_histograms_caps_workers_by_remaining_downloads(tmp_path: Pa
     )
 
     with (
-        patch("geoprocessor_gdal.gdal.gdal_scale.get_worker_count", return_value=1) as worker_count,
-        patch("geoprocessor_gdal.gdal.gdal_scale.download"),
-        patch("geoprocessor_gdal.gdal.gdal_scale.gdal_info", return_value=rgb_gdalinfo(2, 2, alpha=False)),
+        patch("geoprocessor_gdal.gdal.gdal_rescale.get_worker_count", return_value=1) as worker_count,
+        patch("geoprocessor_gdal.gdal.gdal_rescale.download"),
+        patch("geoprocessor_gdal.gdal.gdal_rescale.gdal_info", return_value=rgb_gdalinfo(2, 2, alpha=False)),
         patch(
-            "geoprocessor_gdal.gdal.gdal_scale.run_gdal",
+            "geoprocessor_gdal.gdal.gdal_rescale.run_gdal",
             side_effect=sample_writer(np.full((3, 2, 2), 100, dtype=np.uint16)),
         ),
     ):
@@ -290,7 +290,9 @@ def test_get_worker_count(subtests: SubTests) -> None:
     sizes = {"s3://bucket/a/": {"1.tif": 100, "2.tif": 300, "other.tif": 10_000}, "s3://bucket/b/": {"3.tif": 200}}
     files = ["s3://bucket/a/1.tif", "s3://bucket/a/2.tif", "s3://bucket/b/3.tif"]
 
-    with patch("geoprocessor_gdal.gdal.gdal_scale.list_file_sizes", side_effect=lambda directory: sizes[directory]) as listing:
+    with patch(
+        "geoprocessor_gdal.gdal.gdal_rescale.list_file_sizes", side_effect=lambda directory: sizes[directory]
+    ) as listing:
         with subtests.test(msg="caps to fit the largest file"):
             assert get_worker_count(files, 16, 1000) == 3
             assert sorted(call.args[0] for call in listing.call_args_list) == ["s3://bucket/a/", "s3://bucket/b/"]

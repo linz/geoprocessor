@@ -18,7 +18,7 @@ from geoprocessor_common.datetimes import RFC_3339_DATETIME_FORMAT, format_rfc_3
 from geoprocessor_common.files.files_helper import SUFFIX_JSON, ContentType
 from geoprocessor_common.files.fs import exists, write
 from geoprocessor_gdal.gdal.gdal_helper import get_gdal_version, get_srs, get_vfs_path
-from geoprocessor_gdal.gdal.gdal_scale import ScaleRange
+from geoprocessor_gdal.gdal.gdal_rescale import RescaleRange
 from geoprocessor_gdal.standardising import StandardisingConfig, run_standardising
 from geoprocessor_gdal.tiff.file_tiff import FileTiff
 from geoprocessor_raster.create_item import create_item_from_tiff
@@ -26,19 +26,19 @@ from geoprocessor_stac.json_codec import dict_to_json_bytes
 from linz_logger import get_log
 
 
-def str_to_scale_range(value: str) -> ScaleRange | None:
+def str_to_scale_range(value: str) -> RescaleRange | None:
     """Parse a scale range, blank for none.
 
     Args:
         value: `min,max` or `min,max;min,max;min,max`
 
     Returns:
-        the `ScaleRange` or None
+        the `RescaleRange` or None
     """
     if not value.strip():
         return None
     try:
-        return ScaleRange.parse(value)
+        return RescaleRange.parse(value)
     except ValueError as e:
         raise ArgumentTypeError(str(e)) from e
 

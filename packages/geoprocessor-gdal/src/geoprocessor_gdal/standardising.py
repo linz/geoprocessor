@@ -27,7 +27,7 @@ from geoprocessor_gdal.gdal.gdal_commands import (
 from geoprocessor_gdal.gdal.gdal_footprint import create_footprint
 from geoprocessor_gdal.gdal.gdal_helper import gdal_info, run_gdal
 from geoprocessor_gdal.gdal.gdal_presets import CompressionPreset
-from geoprocessor_gdal.gdal.gdal_scale import ScaleRange
+from geoprocessor_gdal.gdal.gdal_rescale import RescaleRange
 from geoprocessor_gdal.tiff.file_tiff import FileTiff, FileTiffType
 from geoprocessor_gdal.tile.tile_index import Bounds, get_bounds_from_name
 from linz_logger import get_log
@@ -64,7 +64,7 @@ class StandardisingConfig:
     cutline: str | None
     data_type: str
     scale_to_resolution: list[Decimal] | None = None
-    scale_range: ScaleRange | None = None
+    scale_range: RescaleRange | None = None
     scale_gamma: float = 1.0
     force: bool = False
 

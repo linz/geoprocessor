@@ -6,14 +6,14 @@ from fake_gdalinfo import fake_gdalinfo
 from geoprocessor_common.data_type import DataType
 from geoprocessor_common.epsg import EpsgNumber
 from geoprocessor_gdal.gdal.gdal_presets import CompressionPreset
-from geoprocessor_gdal.gdal.gdal_scale import ScaleRange
+from geoprocessor_gdal.gdal.gdal_rescale import RescaleRange
 from geoprocessor_gdal.standardising import StandardisingConfig, apply_gdal_transformation
 from pytest import CaptureFixture, raises
 from pytest_subtests import SubTests
 
 
 def standardising_config(
-    preset: str, data_type: str, scale_range: ScaleRange | None = None, scale_gamma: float = 1.0
+    preset: str, data_type: str, scale_range: RescaleRange | None = None, scale_gamma: float = 1.0
 ) -> StandardisingConfig:
     return StandardisingConfig(
         gdal_preset=preset,
@@ -74,7 +74,7 @@ def test_config_rejects_unknown_data_type() -> None:
 
 
 def test_config_allows_scale_range_for_uint16_webp() -> None:
-    config = standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, ScaleRange.parse("301,4012"))
+    config = standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, RescaleRange.parse("301,4012"))
 
     assert str(config.scale_range) == "301,4012"
 
@@ -85,7 +85,7 @@ def test_config_warns_about_full_range_uint16_webp(subtests: SubTests, capsys: C
         assert "webp_rescale_full_range" in capsys.readouterr().out
 
     with subtests.test(msg="with a scale range"):
-        standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, ScaleRange.parse("301,4012"))
+        standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, RescaleRange.parse("301,4012"))
         assert "webp_rescale_full_range" not in capsys.readouterr().out
 
 
@@ -93,11 +93,11 @@ def test_config_rejects_scale_range_without_uint16_webp(subtests: SubTests) -> N
     for preset, data_type in [(CompressionPreset.WEBP, DataType.UINT8), (CompressionPreset.RGBNIR_ZSTD, DataType.UINT16)]:
         with subtests.test(msg=f"{preset.value} {data_type.value}"):
             with raises(ValueError, match="scale range is only supported"):
-                standardising_config(preset.value, data_type.value, ScaleRange.parse("301,4012"))
+                standardising_config(preset.value, data_type.value, RescaleRange.parse("301,4012"))
 
 
 def test_apply_gdal_transformation_scales_each_output_band(tmp_path: Path) -> None:
-    config = standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, ScaleRange.parse("301,4012"))
+    config = standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, RescaleRange.parse("301,4012"))
 
     with (
         patch("geoprocessor_gdal.standardising.gdal_info", return_value=fake_gdalinfo()),
@@ -115,7 +115,7 @@ def test_apply_gdal_transformation_scales_each_output_band(tmp_path: Path) -> No
 
 
 def test_config_allows_scale_gamma_with_scale_range() -> None:
-    config = standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, ScaleRange.parse("301,4012"), 1.3)
+    config = standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, RescaleRange.parse("301,4012"), 1.3)
 
     assert config.scale_gamma == 1.3
 
@@ -128,11 +128,13 @@ def test_config_rejects_invalid_scale_gamma(subtests: SubTests) -> None:
     for gamma in [0, -1.3]:
         with subtests.test(msg=f"gamma {gamma}"):
             with raises(ValueError, match="positive scale gamma"):
-                standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, ScaleRange.parse("301,4012"), gamma)
+                standardising_config(
+                    CompressionPreset.WEBP.value, DataType.UINT16.value, RescaleRange.parse("301,4012"), gamma
+                )
 
 
 def test_apply_gdal_transformation_applies_scale_gamma(tmp_path: Path) -> None:
-    config = standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, ScaleRange.parse("301,4012"), 1.3)
+    config = standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, RescaleRange.parse("301,4012"), 1.3)
 
     with (
         patch("geoprocessor_gdal.standardising.gdal_info", return_value=fake_gdalinfo()),

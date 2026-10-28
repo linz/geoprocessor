@@ -7,12 +7,12 @@ from geoprocessor_common.cli.cli_helper import InputParameterError, load_input_f
 from geoprocessor_common.files.files_helper import ContentType, is_tiff
 from geoprocessor_common.files.fs import write
 from geoprocessor_common.log.time_helper import time_in_ms
-from geoprocessor_gdal.gdal.gdal_scale import (
+from geoprocessor_gdal.gdal.gdal_rescale import (
     BAND_NAMES,
     get_clip_percentiles,
     get_dataset_histograms,
     percentile_from_histogram,
-    scale_range_from_histograms,
+    rescale_range_from_histograms,
 )
 from geoprocessor_stac.json_codec import dict_to_json_bytes
 from linz_logger import get_log
@@ -136,7 +136,7 @@ def main(args: list[str] | None = None) -> None:
     max_download_bytes = None if arguments.max_download_gb is None else int(arguments.max_download_gb * 1e9)
     histograms = get_dataset_histograms(files, histogram_dir, arguments.concurrency, arguments.force, max_download_bytes)
     try:
-        scale_range = scale_range_from_histograms(
+        scale_range = rescale_range_from_histograms(
             histograms, arguments.low_percentile, arguments.high_percentile, arguments.per_band
         )
     except ValueError as e:

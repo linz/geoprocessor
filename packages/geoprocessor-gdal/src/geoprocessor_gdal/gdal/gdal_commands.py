@@ -18,7 +18,7 @@ from geoprocessor_gdal.gdal.gdal_presets import (
     CompressionPreset,
     HillshadePreset,
 )
-from geoprocessor_gdal.gdal.gdal_scale import ScaleRange
+from geoprocessor_gdal.gdal.gdal_rescale import RescaleRange
 from geoprocessor_gdal.gdal.gdalinfo import GdalInfo
 from linz_logger import get_log
 
@@ -30,7 +30,7 @@ SCALE_GAMMA_METADATA = "LINZ_SCALE_GAMMA"
 
 
 def get_webp_rescaled(
-    data_type: str, scale_range: ScaleRange | None = None, band_count: int | None = None, gamma: float = 1.0
+    data_type: str, scale_range: RescaleRange | None = None, band_count: int | None = None, gamma: float = 1.0
 ) -> list[str]:
     """Get GDAL args to scale 16-bit WEBP imagery down to 8-bit.
 
@@ -99,7 +99,7 @@ def get_gdal_command(
     epsg: int,
     data_type: str,
     *,
-    scale_range: ScaleRange | None = None,
+    scale_range: RescaleRange | None = None,
     band_count: int | None = None,
     gamma: float = 1.0,
 ) -> list[str]:

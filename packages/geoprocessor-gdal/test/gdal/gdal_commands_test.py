@@ -10,7 +10,7 @@ from geoprocessor_gdal.gdal.gdal_commands import (
     get_webp_rescaled,
 )
 from geoprocessor_gdal.gdal.gdal_presets import CompressionPreset, HillshadePreset
-from geoprocessor_gdal.gdal.gdal_scale import ScaleRange
+from geoprocessor_gdal.gdal.gdal_rescale import RescaleRange
 from pytest import raises
 from pytest_subtests import SubTests
 
@@ -33,7 +33,7 @@ def test_get_webp_rescaled() -> None:
 
 def test_get_webp_rescaled_with_scale_range(subtests: SubTests) -> None:
     with subtests.test(msg="single range with alpha"):
-        assert get_webp_rescaled(DataType.UINT16.value, ScaleRange.parse("301,4012"), band_count=4) == [
+        assert get_webp_rescaled(DataType.UINT16.value, RescaleRange.parse("301,4012"), band_count=4) == [
             *["-scale_1", "301", "4012", "0", "255"],
             *["-scale_2", "301", "4012", "0", "255"],
             *["-scale_3", "301", "4012", "0", "255"],
@@ -44,7 +44,7 @@ def test_get_webp_rescaled_with_scale_range(subtests: SubTests) -> None:
         ]
 
     with subtests.test(msg="per band without alpha"):
-        assert get_webp_rescaled(DataType.UINT16.value, ScaleRange.parse("1,10;2,20;3,30"), band_count=3) == [
+        assert get_webp_rescaled(DataType.UINT16.value, RescaleRange.parse("1,10;2,20;3,30"), band_count=3) == [
             *["-scale_1", "1", "10", "0", "255"],
             *["-scale_2", "2", "20", "0", "255"],
             *["-scale_3", "3", "30", "0", "255"],
@@ -54,7 +54,7 @@ def test_get_webp_rescaled_with_scale_range(subtests: SubTests) -> None:
         ]
 
     with subtests.test(msg="gamma"):
-        assert get_webp_rescaled(DataType.UINT16.value, ScaleRange.parse("301,4012"), band_count=4, gamma=1.3) == [
+        assert get_webp_rescaled(DataType.UINT16.value, RescaleRange.parse("301,4012"), band_count=4, gamma=1.3) == [
             *["-scale_1", "301", "4012", "0", "255", "-exponent_1", "0.769231"],
             *["-scale_2", "301", "4012", "0", "255", "-exponent_2", "0.769231"],
             *["-scale_3", "301", "4012", "0", "255", "-exponent_3", "0.769231"],
@@ -67,12 +67,12 @@ def test_get_webp_rescaled_with_scale_range(subtests: SubTests) -> None:
     for band_count in [None, 2]:
         with subtests.test(msg=f"rejects band count {band_count}"):
             with raises(ValueError, match="output bands"):
-                get_webp_rescaled(DataType.UINT16.value, ScaleRange.parse("301,4012"), band_count=band_count)
+                get_webp_rescaled(DataType.UINT16.value, RescaleRange.parse("301,4012"), band_count=band_count)
 
     for gamma in [0, -1.3]:
         with subtests.test(msg=f"rejects gamma {gamma}"):
             with raises(ValueError, match="positive gamma"):
-                get_webp_rescaled(DataType.UINT16.value, ScaleRange.parse("301,4012"), band_count=4, gamma=gamma)
+                get_webp_rescaled(DataType.UINT16.value, RescaleRange.parse("301,4012"), band_count=4, gamma=gamma)
 
     with subtests.test(msg="rejects gamma without scale range"):
         with raises(ValueError, match="gamma requires a scale range"):
@@ -140,7 +140,7 @@ def test_preset_webp_uint16_applies_scale_range() -> None:
         CompressionPreset.WEBP.value,
         epsg=EpsgNumber.NZTM_2000,
         data_type=DataType.UINT16.value,
-        scale_range=ScaleRange.parse("301,4012"),
+        scale_range=RescaleRange.parse("301,4012"),
         band_count=4,
     )
 
@@ -166,7 +166,7 @@ def test_scale_range_is_rejected_without_rescaling(subtests: SubTests) -> None:
                     preset.value,
                     epsg=EpsgNumber.NZTM_2000,
                     data_type=data_type.value,
-                    scale_range=ScaleRange.parse("301,4012"),
+                    scale_range=RescaleRange.parse("301,4012"),
                     band_count=4,
                 )
 
