@@ -15,7 +15,7 @@ import numpy as np
 import numpy.typing as npt
 import tifffile
 from geoprocessor_common.aws.aws_helper import is_s3
-from geoprocessor_common.files.fs import list_file_names, read, write
+from geoprocessor_common.files.fs import list_file_names, list_file_sizes, read, write
 from geoprocessor_common.files.fs_s3 import download
 from geoprocessor_gdal.gdal.gdal_bands import find_band, get_rgb_bands_args
 from geoprocessor_gdal.gdal.gdal_helper import gdal_info, run_gdal
@@ -359,8 +359,37 @@ def sum_histograms(source_histograms: Iterable[tuple[str, npt.NDArray[np.int64]]
     return total
 
 
+def get_worker_count(files: list[str], concurrency: int, max_download_bytes: int | None) -> int:
+    """Get the number of workers so that one download of the largest file per worker fits in `max_download_bytes`.
+
+    Args:
+        files: paths of the TIFFs to download
+        concurrency: maximum number of workers
+        max_download_bytes: maximum size in bytes of the downloads at a time, no limit if None
+
+    Returns:
+        the number of workers, at least 1
+    """
+    if max_download_bytes is None or not files:
+        return concurrency
+    sizes: dict[str, int] = {}
+    for directory in {os.path.join(os.path.dirname(file), "") for file in files}:
+        sizes.update({os.path.join(directory, name): size for name, size in list_file_sizes(directory).items()})
+    largest = max(sizes.get(file, 0) for file in files)
+    if largest == 0:
+        return concurrency
+    workers = min(concurrency, max(1, max_download_bytes // largest))
+    if workers < concurrency:
+        get_log().info("compute_scale_concurrency_capped", concurrency=workers, largestFileSize=largest)
+    return workers
+
+
 def get_dataset_histograms(
-    files: list[str], histogram_dir: str, concurrency: int = 1, force: bool = False
+    files: list[str],
+    histogram_dir: str,
+    concurrency: int = 1,
+    force: bool = False,
+    max_download_bytes: int | None = None,
 ) -> npt.NDArray[np.int64]:
     """Sum the colour band histograms of all TIFFs, reading the histogram files already in `histogram_dir`.
 
@@ -369,12 +398,17 @@ def get_dataset_histograms(
         histogram_dir: directory of the histogram file of each TIFF
         concurrency: number of TIFFs to read concurrently
         force: recompute the histogram files that already exist
+        max_download_bytes: maximum size in bytes of the `s3` TIFFs downloaded at a time, no limit if None
 
     Returns:
         value counts with shape (bands, 65536)
     """
     saved = set() if force else list_file_names(histogram_dir, HISTOGRAM_FILE_SUFFIX)
     tasks = [(file, histogram_dir, get_histogram_file_name(file) in saved) for file in files]
-    get_log().info("dataset_histograms_start", fileCount=len(files), savedCount=sum(task[2] for task in tasks))
-    with Pool(concurrency) as p:
+    downloads = [file for file, _, is_saved in tasks if not is_saved and is_s3(file)]
+    workers = get_worker_count(downloads, concurrency, max_download_bytes)
+    get_log().info(
+        "dataset_histograms_start", fileCount=len(files), savedCount=sum(task[2] for task in tasks), workers=workers
+    )
+    with Pool(workers) as p:
         return sum_histograms(p.imap_unordered(_get_source_histograms, tasks))

@@ -14,6 +14,7 @@ from geoprocessor_gdal.gdal.gdal_scale import (
     get_histogram_file_name,
     get_histograms,
     get_sample_command,
+    get_worker_count,
     histogram_from_pixels,
     histograms_from_bytes,
     histograms_to_bytes,
@@ -261,6 +262,50 @@ def test_sum_histograms(subtests: SubTests) -> None:
     with subtests.test(msg="rejects no histograms"):
         with raises(ValueError, match="No histograms"):
             sum_histograms([])
+
+
+def test_get_dataset_histograms_caps_workers_by_remaining_downloads(tmp_path: Path) -> None:
+    saved = np.zeros((3, 65536), dtype=np.int64)
+    (tmp_path / get_histogram_file_name("s3://bucket/saved.tif")).write_bytes(
+        histograms_to_bytes("s3://bucket/saved.tif", saved)
+    )
+
+    with (
+        patch("geoprocessor_gdal.gdal.gdal_scale.get_worker_count", return_value=1) as worker_count,
+        patch("geoprocessor_gdal.gdal.gdal_scale.download"),
+        patch("geoprocessor_gdal.gdal.gdal_scale.gdal_info", return_value=rgb_gdalinfo(2, 2, alpha=False)),
+        patch(
+            "geoprocessor_gdal.gdal.gdal_scale.run_gdal",
+            side_effect=sample_writer(np.full((3, 2, 2), 100, dtype=np.uint16)),
+        ),
+    ):
+        get_dataset_histograms(
+            ["s3://bucket/saved.tif", "s3://bucket/new.tif", "local.tif"], str(tmp_path), 4, max_download_bytes=1000
+        )
+
+    worker_count.assert_called_once_with(["s3://bucket/new.tif"], 4, 1000)
+
+
+def test_get_worker_count(subtests: SubTests) -> None:
+    sizes = {"s3://bucket/a/": {"1.tif": 100, "2.tif": 300, "other.tif": 10_000}, "s3://bucket/b/": {"3.tif": 200}}
+    files = ["s3://bucket/a/1.tif", "s3://bucket/a/2.tif", "s3://bucket/b/3.tif"]
+
+    with patch("geoprocessor_gdal.gdal.gdal_scale.list_file_sizes", side_effect=lambda directory: sizes[directory]) as listing:
+        with subtests.test(msg="caps to fit the largest file"):
+            assert get_worker_count(files, 16, 1000) == 3
+            assert sorted(call.args[0] for call in listing.call_args_list) == ["s3://bucket/a/", "s3://bucket/b/"]
+
+        with subtests.test(msg="keeps the concurrency when the files fit"):
+            assert get_worker_count(files, 2, 1000) == 2
+
+        with subtests.test(msg="at least one worker"):
+            assert get_worker_count(files, 16, 10) == 1
+
+        with subtests.test(msg="no limit"):
+            assert get_worker_count(files, 16, None) == 16
+
+        with subtests.test(msg="no downloads"):
+            assert get_worker_count([], 16, 1000) == 16
 
 
 def test_get_clip_percentiles() -> None:

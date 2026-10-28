@@ -1,3 +1,4 @@
+import math
 import os
 import sys
 from argparse import ArgumentParser, ArgumentTypeError
@@ -37,6 +38,24 @@ def str_to_percentile(value: str) -> float:
     if not 0 <= percentile <= 100:
         raise ArgumentTypeError(f"not between 0 and 100: {value}")
     return percentile
+
+
+def str_to_positive_float(value: str) -> float:
+    """Parse a positive number.
+
+    Args:
+        value: the number string
+
+    Returns:
+        the number
+    """
+    try:
+        number = float(value)
+    except ValueError as e:
+        raise ArgumentTypeError(f"not a number: {value}") from e
+    if not math.isfinite(number) or number <= 0:
+        raise ArgumentTypeError(f"not a positive number: {value}")
+    return number
 
 
 def get_args_parser() -> ArgumentParser:
@@ -79,6 +98,13 @@ def get_args_parser() -> ArgumentParser:
         help="Number of concurrent tiffs to read. Defaults to 1.",
     )
     parser.add_argument(
+        "--max-download-gb",
+        dest="max_download_gb",
+        type=str_to_positive_float,
+        help="Maximum size in GB of the source TIFFs downloaded at a time, lowers the concurrency for large TIFFs. "
+        "Defaults to no limit.",
+    )
+    parser.add_argument(
         "--force",
         dest="force",
         help="Recompute the histogram files that already exist. Defaults to False.",
@@ -107,7 +133,8 @@ def main(args: list[str] | None = None) -> None:
 
     get_log().info("compute_scale_start", fileCount=len(files))
     histogram_dir = arguments.histogram_dir or os.path.join(arguments.target, "histograms")
-    histograms = get_dataset_histograms(files, histogram_dir, arguments.concurrency, arguments.force)
+    max_download_bytes = None if arguments.max_download_gb is None else int(arguments.max_download_gb * 1e9)
+    histograms = get_dataset_histograms(files, histogram_dir, arguments.concurrency, arguments.force, max_download_bytes)
     try:
         scale_range = scale_range_from_histograms(
             histograms, arguments.low_percentile, arguments.high_percentile, arguments.per_band

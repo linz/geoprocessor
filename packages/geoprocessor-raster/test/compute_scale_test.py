@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
-from geoprocessor_raster.compute_scale import main, str_to_percentile
+from geoprocessor_raster.compute_scale import main, str_to_percentile, str_to_positive_float
 from pytest import CaptureFixture, raises
 from pytest_subtests import SubTests
 
@@ -31,7 +31,7 @@ def test_should_write_scale_range(tmp_path: Path) -> None:
     with patch("geoprocessor_raster.compute_scale.get_dataset_histograms", return_value=histograms) as get_histograms:
         main(["--from-file", str(from_file), "--target", str(tmp_path), "--low-percentile", "0", "--high-percentile", "100"])
 
-    get_histograms.assert_called_once_with(["a.tiff", "b.tif"], str(tmp_path / "histograms"), 1, False)
+    get_histograms.assert_called_once_with(["a.tiff", "b.tif"], str(tmp_path / "histograms"), 1, False, None)
     assert (tmp_path / "scale-range").read_text() == "50,399"
     details = json.loads((tmp_path / "scale-range.json").read_text())
     assert details["bands"][1] == {"name": "green", "low": 150, "high": 399, "pixelCount": 250}
@@ -129,7 +129,7 @@ def test_should_pass_histogram_dir_and_force(tmp_path: Path) -> None:
             ["--from-file", str(from_file), "--target", str(tmp_path), "--histogram-dir", "s3://bucket/histograms/", "--force"]
         )
 
-    get_histograms.assert_called_once_with(["a.tiff"], "s3://bucket/histograms/", 1, True)
+    get_histograms.assert_called_once_with(["a.tiff"], "s3://bucket/histograms/", 1, True, None)
 
 
 def test_should_fail_when_percentiles_give_the_same_value(tmp_path: Path, capsys: CaptureFixture[str]) -> None:
@@ -144,3 +144,25 @@ def test_should_fail_when_percentiles_give_the_same_value(tmp_path: Path, capsys
 
     assert "both give 1000" in capsys.readouterr().out
     assert not (tmp_path / "scale-range").exists()
+
+
+def test_should_pass_max_download_size(tmp_path: Path) -> None:
+    from_file = tmp_path / "input.json"
+    from_file.write_text(json.dumps([{"output": "BQ25_1000_0101", "input": ["a.tiff"]}]))
+    histograms = np.zeros((3, 65536), dtype=np.int64)
+    histograms[:, 100:200] = 1
+
+    with patch("geoprocessor_raster.compute_scale.get_dataset_histograms", return_value=histograms) as get_histograms:
+        main(["--from-file", str(from_file), "--target", str(tmp_path), "--concurrency", "64", "--max-download-gb", "10"])
+
+    get_histograms.assert_called_once_with(["a.tiff"], str(tmp_path / "histograms"), 64, False, 10_000_000_000)
+
+
+def test_str_to_positive_float(subtests: SubTests) -> None:
+    with subtests.test(msg="positive"):
+        assert str_to_positive_float("1.5") == 1.5
+
+    for value in ["0", "-1", "a", "nan", "inf"]:
+        with subtests.test(msg=value):
+            with raises(ArgumentTypeError):
+                str_to_positive_float(value)
