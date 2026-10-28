@@ -29,14 +29,25 @@ def test_should_write_rescale_range(tmp_path: Path) -> None:
     histograms[2, 50:300] = 1
 
     with patch("geoprocessor_raster.compute_scale.get_dataset_histograms", return_value=histograms) as get_histograms:
-        main(["--from-file", str(from_file), "--target", str(tmp_path), "--low-percentile", "0", "--high-percentile", "100"])
+        main(
+            [
+                "--from-file",
+                str(from_file),
+                "--target",
+                str(tmp_path),
+                "--rescale-clip-low-percentile",
+                "0",
+                "--rescale-clip-high-percentile",
+                "100",
+            ]
+        )
 
     get_histograms.assert_called_once_with(["a.tiff", "b.tif"], str(tmp_path / "histograms"), 1, False, None)
-    assert (tmp_path / "scale-range").read_text() == "50,399"
-    details = json.loads((tmp_path / "scale-range.json").read_text())
+    assert (tmp_path / "rescale-range").read_text() == "50,399"
+    details = json.loads((tmp_path / "rescale-range.json").read_text())
     assert details["bands"][1] == {"name": "green", "low": 150, "high": 399, "pixelCount": 250}
     assert details["fileCount"] == 2
-    low, high = details["clipPercentiles"]["low"], details["clipPercentiles"]["high"]
+    low, high = details["rescaleClipPercentiles"]["low"], details["rescaleClipPercentiles"]["high"]
     assert [entry["percentile"] for entry in low] == [
         0,
         0.1,
@@ -90,9 +101,20 @@ def test_should_write_per_band_rescale_range(tmp_path: Path) -> None:
     histograms[:, 100:200] = 1
 
     with patch("geoprocessor_raster.compute_scale.get_dataset_histograms", return_value=histograms):
-        main(["--from-file", str(from_file), "--target", str(tmp_path), "--per-band", "true", "--low-percentile", "0"])
+        main(
+            [
+                "--from-file",
+                str(from_file),
+                "--target",
+                str(tmp_path),
+                "--rescale-per-band",
+                "true",
+                "--rescale-clip-low-percentile",
+                "0",
+            ]
+        )
 
-    assert (tmp_path / "scale-range").read_text() == "100,199;100,199;100,199"
+    assert (tmp_path / "rescale-range").read_text() == "100,199;100,199;100,199"
 
 
 def test_should_add_requested_percentiles_to_clip_percentiles(tmp_path: Path) -> None:
@@ -103,19 +125,39 @@ def test_should_add_requested_percentiles_to_clip_percentiles(tmp_path: Path) ->
 
     with patch("geoprocessor_raster.compute_scale.get_dataset_histograms", return_value=histograms):
         main(
-            ["--from-file", str(from_file), "--target", str(tmp_path), "--low-percentile", "0.25", "--high-percentile", "97.3"]
+            [
+                "--from-file",
+                str(from_file),
+                "--target",
+                str(tmp_path),
+                "--rescale-clip-low-percentile",
+                "0.25",
+                "--rescale-clip-high-percentile",
+                "97.3",
+            ]
         )
 
-    clip_percentiles = json.loads((tmp_path / "scale-range.json").read_text())["clipPercentiles"]
+    clip_percentiles = json.loads((tmp_path / "rescale-range.json").read_text())["rescaleClipPercentiles"]
     assert {"percentile": 0.25, "value": 3, "bands": {"red": 3, "green": 3, "blue": 3}} in clip_percentiles["low"]
     assert {"percentile": 97.3, "value": 973, "bands": {"red": 973, "green": 973, "blue": 973}} in clip_percentiles["high"]
 
 
 def test_should_reject_low_percentile_above_high(tmp_path: Path, capsys: CaptureFixture[str]) -> None:
     with raises(SystemExit):
-        main(["--from-file", "input.json", "--target", str(tmp_path), "--low-percentile", "99", "--high-percentile", "1"])
+        main(
+            [
+                "--from-file",
+                "input.json",
+                "--target",
+                str(tmp_path),
+                "--rescale-clip-low-percentile",
+                "99",
+                "--rescale-clip-high-percentile",
+                "1",
+            ]
+        )
 
-    assert "--low-percentile must be lower than --high-percentile" in capsys.readouterr().err
+    assert "--rescale-clip-low-percentile must be lower than --rescale-clip-high-percentile" in capsys.readouterr().err
 
 
 def test_should_pass_histogram_dir_and_force(tmp_path: Path) -> None:
@@ -143,7 +185,7 @@ def test_should_fail_when_percentiles_give_the_same_value(tmp_path: Path, capsys
             main(["--from-file", str(from_file), "--target", str(tmp_path)])
 
     assert "both give 1000" in capsys.readouterr().out
-    assert not (tmp_path / "scale-range").exists()
+    assert not (tmp_path / "rescale-range").exists()
 
 
 def test_should_pass_max_download_size(tmp_path: Path) -> None:

@@ -81,24 +81,24 @@ near_infrared_aerial_imagery() {
 
 compute_scale() {
   run compute-scale --from-file ./tests/data/aerial_uint16.json --target /tmp/
-  [[ "$(cat "${directory}/scale-range")" == "1176,4824" ]]
+  [[ "$(cat "${directory}/rescale-range")" == "1176,4824" ]]
 }
 
 compute_scale_multiple_files() {
   run compute-scale --from-file ./tests/data/scale_uint16.json --target /tmp/
-  cmp --silent <(jq -S . "${directory}/scale-range.json") <(jq -S . "$(expected scale-range.json)")
+  cmp --silent <(jq -S . "${directory}/rescale-range.json") <(jq -S . "$(expected rescale-range.json)")
 }
 
 compute_scale_resume() {
   run compute-scale --from-file ./tests/data/scale_uint16_partial.json --target /tmp/
   run compute-scale --from-file ./tests/data/scale_uint16.json --target /tmp/ 2>&1 | tee "${directory}/resume.log"
   grep --quiet '"savedCount": 2' "${directory}/resume.log"
-  cmp --silent <(jq -S . "${directory}/scale-range.json") <(jq -S . "$(expected scale-range.json)")
+  cmp --silent <(jq -S . "${directory}/rescale-range.json") <(jq -S . "$(expected rescale-range.json)")
 }
 
 compute_scale_per_band() {
-  run compute-scale --from-file ./tests/data/scale_uint16.json --target /tmp/ --per-band true --low-percentile 1 --high-percentile 99
-  [[ "$(cat "${directory}/scale-range")" == "1688,13870;1784,14370;1864,13465" ]]
+  run compute-scale --from-file ./tests/data/scale_uint16.json --target /tmp/ --rescale-per-band true --rescale-clip-low-percentile 1 --rescale-clip-high-percentile 99
+  [[ "$(cat "${directory}/rescale-range")" == "1688,13870;1784,14370;1864,13465" ]]
 }
 
 aerial_imagery_uint16() {

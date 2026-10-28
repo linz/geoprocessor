@@ -98,10 +98,10 @@ def test_rescale_range_from_histograms(subtests: SubTests) -> None:
     histograms[2, 50:300] = 1
 
     with subtests.test(msg="single range"):
-        assert rescale_range_from_histograms(histograms, 0, 100, per_band=False) == RescaleRange((BandRange(50, 399),))
+        assert rescale_range_from_histograms(histograms, 0, 100, rescale_per_band=False) == RescaleRange((BandRange(50, 399),))
 
     with subtests.test(msg="per band"):
-        assert rescale_range_from_histograms(histograms, 0, 100, per_band=True) == RescaleRange(
+        assert rescale_range_from_histograms(histograms, 0, 100, rescale_per_band=True) == RescaleRange(
             (BandRange(100, 199), BandRange(150, 399), BandRange(50, 299))
         )
 
@@ -110,8 +110,8 @@ def test_rescale_range_from_histograms(subtests: SubTests) -> None:
         narrow[:, 1000] = 100
         narrow[0, 2000] = 1
         with raises(ValueError, match="Low percentile 1 and high percentile 99 both give 1000"):
-            rescale_range_from_histograms(narrow, 1, 99, per_band=True)
-        assert rescale_range_from_histograms(narrow, 0, 100, per_band=False) == RescaleRange((BandRange(1000, 2000),))
+            rescale_range_from_histograms(narrow, 1, 99, rescale_per_band=True)
+        assert rescale_range_from_histograms(narrow, 0, 100, rescale_per_band=False) == RescaleRange((BandRange(1000, 2000),))
 
 
 def rgb_gdalinfo(width: int, height: int, alpha: bool = True, no_data_value: int | None = None) -> GdalInfo:

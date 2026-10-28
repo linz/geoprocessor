@@ -17,7 +17,7 @@ from geoprocessor_gdal.gdal.gdal_rescale import (
 from geoprocessor_stac.json_codec import dict_to_json_bytes
 from linz_logger import get_log
 
-SCALE_RANGE_FILE_NAME = "scale-range"
+RESCALE_RANGE_FILE_NAME = "rescale-range"
 # Clip percentiles at each end: 0 to 1 in 0.1 steps, then up to 5 in 0.5 steps
 CLIP_PERCENTILES = tuple(step / 10 for step in range(10)) + tuple(step / 2 for step in range(2, 11))
 
@@ -70,22 +70,22 @@ def get_args_parser() -> ArgumentParser:
         help="Directory of the histogram file of each TIFF, reused on the next run. Defaults to <target>/histograms.",
     )
     parser.add_argument(
-        "--low-percentile",
-        dest="low_percentile",
+        "--rescale-clip-low-percentile",
+        dest="rescale_clip_low_percentile",
         type=str_to_percentile,
         default=0.5,
         help="Percentile scaled to 0. Defaults to 0.5.",
     )
     parser.add_argument(
-        "--high-percentile",
-        dest="high_percentile",
+        "--rescale-clip-high-percentile",
+        dest="rescale_clip_high_percentile",
         type=str_to_percentile,
         default=99.5,
         help="Percentile scaled to 255. Defaults to 99.5.",
     )
     parser.add_argument(
-        "--per-band",
-        dest="per_band",
+        "--rescale-per-band",
+        dest="rescale_per_band",
         type=str_to_bool,
         default=False,
         help="Compute one range per band instead of one range for all bands ('true' / 'false'). Defaults to false.",
@@ -117,8 +117,8 @@ def main(args: list[str] | None = None) -> None:
     start_time = time_in_ms()
     parser = get_args_parser()
     arguments = parser.parse_args(args)
-    if arguments.low_percentile >= arguments.high_percentile:
-        parser.error("--low-percentile must be lower than --high-percentile")
+    if arguments.rescale_clip_low_percentile >= arguments.rescale_clip_high_percentile:
+        parser.error("--rescale-clip-low-percentile must be lower than --rescale-clip-high-percentile")
 
     try:
         tile_files = load_input_files(arguments.from_file)
@@ -137,37 +137,42 @@ def main(args: list[str] | None = None) -> None:
     histograms = get_dataset_histograms(files, histogram_dir, arguments.concurrency, arguments.force, max_download_bytes)
     try:
         rescale_range = rescale_range_from_histograms(
-            histograms, arguments.low_percentile, arguments.high_percentile, arguments.per_band
+            histograms,
+            arguments.rescale_clip_low_percentile,
+            arguments.rescale_clip_high_percentile,
+            arguments.rescale_per_band,
         )
     except ValueError as e:
         get_log().error("compute_scale_failed", error=str(e))
         sys.exit(1)
     band_names = BAND_NAMES[len(histograms)]
 
-    write(os.path.join(arguments.target, SCALE_RANGE_FILE_NAME), str(rescale_range).encode("utf-8"))
+    write(os.path.join(arguments.target, RESCALE_RANGE_FILE_NAME), str(rescale_range).encode("utf-8"))
     write(
-        os.path.join(arguments.target, f"{SCALE_RANGE_FILE_NAME}.json"),
+        os.path.join(arguments.target, f"{RESCALE_RANGE_FILE_NAME}.json"),
         dict_to_json_bytes(
             {
-                "scaleRange": str(rescale_range),
-                "lowPercentile": arguments.low_percentile,
-                "highPercentile": arguments.high_percentile,
-                "perBand": arguments.per_band,
+                "rescaleRange": str(rescale_range),
+                "rescaleClipLowPercentile": arguments.rescale_clip_low_percentile,
+                "rescaleClipHighPercentile": arguments.rescale_clip_high_percentile,
+                "rescalePerBand": arguments.rescale_per_band,
                 "bands": [
                     {
                         "name": name,
-                        "low": percentile_from_histogram(histogram, arguments.low_percentile),
-                        "high": percentile_from_histogram(histogram, arguments.high_percentile),
+                        "low": percentile_from_histogram(histogram, arguments.rescale_clip_low_percentile),
+                        "high": percentile_from_histogram(histogram, arguments.rescale_clip_high_percentile),
                         "pixelCount": int(histogram.sum()),
                     }
                     for name, histogram in zip(band_names, histograms, strict=True)
                 ],
-                "clipPercentiles": {
-                    "low": get_clip_percentiles(histograms, band_names, {*CLIP_PERCENTILES, arguments.low_percentile}, min),
+                "rescaleClipPercentiles": {
+                    "low": get_clip_percentiles(
+                        histograms, band_names, {*CLIP_PERCENTILES, arguments.rescale_clip_low_percentile}, min
+                    ),
                     "high": get_clip_percentiles(
                         histograms,
                         band_names,
-                        {*(round(100 - p, 1) for p in CLIP_PERCENTILES), arguments.high_percentile},
+                        {*(round(100 - p, 1) for p in CLIP_PERCENTILES), arguments.rescale_clip_high_percentile},
                         max,
                     ),
                 },
@@ -178,7 +183,7 @@ def main(args: list[str] | None = None) -> None:
     )
 
     get_log().info(
-        "compute_scale_end", scaleRange=str(rescale_range), fileCount=len(files), duration=time_in_ms() - start_time
+        "compute_scale_end", rescaleRange=str(rescale_range), fileCount=len(files), duration=time_in_ms() - start_time
     )
 
 

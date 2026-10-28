@@ -131,29 +131,36 @@ def percentile_from_histogram(histogram: npt.NDArray[np.int64], percentile: floa
 
 
 def rescale_range_from_histograms(
-    histograms: npt.NDArray[np.int64], low_percentile: float, high_percentile: float, per_band: bool
+    histograms: npt.NDArray[np.int64],
+    rescale_clip_low_percentile: float,
+    rescale_clip_high_percentile: float,
+    rescale_per_band: bool,
 ) -> RescaleRange:
     """Get the rescale range from the band histograms.
 
     Args:
         histograms: value counts with shape (bands, 65536)
-        low_percentile: percentile to scale to 0
-        high_percentile: percentile to scale to 255
-        per_band: return one range per band instead of one range for all bands
+        rescale_clip_low_percentile: percentile to scale to 0
+        rescale_clip_high_percentile: percentile to scale to 255
+        rescale_per_band: return one range per band instead of one range for all bands
 
     Returns:
         the `RescaleRange`
     """
     ranges = tuple(
-        BandRange(percentile_from_histogram(histogram, low_percentile), percentile_from_histogram(histogram, high_percentile))
+        BandRange(
+            percentile_from_histogram(histogram, rescale_clip_low_percentile),
+            percentile_from_histogram(histogram, rescale_clip_high_percentile),
+        )
         for histogram in histograms
     )
-    if not per_band:
+    if not rescale_per_band:
         ranges = (BandRange(min(band_range.min for band_range in ranges), max(band_range.max for band_range in ranges)),)
     for band_range in ranges:
         if band_range.min >= band_range.max:
             raise ValueError(
-                f"Low percentile {low_percentile} and high percentile {high_percentile} both give {band_range.min}: {ranges}"
+                f"Low percentile {rescale_clip_low_percentile} and high percentile {rescale_clip_high_percentile} "
+                f"both give {band_range.min}: {ranges}"
             )
     return RescaleRange(ranges)
 

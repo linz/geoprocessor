@@ -1,14 +1,14 @@
 {
-  "scaleRange": "1496,14430",
-  "lowPercentile": 0.5,
-  "highPercentile": 99.5,
-  "perBand": false,
+  "rescaleRange": "1496,14430",
+  "rescaleClipLowPercentile": 0.5,
+  "rescaleClipHighPercentile": 99.5,
+  "rescalePerBand": false,
   "bands": [
     { "name": "red", "low": 1496, "high": 13930, "pixelCount": 36942 },
     { "name": "green", "low": 1640, "high": 14430, "pixelCount": 36942 },
     { "name": "blue", "low": 1688, "high": 13535, "pixelCount": 36940 }
   ],
-  "clipPercentiles": {
+  "rescaleClipPercentiles": {
     "low": [
       {
         "percentile": 0.0,
