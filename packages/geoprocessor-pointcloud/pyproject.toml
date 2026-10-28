@@ -6,7 +6,7 @@ build-backend = "uv_build"
 name = "geoprocessor-pointcloud"
 version = "0.1.0"
 description = "Command line tools for point cloud (PDAL) LINZ geoprocessor workflows"
-requires-python = "~=3.12.3"
+requires-python = "~=3.14.4"
 dependencies = [
     "geoprocessor-common",
     "geoprocessor-pdal",
