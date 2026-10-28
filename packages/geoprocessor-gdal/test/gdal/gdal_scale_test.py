@@ -15,6 +15,7 @@ from geoprocessor_gdal.gdal.gdal_scale import (
     histogram_from_pixels,
     percentile_from_histogram,
     scale_range_from_histograms,
+    sum_histograms,
 )
 from geoprocessor_gdal.gdal.gdalinfo import GdalInfo
 from pytest import raises
@@ -176,6 +177,21 @@ def test_get_dataset_histograms_sums_files() -> None:
         total = get_dataset_histograms(["a.tiff", "b.tiff", "c.tiff"], concurrency=2)
 
     assert total[:, 100].tolist() == [12, 12, 12]
+
+
+def test_sum_histograms(subtests: SubTests) -> None:
+    rgb = np.ones((3, 65536), dtype=np.int64)
+
+    with subtests.test(msg="sums"):
+        assert sum_histograms([("a.tiff", rgb), ("b.tiff", rgb)])[:, 0].tolist() == [2, 2, 2]
+
+    with subtests.test(msg="rejects mixed band counts"):
+        with raises(ValueError, match="Expected 3 bands like the other sources, got 1: gray.tiff"):
+            sum_histograms([("a.tiff", rgb), ("gray.tiff", np.ones((1, 65536), dtype=np.int64))])
+
+    with subtests.test(msg="rejects no histograms"):
+        with raises(ValueError, match="No histograms"):
+            sum_histograms([])
 
 
 def test_get_clip_percentiles() -> None:

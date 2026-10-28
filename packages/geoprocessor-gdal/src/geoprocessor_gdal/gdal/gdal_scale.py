@@ -4,7 +4,6 @@ import os
 import tempfile
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
-from functools import reduce
 from multiprocessing import Pool
 from typing import Any, NamedTuple
 
@@ -239,6 +238,40 @@ def get_histograms(path: str, size: int = SAMPLE_SIZE) -> npt.NDArray[np.int64]:
     return histograms
 
 
+def get_source_histograms(source: str) -> tuple[str, npt.NDArray[np.int64]]:
+    """Get the colour band histograms of a source TIFF.
+
+    Args:
+        source: path to the TIFF
+
+    Returns:
+        the source path and its value counts with shape (bands, 65536)
+    """
+    return source, get_histograms(source)
+
+
+def sum_histograms(source_histograms: Iterable[tuple[str, npt.NDArray[np.int64]]]) -> npt.NDArray[np.int64]:
+    """Sum the histograms of all sources, which must have the same number of bands.
+
+    Args:
+        source_histograms: source path and value counts with shape (bands, 65536) of each source
+
+    Returns:
+        value counts with shape (bands, 65536)
+    """
+    total: npt.NDArray[np.int64] | None = None
+    for source, histograms in source_histograms:
+        if total is None:
+            total = histograms.copy()
+        elif histograms.shape != total.shape:
+            raise ValueError(f"Expected {len(total)} bands like the other sources, got {len(histograms)}: {source}")
+        else:
+            total += histograms
+    if total is None:
+        raise ValueError("No histograms to sum")
+    return total
+
+
 def get_dataset_histograms(files: list[str], concurrency: int = 1) -> npt.NDArray[np.int64]:
     """Sum the colour band histograms of all TIFFs.
 
@@ -250,5 +283,4 @@ def get_dataset_histograms(files: list[str], concurrency: int = 1) -> npt.NDArra
         value counts with shape (bands, 65536)
     """
     with Pool(concurrency) as p:
-        histograms: npt.NDArray[np.int64] = reduce(np.add, p.imap_unordered(get_histograms, files))
-    return histograms
+        return sum_histograms(p.imap_unordered(get_source_histograms, files))
