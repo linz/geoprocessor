@@ -148,9 +148,22 @@ def list_file_names(directory: str, suffix: str = "") -> set[str]:
     Returns:
         the file names, empty if the directory does not exist
     """
+    return set(list_file_sizes(directory, suffix))
+
+
+def list_file_sizes(directory: str, suffix: str = "") -> dict[str, int]:
+    """List the names and sizes of the files in a directory, without its subdirectories.
+
+    Args:
+        directory: A path to a directory
+        suffix: Only list file names ending with this suffix
+
+    Returns:
+        the size in bytes of each file name, empty if the directory does not exist
+    """
     if is_s3(directory):
-        return fs_s3.list_file_names(directory, suffix)
-    return fs_local.list_file_names(directory, suffix)
+        return fs_s3.list_file_sizes(directory, suffix)
+    return fs_local.list_file_sizes(directory, suffix)
 
 
 def write_all(inputs: list[str], target: str, concurrency: int | None = 4, generate_name: bool | None = True) -> list[str]:
