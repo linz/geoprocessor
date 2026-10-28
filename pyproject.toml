@@ -50,7 +50,6 @@ pythonpath = [
 ]
 
 [tool.uv]
-required-version = "==0.13.6"
 package = false
 default-groups = "all"
 
