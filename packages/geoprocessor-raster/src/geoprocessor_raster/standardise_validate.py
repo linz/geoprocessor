@@ -35,7 +35,12 @@ def str_to_scale_range(value: str) -> ScaleRange | None:
     Returns:
         the `ScaleRange` or None
     """
-    return ScaleRange.parse(value) if value.strip() else None
+    if not value.strip():
+        return None
+    try:
+        return ScaleRange.parse(value)
+    except ValueError as e:
+        raise ArgumentTypeError(str(e)) from e
 
 
 def str_to_gamma(value: str) -> float:

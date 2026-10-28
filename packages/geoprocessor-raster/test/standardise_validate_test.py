@@ -37,7 +37,7 @@ def test_scale_range_argument_rejects_invalid(capsys: CaptureFixture[str]) -> No
     with raises(SystemExit):
         get_args_parser().parse_args([*REQUIRED_ARGS, "--scale-range", "4012,301"])
 
-    assert "--scale-range" in capsys.readouterr().err
+    assert "--scale-range: Invalid band range, expected 0 <= min < max <= 65535: 4012,301" in capsys.readouterr().err
 
 
 def test_str_to_gamma(subtests: SubTests) -> None:
