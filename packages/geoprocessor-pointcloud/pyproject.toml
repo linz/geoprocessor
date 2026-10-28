@@ -15,6 +15,7 @@ dependencies = [
 
 [project.scripts]
 fix-laz-header = "geoprocessor_pointcloud.fix_laz_header:main"
+standardise-copc = "geoprocessor_pointcloud.standardise_copc:main"
 
 [dependency-groups]
 dev = [

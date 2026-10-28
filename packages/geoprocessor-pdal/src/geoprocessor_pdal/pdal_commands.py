@@ -9,6 +9,7 @@ from geoprocessor_common.epsg import EpsgNumber
 from geoprocessor_common.files.fs import copy
 from geoprocessor_common.log.time_helper import time_in_ms
 from linz_logger import get_log
+from ulid import ULID
 
 
 class PDALExecutionException(Exception):
@@ -67,6 +68,29 @@ pdal_translate_add_proj_command = get_pdal_command(
         f"--readers.las.spatialreference=EPSG:{EpsgNumber.NZTM_2000}+{EpsgNumber.NZVD_2016}",
         "--writers.las.filesource_id=0",
         "--writers.las.forward=all",
+    ],
+)
+
+
+def pdal_copc_project_id_option(collection_id: str) -> str:
+    """`writers.copc.project_id` option using the collection ULID as a UUID."""
+    return f"--writers.copc.project_id={ULID.from_str(collection_id).to_uuid()}"
+
+
+# `forward` keeps the global encoding (GPS time type), scale, offset and VLRs of the input file. The other header
+# fields describe the reprocessed file: `filesource_id` and `system_id` are set here, `project_id` comes from
+# `pdal_copc_project_id_option`, and `software_id` and the creation date are left to the writer.
+# `a_srs` replaces the CRS of the input file, which may be malformed (see `pdal_translate_add_proj_command`), without
+# reprojecting.
+pdal_translate_copc_command = get_pdal_command(
+    "translate",
+    [
+        "--writer=writers.copc",
+        "--writers.copc.forward=global_encoding,scale,offset,vlr",
+        "--writers.copc.filesource_id=0",
+        "--writers.copc.extra_dims=all",
+        "--writers.copc.system_id=TRANSFORMATION",
+        f"--writers.copc.a_srs=EPSG:{EpsgNumber.NZTM_2000}+{EpsgNumber.NZVD_2016}",
     ],
 )
 

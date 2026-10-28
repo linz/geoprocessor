@@ -10,6 +10,7 @@ requires-python = "~=3.12.3"
 dependencies = [
     "geoprocessor-common",
     "linz-logger",
+    "python-ulid",
 ]
 
 [dependency-groups]
