@@ -227,6 +227,29 @@ def exists(path: str, needs_credentials: bool = False) -> bool:
         raise
 
 
+def list_file_names(directory: str, suffix: str) -> set[str]:
+    """List the names of the objects in an s3 directory, without its subdirectories.
+
+    Args:
+        directory: An s3 path to a directory
+        suffix: Only list object names ending with this suffix
+
+    Returns:
+        the object names, empty if there are none
+    """
+    prefix = os.path.join(prefix_from_path(directory), "")
+    s3_client: S3Client = client("s3")
+    names = set()
+    for response in s3_client.get_paginator("list_objects_v2").paginate(
+        Bucket=bucket_name_from_path(directory), Prefix=prefix, Delimiter="/"
+    ):
+        for content in response.get("Contents", []):
+            name = content["Key"][len(prefix) :]
+            if name.endswith(suffix):
+                names.add(name)
+    return names
+
+
 def bucket_name_from_path(path: str) -> str:
     """Get the bucket name from an `s3` path.
 

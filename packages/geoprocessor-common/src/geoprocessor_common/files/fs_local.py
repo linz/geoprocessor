@@ -103,3 +103,18 @@ def exists(path: str) -> bool:
         True if the path exists
     """
     return os.path.exists(path)
+
+
+def list_file_names(directory: str, suffix: str) -> set[str]:
+    """List the names of the files in a local directory, without its subdirectories.
+
+    Args:
+        directory: A local path to a directory
+        suffix: Only list file names ending with this suffix
+
+    Returns:
+        the file names, empty if the directory does not exist
+    """
+    if not os.path.isdir(directory):
+        return set()
+    return {entry.name for entry in os.scandir(directory) if entry.is_file() and entry.name.endswith(suffix)}

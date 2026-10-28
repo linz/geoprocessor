@@ -11,6 +11,7 @@ from geoprocessor_common.files.files_helper import ContentType
 from geoprocessor_common.files.fs import (
     NoSuchFileError,
     copy,
+    list_file_names,
     multihash,
     read,
     write,
@@ -269,3 +270,24 @@ def test_copy_does_not_blame_the_source_for_a_target_failure(setup: str) -> None
     with patch("geoprocessor_common.files.fs_local.copy_file", side_effect=error):
         with raises(FileNotFoundError):
             copy(source_path, os.path.join(setup, "target/source.tiff"))
+
+
+def test_list_file_names_local(setup: str) -> None:
+    write(os.path.join(setup, "a.npz"), b"a")
+    write(os.path.join(setup, "b.json"), b"b")
+    write(os.path.join(setup, "sub/c.npz"), b"c")
+
+    assert list_file_names(setup, ".npz") == {"a.npz"}
+    assert list_file_names(os.path.join(setup, "missing")) == set()
+
+
+@mock_aws
+def test_list_file_names_s3() -> None:
+    s3_client: S3Client = client("s3", region_name=DEFAULT_REGION_NAME)
+    s3_client.create_bucket(Bucket="testbucket")
+    for key in ["dir/a.npz", "dir/b.json", "dir/sub/c.npz", "dir2/d.npz"]:
+        s3_client.put_object(Bucket="testbucket", Key=key, Body=b"test content")
+
+    assert list_file_names("s3://testbucket/dir", ".npz") == {"a.npz"}
+    assert list_file_names("s3://testbucket/dir/") == {"a.npz", "b.json"}
+    assert list_file_names("s3://testbucket/missing/") == set()
