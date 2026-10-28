@@ -18,7 +18,7 @@ dependencies = [
     "boto3",
     "geoprocessor-pointcloud",
     "geoprocessor-raster",
-    "linz-logger",
+    "linz-logger>=0.13.1",
     "shapely>=2.0",
 ]
 

@@ -9,7 +9,7 @@ description = "PDAL utilities for LINZ geoprocessor workflows"
 requires-python = "~=3.12.3"
 dependencies = [
     "geoprocessor-common",
-    "linz-logger",
+    "linz-logger>=0.13.1",
 ]
 
 [dependency-groups]

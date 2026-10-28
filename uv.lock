@@ -351,7 +351,7 @@ requires-dist = [
     { name = "boto3" },
     { name = "geoprocessor-pointcloud", editable = "packages/geoprocessor-pointcloud" },
     { name = "geoprocessor-raster", editable = "packages/geoprocessor-raster" },
-    { name = "linz-logger" },
+    { name = "linz-logger", specifier = ">=0.13.1" },
     { name = "shapely", specifier = ">=2.0" },
 ]
 
@@ -395,7 +395,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "boto3" },
-    { name = "linz-logger" },
+    { name = "linz-logger", specifier = ">=0.13.1" },
     { name = "py-multihash" },
     { name = "python-dateutil" },
     { name = "shapely", specifier = ">=2.0" },
@@ -431,7 +431,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "geoprocessor-common", editable = "packages/geoprocessor-common" },
-    { name = "linz-logger" },
+    { name = "linz-logger", specifier = ">=0.13.1" },
     { name = "shapely", specifier = ">=2.0" },
     { name = "tifffile" },
 ]
@@ -462,7 +462,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "geoprocessor-common", editable = "packages/geoprocessor-common" },
-    { name = "linz-logger" },
+    { name = "linz-logger", specifier = ">=0.13.1" },
 ]
 
 [package.metadata.requires-dev]
@@ -493,7 +493,7 @@ dev = [
 requires-dist = [
     { name = "geoprocessor-common", editable = "packages/geoprocessor-common" },
     { name = "geoprocessor-pdal", editable = "packages/geoprocessor-pdal" },
-    { name = "linz-logger" },
+    { name = "linz-logger", specifier = ">=0.13.1" },
 ]
 
 [package.metadata.requires-dev]
@@ -528,7 +528,7 @@ requires-dist = [
     { name = "geoprocessor-common", editable = "packages/geoprocessor-common" },
     { name = "geoprocessor-gdal", editable = "packages/geoprocessor-gdal" },
     { name = "geoprocessor-stac", editable = "packages/geoprocessor-stac" },
-    { name = "linz-logger" },
+    { name = "linz-logger", specifier = ">=0.13.1" },
 ]
 
 [package.metadata.requires-dev]
@@ -564,7 +564,7 @@ dev = [
 requires-dist = [
     { name = "boto3" },
     { name = "geoprocessor-common", editable = "packages/geoprocessor-common" },
-    { name = "linz-logger" },
+    { name = "linz-logger", specifier = ">=0.13.1" },
     { name = "python-ulid" },
     { name = "shapely", specifier = ">=2.0" },
 ]
@@ -687,15 +687,15 @@ wheels = [
 
 [[package]]
 name = "linz-logger"
-version = "0.11.0"
+version = "0.13.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "python-ulid" },
     { name = "structlog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/71/29/de1a703fae473d8014d1770e86e7f6b46b9b02dbe84ea6c2dc4bf1476902/linz_logger-0.11.0.tar.gz", hash = "sha256:7454e18f613b5aafbb38cad1478d48eab15bacd4d3fe8bb70fcc55f4ea139a6b", size = 4368, upload-time = "2022-12-05T23:30:00.917Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6d/a6/6df47b73f3c7f98fbe7575bc9e7e8377cd0a8e47bd7a801335972796bca0/linz_logger-0.13.1.tar.gz", hash = "sha256:69fbc39d3a4f59c522db9313d1ecd749b9c21921dc7e6ce889b1591216e36bf2", size = 4590, upload-time = "2026-10-28T03:10:50.913Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7a/b5/310ff8b62f7607d8b127ebe222acfc1394aca0b5f490832903b70672fa7e/linz_logger-0.11.0-py3-none-any.whl", hash = "sha256:1e8ef3f85a77e9506728a022e7b9b6b835c32a7d784ee8d78b6bb28755cc264a", size = 4798, upload-time = "2022-12-05T23:29:59.669Z" },
+    { url = "https://files.pythonhosted.org/packages/fe/95/24a3881423077748bc8516572cc870e4dd8eb31bb57a7f419bba16ae214e/linz_logger-0.13.1-py3-none-any.whl", hash = "sha256:8f6f06ebb1c6fa565175894aa0dc7f055a200caa169eeb74bcef8547ee0dbc34", size = 5352, upload-time = "2026-10-28T03:10:49.614Z" },
 ]
 
 [[package]]
@@ -1151,11 +1151,11 @@ wheels = [
 
 [[package]]
 name = "structlog"
-version = "22.3.0"
+version = "26.1.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/a9/9b/4236af056671ba03c788b7398785912b741fb47b6683feab96501f66fc5b/structlog-22.3.0.tar.gz", hash = "sha256:e7509391f215e4afb88b1b80fa3ea074be57a5a17d794bd436a5c949da023333", size = 743718, upload-time = "2022-11-24T07:44:09.667Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5e/89/b4a0bcfdf4f71a3dea31379f095929613d7e4528a0996bca6aa964cd0dca/structlog-26.1.0.tar.gz", hash = "sha256:f63a716cbd1b1291cf7661de7794b455acfa4c43c5bcf1630e6ad5ddc1adb3b7", size = 1459881, upload-time = "2026-06-06T07:33:39.348Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3a/3e/7308875945401bcbc5f3390f0150aee8e9f81ab1e5e4ea6afeffe9a2e68b/structlog-22.3.0-py3-none-any.whl", hash = "sha256:b403f344f902b220648fa9f286a23c0cc5439a5844d271fec40562dbadbc70ad", size = 61686, upload-time = "2022-11-24T07:44:07.425Z" },
+    { url = "https://files.pythonhosted.org/packages/a9/18/489c97b834dfff9cf2fc2507cede4bcd4b11e67f84bc462acd1992496f86/structlog-26.1.0-py3-none-any.whl", hash = "sha256:e081a26d6c373e6d201eca24eede26d8ffab07f88f477822e679183428d3d91e", size = 73764, upload-time = "2026-06-06T07:33:38.046Z" },
 ]
 
 [[package]]
