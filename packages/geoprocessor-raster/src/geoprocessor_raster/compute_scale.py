@@ -108,9 +108,13 @@ def main(args: list[str] | None = None) -> None:
     get_log().info("compute_scale_start", fileCount=len(files))
     histogram_dir = arguments.histogram_dir or os.path.join(arguments.target, "histograms")
     histograms = get_dataset_histograms(files, histogram_dir, arguments.concurrency, arguments.force)
-    scale_range = scale_range_from_histograms(
-        histograms, arguments.low_percentile, arguments.high_percentile, arguments.per_band
-    )
+    try:
+        scale_range = scale_range_from_histograms(
+            histograms, arguments.low_percentile, arguments.high_percentile, arguments.per_band
+        )
+    except ValueError as e:
+        get_log().error("compute_scale_failed", error=str(e))
+        sys.exit(1)
     band_names = BAND_NAMES[len(histograms)]
 
     write(os.path.join(arguments.target, SCALE_RANGE_FILE_NAME), str(scale_range).encode("utf-8"))

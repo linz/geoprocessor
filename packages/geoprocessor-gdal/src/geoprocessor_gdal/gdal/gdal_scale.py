@@ -147,9 +147,14 @@ def scale_range_from_histograms(
         BandRange(percentile_from_histogram(histogram, low_percentile), percentile_from_histogram(histogram, high_percentile))
         for histogram in histograms
     )
-    if per_band:
-        return ScaleRange(ranges)
-    return ScaleRange((BandRange(min(band_range.min for band_range in ranges), max(band_range.max for band_range in ranges)),))
+    if not per_band:
+        ranges = (BandRange(min(band_range.min for band_range in ranges), max(band_range.max for band_range in ranges)),)
+    for band_range in ranges:
+        if band_range.min >= band_range.max:
+            raise ValueError(
+                f"Low percentile {low_percentile} and high percentile {high_percentile} both give {band_range.min}: {ranges}"
+            )
+    return ScaleRange(ranges)
 
 
 def get_clip_percentiles(

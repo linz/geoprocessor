@@ -104,6 +104,14 @@ def test_scale_range_from_histograms(subtests: SubTests) -> None:
             (BandRange(100, 199), BandRange(150, 399), BandRange(50, 299))
         )
 
+    with subtests.test(msg="rejects percentiles giving the same value"):
+        narrow = np.zeros((3, 65536), dtype=np.int64)
+        narrow[:, 1000] = 100
+        narrow[0, 2000] = 1
+        with raises(ValueError, match="Low percentile 1 and high percentile 99 both give 1000"):
+            scale_range_from_histograms(narrow, 1, 99, per_band=True)
+        assert scale_range_from_histograms(narrow, 0, 100, per_band=False) == ScaleRange((BandRange(1000, 2000),))
+
 
 def rgb_gdalinfo(width: int, height: int, alpha: bool = True, no_data_value: int | None = None) -> GdalInfo:
     gdalinfo: GdalInfo = fake_gdalinfo()

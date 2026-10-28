@@ -130,3 +130,17 @@ def test_should_pass_histogram_dir_and_force(tmp_path: Path) -> None:
         )
 
     get_histograms.assert_called_once_with(["a.tiff"], "s3://bucket/histograms/", 1, True)
+
+
+def test_should_fail_when_percentiles_give_the_same_value(tmp_path: Path, capsys: CaptureFixture[str]) -> None:
+    from_file = tmp_path / "input.json"
+    from_file.write_text(json.dumps([{"output": "BQ25_1000_0101", "input": ["a.tiff"]}]))
+    histograms = np.zeros((3, 65536), dtype=np.int64)
+    histograms[:, 1000] = 1
+
+    with patch("geoprocessor_raster.compute_scale.get_dataset_histograms", return_value=histograms):
+        with raises(SystemExit):
+            main(["--from-file", str(from_file), "--target", str(tmp_path)])
+
+    assert "both give 1000" in capsys.readouterr().out
+    assert not (tmp_path / "scale-range").exists()
