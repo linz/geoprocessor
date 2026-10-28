@@ -1,3 +1,4 @@
+import math
 import os
 import sys
 from argparse import ArgumentParser, ArgumentTypeError
@@ -52,8 +53,8 @@ def str_to_gamma(value: str) -> float:
         gamma = float(value)
     except ValueError as e:
         raise ArgumentTypeError(f"not a number: {value}") from e
-    if gamma <= 0:
-        raise ArgumentTypeError(f"not positive: {value}")
+    if not math.isfinite(gamma) or gamma <= 0:
+        raise ArgumentTypeError(f"not a positive number: {value}")
     return gamma
 
 

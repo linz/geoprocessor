@@ -45,7 +45,7 @@ def test_str_to_gamma(subtests: SubTests) -> None:
         with subtests.test(msg=repr(value)):
             assert str_to_gamma(value) == expected
 
-    for value in ["0", "-1.3", "a"]:
+    for value in ["0", "-1.3", "a", "nan", "inf"]:
         with subtests.test(msg=value):
             with raises(ArgumentTypeError):
                 str_to_gamma(value)
