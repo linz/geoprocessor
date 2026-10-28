@@ -24,6 +24,10 @@ def test_get_webp_rescaled() -> None:
         "255",
         "-ot",
         "Byte",
+        "-mo",
+        "LINZ_SCALE_SOURCE_RANGE=0,65535",
+        "-mo",
+        "LINZ_SCALE_GAMMA=1",
     ]
 
 

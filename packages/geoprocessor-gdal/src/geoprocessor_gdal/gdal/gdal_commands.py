@@ -62,6 +62,10 @@ def get_webp_rescaled(
             "255",
             "-ot",
             "Byte",
+            "-mo",
+            f"{SCALE_RANGE_METADATA}=0,{src_max}",
+            "-mo",
+            f"{SCALE_GAMMA_METADATA}=1",
         ]
 
     if band_count is None or band_count < COLOUR_BAND_COUNT:
