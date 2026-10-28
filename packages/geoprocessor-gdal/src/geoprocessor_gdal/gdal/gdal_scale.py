@@ -11,6 +11,8 @@ from typing import Any, NamedTuple
 import numpy as np
 import numpy.typing as npt
 import tifffile
+from geoprocessor_common.aws.aws_helper import is_s3
+from geoprocessor_common.files.fs import copy
 from geoprocessor_gdal.gdal.gdal_bands import find_band, get_rgb_bands_args
 from geoprocessor_gdal.gdal.gdal_helper import gdal_info, run_gdal
 from geoprocessor_gdal.gdal.gdalinfo import GdalInfo
@@ -214,10 +216,14 @@ def get_histograms(path: str, size: int = SAMPLE_SIZE) -> npt.NDArray[np.int64]:
     Returns:
         value counts with shape (bands, 65536)
     """
-    info = gdal_info(path, vsis3=True)
     with tempfile.TemporaryDirectory() as tmp_path:
+        local_path = path
+        if is_s3(path):
+            local_path = os.path.join(tmp_path, os.path.basename(path))
+            copy(path, local_path)
+        info = gdal_info(local_path)
         sample_path = os.path.join(tmp_path, "sample.tiff")
-        run_gdal(get_sample_command(info, size), input_file=path, output_file=sample_path, vsis3=True)
+        run_gdal(get_sample_command(info, size), input_file=local_path, output_file=sample_path)
         pixels = tifffile.imread(sample_path)
     if pixels.dtype != np.uint16:
         raise ValueError(f"Expected uint16 pixels, got {pixels.dtype}: {path}")
