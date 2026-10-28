@@ -25,9 +25,9 @@ def test_get_webp_rescaled() -> None:
         "-ot",
         "Byte",
         "-mo",
-        "LINZ_SCALE_SOURCE_RANGE=0,65535",
+        "LINZ_RESCALE_RANGE=0,65535",
         "-mo",
-        "LINZ_SCALE_GAMMA=1",
+        "LINZ_RESCALE_GAMMA=1",
     ]
 
 
@@ -39,8 +39,8 @@ def test_get_webp_rescaled_with_rescale_range(subtests: SubTests) -> None:
             *["-scale_3", "301", "4012", "0", "255"],
             *["-scale_4", "0", "65535", "0", "255"],
             *["-ot", "Byte"],
-            *["-mo", "LINZ_SCALE_SOURCE_RANGE=301,4012"],
-            *["-mo", "LINZ_SCALE_GAMMA=1"],
+            *["-mo", "LINZ_RESCALE_RANGE=301,4012"],
+            *["-mo", "LINZ_RESCALE_GAMMA=1"],
         ]
 
     with subtests.test(msg="per band without alpha"):
@@ -49,8 +49,8 @@ def test_get_webp_rescaled_with_rescale_range(subtests: SubTests) -> None:
             *["-scale_2", "2", "20", "0", "255"],
             *["-scale_3", "3", "30", "0", "255"],
             *["-ot", "Byte"],
-            *["-mo", "LINZ_SCALE_SOURCE_RANGE=1,10;2,20;3,30"],
-            *["-mo", "LINZ_SCALE_GAMMA=1"],
+            *["-mo", "LINZ_RESCALE_RANGE=1,10;2,20;3,30"],
+            *["-mo", "LINZ_RESCALE_GAMMA=1"],
         ]
 
     with subtests.test(msg="gamma"):
@@ -60,8 +60,8 @@ def test_get_webp_rescaled_with_rescale_range(subtests: SubTests) -> None:
             *["-scale_3", "301", "4012", "0", "255", "-exponent_3", "0.769231"],
             *["-scale_4", "0", "65535", "0", "255"],
             *["-ot", "Byte"],
-            *["-mo", "LINZ_SCALE_SOURCE_RANGE=301,4012"],
-            *["-mo", "LINZ_SCALE_GAMMA=1.3"],
+            *["-mo", "LINZ_RESCALE_RANGE=301,4012"],
+            *["-mo", "LINZ_RESCALE_GAMMA=1.3"],
         ]
 
     for band_count in [None, 2]:

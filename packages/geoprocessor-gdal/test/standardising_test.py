@@ -111,7 +111,7 @@ def test_apply_gdal_transformation_scales_each_output_band(tmp_path: Path) -> No
     command = run_gdal.call_args.args[0]
     assert command[command.index("-scale_3") : command.index("-scale_3") + 3] == ["-scale_3", "301", "4012"]
     assert command[command.index("-scale_4") : command.index("-scale_4") + 3] == ["-scale_4", "0", "65535"]
-    assert "LINZ_SCALE_SOURCE_RANGE=301,4012" in command
+    assert "LINZ_RESCALE_RANGE=301,4012" in command
 
 
 def test_config_allows_rescale_gamma_with_rescale_range() -> None:
@@ -148,4 +148,4 @@ def test_apply_gdal_transformation_applies_rescale_gamma(tmp_path: Path) -> None
     command = run_gdal.call_args.args[0]
     assert command[command.index("-exponent_1") : command.index("-exponent_1") + 2] == ["-exponent_1", "0.769231"]
     assert "-exponent_4" not in command
-    assert "LINZ_SCALE_GAMMA=1.3" in command
+    assert "LINZ_RESCALE_GAMMA=1.3" in command

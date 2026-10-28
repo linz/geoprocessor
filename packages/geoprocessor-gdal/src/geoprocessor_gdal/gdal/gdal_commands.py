@@ -25,8 +25,8 @@ from linz_logger import get_log
 BIGTIFF_NO = "bigtiff=no"
 BIGTIFF_YES = "bigtiff=yes"
 COLOUR_BAND_COUNT = 3
-SCALE_RANGE_METADATA = "LINZ_SCALE_SOURCE_RANGE"
-SCALE_GAMMA_METADATA = "LINZ_SCALE_GAMMA"
+RESCALE_RANGE_METADATA = "LINZ_RESCALE_RANGE"
+RESCALE_GAMMA_METADATA = "LINZ_RESCALE_GAMMA"
 
 
 def get_webp_rescaled(
@@ -63,9 +63,9 @@ def get_webp_rescaled(
             "-ot",
             "Byte",
             "-mo",
-            f"{SCALE_RANGE_METADATA}=0,{src_max}",
+            f"{RESCALE_RANGE_METADATA}=0,{src_max}",
             "-mo",
-            f"{SCALE_GAMMA_METADATA}=1",
+            f"{RESCALE_GAMMA_METADATA}=1",
         ]
 
     if band_count is None or band_count < COLOUR_BAND_COUNT:
@@ -88,9 +88,9 @@ def get_webp_rescaled(
         "-ot",
         "Byte",
         "-mo",
-        f"{SCALE_RANGE_METADATA}={rescale_range}",
+        f"{RESCALE_RANGE_METADATA}={rescale_range}",
         "-mo",
-        f"{SCALE_GAMMA_METADATA}={rescale_gamma:g}",
+        f"{RESCALE_GAMMA_METADATA}={rescale_gamma:g}",
     ]
 
 
