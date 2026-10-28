@@ -95,6 +95,12 @@ class StandardisingConfig:
             raise ValueError(f"Expected a positive scale gamma, got {self.scale_gamma}")
         if self.scale_gamma != 1 and self.scale_range is None:
             raise ValueError(f"A scale gamma requires a scale range, got gamma {self.scale_gamma}")
+        if (
+            self.scale_range is None
+            and self.data_type == DataType.UINT16.value
+            and self.gdal_preset == CompressionPreset.WEBP.value
+        ):
+            get_log().warning("webp_rescale_full_range", dataType=self.data_type)
 
 
 def run_standardising(

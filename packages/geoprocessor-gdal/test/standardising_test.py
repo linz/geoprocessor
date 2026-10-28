@@ -8,7 +8,7 @@ from geoprocessor_common.epsg import EpsgNumber
 from geoprocessor_gdal.gdal.gdal_presets import CompressionPreset
 from geoprocessor_gdal.gdal.gdal_scale import ScaleRange
 from geoprocessor_gdal.standardising import StandardisingConfig, apply_gdal_transformation
-from pytest import raises
+from pytest import CaptureFixture, raises
 from pytest_subtests import SubTests
 
 
@@ -77,6 +77,16 @@ def test_config_allows_scale_range_for_uint16_webp() -> None:
     config = standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, ScaleRange.parse("301,4012"))
 
     assert str(config.scale_range) == "301,4012"
+
+
+def test_config_warns_about_full_range_uint16_webp(subtests: SubTests, capsys: CaptureFixture[str]) -> None:
+    with subtests.test(msg="without a scale range"):
+        standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value)
+        assert "webp_rescale_full_range" in capsys.readouterr().out
+
+    with subtests.test(msg="with a scale range"):
+        standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, ScaleRange.parse("301,4012"))
+        assert "webp_rescale_full_range" not in capsys.readouterr().out
 
 
 def test_config_rejects_scale_range_without_uint16_webp(subtests: SubTests) -> None:

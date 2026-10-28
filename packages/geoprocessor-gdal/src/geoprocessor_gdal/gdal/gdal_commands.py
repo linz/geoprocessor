@@ -54,7 +54,6 @@ def get_webp_rescaled(
     if scale_range is None:
         if gamma != 1:
             raise ValueError(f"A gamma requires a scale range, got gamma {gamma}")
-        get_log().warning("webp_rescale_full_range", dataType=data_type)
         return [
             "-scale",
             "0",
