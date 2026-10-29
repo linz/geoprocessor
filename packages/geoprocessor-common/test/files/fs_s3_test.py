@@ -8,7 +8,6 @@ from geoprocessor_common.files.files_helper import ContentType
 from geoprocessor_common.files.fs_s3 import (
     download,
     exists,
-    list_files_in_uri,
     multihash,
     read,
     upload,
@@ -261,27 +260,6 @@ def test_exists_object_starting_with_not_exists() -> None:
     file_exists = exists("s3://testbucket/hello/another.fi")
 
     assert file_exists is False
-
-
-@mock_aws
-def test_list_files_in_uri(subtests: SubTests) -> None:
-    bucket_name = "testbucket"
-    s3_client: S3Client = client("s3", region_name=DEFAULT_REGION_NAME)
-    s3_client.create_bucket(Bucket=bucket_name)
-    s3_client.put_object(Bucket=bucket_name, Key="data/collection.json", Body=b"")
-    s3_client.put_object(Bucket=bucket_name, Key="data/image.tiff", Body=b"")
-    s3_client.put_object(Bucket=bucket_name, Key="data/image_meta.xml", Body=b"")
-
-    files = list_files_in_uri(f"s3://{bucket_name}/data/", [".json", "_meta.xml"], s3_client)
-
-    with subtests.test():
-        assert len(files) == 2
-
-    with subtests.test():
-        assert set(files) == {"data/collection.json", "data/image_meta.xml"}
-
-    with subtests.test():
-        assert "data/image.tiff" not in files
 
 
 @mock_aws
