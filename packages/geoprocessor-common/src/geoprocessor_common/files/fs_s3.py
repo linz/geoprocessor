@@ -293,33 +293,6 @@ def prefix_from_path(path: str) -> str:
     return path.replace(f"s3://{bucket_name}/", "")
 
 
-def list_files_in_uri(uri: str, suffixes: list[str], s3_client: S3Client | None) -> list[str]:
-    """Get a list of file paths from a s3 path based on their suffixes
-
-    Args:
-        uri: an s3 path
-        suffixes: a a list of suffixes. example: [".json", "_meta.xml"]
-        s3_client: an s3 client
-
-    Returns:
-        a list of file paths
-    """
-    s3_client = s3_client or client("s3")
-    files = []
-    paginator = s3_client.get_paginator("list_objects_v2")
-    response_iterator = paginator.paginate(Bucket=bucket_name_from_path(uri), Prefix=prefix_from_path(uri))
-
-    for response in response_iterator:
-        for contents_data in response["Contents"]:
-            key = contents_data["Key"]
-            if not key.lower().endswith(tuple(suffixes)):
-                get_log().trace("skipping file not json", file=key, action="collection_from_items", reason="skip")
-                continue
-            files.append(key)
-    get_log().info("Files Listed", number_of_files=len(files))
-    return files
-
-
 def _get_object(bucket: str, file_name: str, s3_client: S3Client) -> GetObjectOutputTypeDef:
     """Get the object from `s3`
 
