@@ -3,7 +3,7 @@ from collections.abc import Callable
 from pathlib import Path
 from shutil import rmtree
 from tempfile import mkdtemp
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from boto3 import client
 from botocore.exceptions import ClientError
@@ -11,6 +11,8 @@ from geoprocessor_common.files.files_helper import ContentType
 from geoprocessor_common.files.fs import (
     NoSuchFileError,
     copy,
+    list_file_names,
+    list_file_sizes,
     multihash,
     read,
     write,
@@ -269,3 +271,57 @@ def test_copy_does_not_blame_the_source_for_a_target_failure(setup: str) -> None
     with patch("geoprocessor_common.files.fs_local.copy_file", side_effect=error):
         with raises(FileNotFoundError):
             copy(source_path, os.path.join(setup, "target/source.tiff"))
+
+
+def test_list_file_names_local(setup: str) -> None:
+    write(os.path.join(setup, "a.npz"), b"a")
+    write(os.path.join(setup, "b.json"), b"b")
+    write(os.path.join(setup, "sub/c.npz"), b"c")
+
+    assert list_file_names(setup, ".npz") == {"a.npz"}
+    assert list_file_names(os.path.join(setup, "missing")) == set()
+
+
+@mock_aws
+def test_list_file_names_s3() -> None:
+    s3_client: S3Client = client("s3", region_name=DEFAULT_REGION_NAME)
+    s3_client.create_bucket(Bucket="testbucket")
+    for key in ["dir/a.npz", "dir/b.json", "dir/sub/c.npz", "dir2/d.npz"]:
+        s3_client.put_object(Bucket="testbucket", Key=key, Body=b"test content")
+
+    assert list_file_names("s3://testbucket/dir", ".npz") == {"a.npz"}
+    assert list_file_names("s3://testbucket/dir/") == {"a.npz", "b.json"}
+    assert list_file_names("s3://testbucket/missing/") == set()
+
+
+def test_list_file_sizes_local(setup: str) -> None:
+    write(os.path.join(setup, "a.tif"), b"12345")
+    write(os.path.join(setup, "sub/b.tif"), b"1")
+
+    assert list_file_sizes(setup, ".tif") == {"a.tif": 5}
+
+
+@mock_aws
+def test_list_file_sizes_s3() -> None:
+    s3_client: S3Client = client("s3", region_name=DEFAULT_REGION_NAME)
+    s3_client.create_bucket(Bucket="testbucket")
+    s3_client.put_object(Bucket="testbucket", Key="dir/a.tif", Body=b"12345")
+    s3_client.put_object(Bucket="testbucket", Key="dir/sub/b.tif", Body=b"1")
+
+    assert list_file_sizes("s3://testbucket/dir") == {"a.tif": 5}
+
+
+def test_list_file_sizes_s3_uses_bucket_role_when_denied() -> None:
+    denied = ClientError({"Error": {"Code": "AccessDenied", "Message": "Access Denied"}}, "ListObjectsV2")
+    default_client, role_client = MagicMock(), MagicMock()
+    default_client.get_paginator.return_value.paginate.side_effect = denied
+    role_client.get_paginator.return_value.paginate.return_value = [{"Contents": [{"Key": "dir/a.tif", "Size": 5}]}]
+
+    with (
+        patch("geoprocessor_common.files.fs_s3.client", return_value=default_client),
+        patch("geoprocessor_common.files.fs_s3.get_session") as get_session,
+    ):
+        get_session.return_value.client.return_value = role_client
+        assert list_file_sizes("s3://testbucket/dir/") == {"a.tif": 5}
+
+    get_session.assert_called_once_with("s3://testbucket/dir/")

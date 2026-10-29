@@ -27,6 +27,7 @@ from geoprocessor_gdal.gdal.gdal_commands import (
 from geoprocessor_gdal.gdal.gdal_footprint import create_footprint
 from geoprocessor_gdal.gdal.gdal_helper import gdal_info, run_gdal
 from geoprocessor_gdal.gdal.gdal_presets import CompressionPreset
+from geoprocessor_gdal.gdal.gdal_rescale import RescaleRange
 from geoprocessor_gdal.tiff.file_tiff import FileTiff, FileTiffType
 from geoprocessor_gdal.tile.tile_index import Bounds, get_bounds_from_name
 from linz_logger import get_log
@@ -49,6 +50,8 @@ class StandardisingConfig:
     cutline: path to the cutline file. Must be `.fgb` or `.geojson`
     data_type: data type of the dataset. See `gdal.gdal_presets.py`.
     scale_to_resolution: scale TIFFs to the specified x,y resolution. Defaults to None = no scaling.
+    rescale_range: source ranges of the colour bands to scale 16-bit to 8-bit. Defaults to None = full range.
+    rescale_gamma: gamma applied with `rescale_range`. Defaults to 1 = linear.
     force: overwrite existing output file. Defaults to False.
     """
 
@@ -61,6 +64,8 @@ class StandardisingConfig:
     cutline: str | None
     data_type: str
     scale_to_resolution: list[Decimal] | None = None
+    rescale_range: RescaleRange | None = None
+    rescale_gamma: float = 1.0
     force: bool = False
 
     def __post_init__(self) -> None:
@@ -77,6 +82,25 @@ class StandardisingConfig:
                 f"{' or '.join(UINT16_SUPPORTED_PRESETS)} presets, "
                 f"preset supplied was {self.gdal_preset}"
             )
+
+        if self.rescale_range is not None and (
+            self.data_type != DataType.UINT16.value or self.gdal_preset != CompressionPreset.WEBP.value
+        ):
+            raise ValueError(
+                f"A rescale range is only supported with data type {DataType.UINT16.value} and the "
+                f"{CompressionPreset.WEBP.value} preset, got {self.data_type} and {self.gdal_preset}"
+            )
+
+        if self.rescale_gamma <= 0:
+            raise ValueError(f"Expected a positive rescale gamma, got {self.rescale_gamma}")
+        if self.rescale_gamma != 1 and self.rescale_range is None:
+            raise ValueError(f"A rescale gamma requires a rescale range, got gamma {self.rescale_gamma}")
+        if (
+            self.rescale_range is None
+            and self.data_type == DataType.UINT16.value
+            and self.gdal_preset == CompressionPreset.WEBP.value
+        ):
+            get_log().warning("webp_rescale_full_range", dataType=self.data_type)
 
 
 def run_standardising(
@@ -336,8 +360,16 @@ def apply_gdal_transformation(input_file: str, config: StandardisingConfig, tmp_
     """Generate output using GDAL command."""
     target_file = os.path.join(tmp_path, f"{tile_name}.tiff")
 
-    command = get_gdal_command(config.gdal_preset, epsg=config.target_epsg, data_type=config.data_type)
-    command.extend(get_gdal_band_offset(input_file, gdal_info(input_file), config.gdal_preset))
+    band_args = get_gdal_band_offset(input_file, gdal_info(input_file), config.gdal_preset)
+    command = get_gdal_command(
+        config.gdal_preset,
+        epsg=config.target_epsg,
+        data_type=config.data_type,
+        rescale_range=config.rescale_range,
+        rescale_gamma=config.rescale_gamma,
+        band_count=band_args.count("-b"),
+    )
+    command.extend(band_args)
 
     # Specify the extent to get the right boundaries in case of the tiff got no data on its edges
     output_bounds: Bounds = get_bounds_from_name(tile_name, target_epsg=config.target_epsg)

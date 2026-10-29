@@ -79,6 +79,24 @@ near_infrared_aerial_imagery() {
   cmp --silent "${directory}/BR33_500_040034.tiff" "$(expected BR33_500_040034.tiff)"
 }
 
+# The second run reuses the histogram of the first, and adds a source with alpha, nodata and more than 1024 px
+compute_scale() {
+  run compute-scale --from-file ./tests/data/aerial_uint16.json --target /tmp/
+  run compute-scale --from-file ./tests/data/scale_uint16.json --target /tmp/ 2>&1 | tee "${directory}/resume.log"
+  grep --quiet '"savedCount": 1' "${directory}/resume.log"
+  cmp --silent <(jq -S . "${directory}/rescale-range.json") <(jq -S . "$(expected rescale-range.json)")
+}
+
+compute_scale_per_band() {
+  run compute-scale --from-file ./tests/data/scale_uint16.json --target /tmp/ --rescale-per-band true --rescale-clip-low-percentile 1 --rescale-clip-high-percentile 99
+  [[ "$(cat "${directory}/rescale-range")" == "1656,13870;1768,14370;1848,13475" ]]
+}
+
+aerial_imagery_uint16_gamma() {
+  run standardise-validate --from-file ./tests/data/aerial_uint16.json --preset webp --data-type uint16 --rescale-range 1240,4648 --rescale-gamma 1.3 --target-epsg 2193 --source-epsg 2193 --target /tmp/ --collection-id 123 --start-datetime 2023-01-01 --end-datetime 2023-01-01 --gsd 10 --create-footprints=true --current-datetime=2010-09-18T12:34:56Z
+  cmp --silent "${directory}/BG35_1000_4829.tiff" "$(expected BG35_1000_4829_uint16_gamma.tiff)"
+}
+
 cutline_aerial_imagery() {
   run standardise-validate --from-file ./tests/data/aerial.json --preset webp --data-type uint8 --target-epsg 2193 --source-epsg 2193 --target /tmp/cutline/ --collection-id 123 --start-datetime 2023-01-01 --end-datetime 2023-01-01 --cutline ./tests/data/cutline_aerial.fgb --gsd 10 --create-footprints=true --current-datetime=2010-09-18T12:34:56Z
   cmp --silent "${directory}/cutline/BG35_1000_4829.tiff" "$(expected BG35_1000_4829_cut.tiff)"
@@ -127,6 +145,9 @@ start "Hillshade Igor" hillshade_igor
 start "Historical Aerial Imagery" historical_aerial_imagery
 start "DEM ZSTD" dem_zstd
 start "Near Infrared Aerial Imagery" near_infrared_aerial_imagery
+start "Compute Scale" compute_scale
+start "Compute Scale (per band)" compute_scale_per_band
+start "Aerial Imagery (uint16, gamma)" aerial_imagery_uint16_gamma
 start "Cutline (Aerial Imagery)" cutline_aerial_imagery
 start "Footprint" footprint
 start "Footprint simplification" footprint_simplification

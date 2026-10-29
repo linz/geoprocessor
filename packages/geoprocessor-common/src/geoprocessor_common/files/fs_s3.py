@@ -227,6 +227,36 @@ def exists(path: str, needs_credentials: bool = False) -> bool:
         raise
 
 
+def list_file_sizes(directory: str, suffix: str, needs_credentials: bool = False) -> dict[str, int]:
+    """List the names and sizes of the objects in an s3 directory, without its subdirectories.
+
+    Args:
+        directory: An s3 path to a directory
+        suffix: Only list object names ending with this suffix
+        needs_credentials: if listing needs credentials. Defaults to False.
+
+    Returns:
+        the size in bytes of each object name, empty if there are none
+    """
+    prefix = os.path.join(prefix_from_path(directory), "")
+    s3_client: S3Client = get_session(directory).client("s3") if needs_credentials else client("s3")
+    sizes = {}
+    try:
+        for response in s3_client.get_paginator("list_objects_v2").paginate(
+            Bucket=bucket_name_from_path(directory), Prefix=prefix, Delimiter="/"
+        ):
+            for content in response.get("Contents", []):
+                name = content["Key"][len(prefix) :]
+                if name.endswith(suffix):
+                    sizes[name] = content["Size"]
+    except ClientError as ce:
+        if not needs_credentials and ce.response["Error"]["Code"] == "AccessDenied":
+            get_log().debug("list_s3_needs_credentials", path=directory)
+            return list_file_sizes(directory, suffix, True)
+        raise
+    return sizes
+
+
 def bucket_name_from_path(path: str) -> str:
     """Get the bucket name from an `s3` path.
 

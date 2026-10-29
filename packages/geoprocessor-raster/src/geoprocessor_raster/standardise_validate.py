@@ -1,6 +1,7 @@
+import math
 import os
 import sys
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentTypeError
 from datetime import datetime, timezone
 
 from geoprocessor_common.cli.cli_helper import (
@@ -17,11 +18,49 @@ from geoprocessor_common.datetimes import RFC_3339_DATETIME_FORMAT, format_rfc_3
 from geoprocessor_common.files.files_helper import SUFFIX_JSON, ContentType
 from geoprocessor_common.files.fs import exists, write
 from geoprocessor_gdal.gdal.gdal_helper import get_gdal_version, get_srs, get_vfs_path
+from geoprocessor_gdal.gdal.gdal_rescale import RescaleRange
 from geoprocessor_gdal.standardising import StandardisingConfig, run_standardising
 from geoprocessor_gdal.tiff.file_tiff import FileTiff
 from geoprocessor_raster.create_item import create_item_from_tiff
 from geoprocessor_stac.json_codec import dict_to_json_bytes
 from linz_logger import get_log
+
+
+def str_to_rescale_range(value: str) -> RescaleRange | None:
+    """Parse a rescale range, blank for none.
+
+    Args:
+        value: `min,max` or `min,max;min,max;min,max`
+
+    Returns:
+        the `RescaleRange` or None
+    """
+    if not value.strip():
+        return None
+    try:
+        return RescaleRange.parse(value)
+    except ValueError as e:
+        raise ArgumentTypeError(str(e)) from e
+
+
+def str_to_rescale_gamma(value: str) -> float:
+    """Parse a positive gamma, blank for linear.
+
+    Args:
+        value: the gamma, e.g. `1.3`
+
+    Returns:
+        the gamma
+    """
+    if not value.strip():
+        return 1.0
+    try:
+        gamma = float(value)
+    except ValueError as e:
+        raise ArgumentTypeError(f"not a number: {value}") from e
+    if not math.isfinite(gamma) or gamma <= 0:
+        raise ArgumentTypeError(f"not a positive number: {value}")
+    return gamma
 
 
 def get_args_parser() -> ArgumentParser:
@@ -106,6 +145,25 @@ def get_args_parser() -> ArgumentParser:
         required=False,
     )
     parser.add_argument(
+        "--rescale-range",
+        dest="rescale_range",
+        type=str_to_rescale_range,
+        nargs="?",
+        help=(
+            "Source range scaled to 8-bit for uint16 webp, 'min,max' or 'min,max;min,max;min,max' "
+            "(leave blank for the full range)"
+        ),
+        required=False,
+    )
+    parser.add_argument(
+        "--rescale-gamma",
+        dest="rescale_gamma",
+        type=str_to_rescale_gamma,
+        default=1.0,
+        help="Gamma applied with --rescale-range, e.g. 1.3. Defaults to 1 (linear).",
+        required=False,
+    )
+    parser.add_argument(
         "--force",
         dest="force",
         help="Regenerate the standardised TIFF and STAC files if already exist. Defaults to False.",
@@ -157,6 +215,8 @@ def main() -> None:
         cutline=arguments.cutline,
         data_type=arguments.data_type,
         scale_to_resolution=arguments.scale_to_resolution,
+        rescale_range=arguments.rescale_range,
+        rescale_gamma=arguments.rescale_gamma,
         force=force,
     )
 
