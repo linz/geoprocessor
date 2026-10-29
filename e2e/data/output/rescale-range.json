@@ -1,8 +1,11 @@
 {
   "rescaleRange": "1544,14450",
+  "rescaleGamma": 0.68,
   "rescaleClipLowPercentile": 0.5,
   "rescaleClipHighPercentile": 99.5,
   "rescalePerBand": false,
+  "rescaleGammaTarget": 0.4,
+  "luminanceMedian": 8497,
   "fileCount": 2,
   "pixelCount": {
     "red": 46656,

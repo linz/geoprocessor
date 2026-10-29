@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import numpy.typing as npt
 from geoprocessor_gdal.gdal.gdal_histograms import Histograms
-from geoprocessor_raster.compute_scale import main, str_to_percentile
+from geoprocessor_raster.compute_scale import main, str_to_fraction, str_to_percentile
 from pytest import CaptureFixture, raises
 from pytest_subtests import SubTests
 
@@ -42,6 +42,17 @@ def test_str_to_percentile(subtests: SubTests) -> None:
         with subtests.test(msg=value):
             with raises(ArgumentTypeError):
                 str_to_percentile(value)
+
+
+def test_str_to_fraction(subtests: SubTests) -> None:
+    for value, expected in [("0.001", 0.001), ("0.4", 0.4), ("0.999", 0.999)]:
+        with subtests.test(msg=value):
+            assert str_to_fraction(value) == expected
+
+    for value in ["0", "1", "-0.4", "a", "nan"]:
+        with subtests.test(msg=value):
+            with raises(ArgumentTypeError):
+                str_to_fraction(value)
 
 
 def test_should_write_rescale_range(tmp_path: Path) -> None:
@@ -99,6 +110,21 @@ def test_should_write_per_band_rescale_range(tmp_path: Path) -> None:
     run_main(tmp_path, bands, "--rescale-per-band", "true", "--rescale-clip-low-percentile", "0")
 
     assert (tmp_path / "rescale-range").read_text() == "100,199;100,199;100,199"
+
+
+def test_should_write_rescale_gamma(tmp_path: Path, subtests: SubTests) -> None:
+    bands = np.zeros((3, 65536), dtype=np.int64)
+    bands[:, 1:1001] = 1
+
+    for args, target, expected in [([], 0.4, "0.76"), (["--rescale-gamma-target", "0.5"], 0.5, "1")]:
+        with subtests.test(msg=" ".join(args) or "defaults"):
+            run_main(tmp_path, bands, "--rescale-clip-low-percentile", "0", "--rescale-clip-high-percentile", "100", *args)
+
+            assert (tmp_path / "rescale-gamma").read_text() == expected
+            details = read_details(tmp_path)
+            assert details["rescaleGamma"] == float(expected)
+            assert details["rescaleGammaTarget"] == target
+            assert details["luminanceMedian"] == 500
 
 
 def test_should_add_requested_percentiles_to_clip_percentiles(tmp_path: Path) -> None:
