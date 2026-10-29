@@ -1,9 +1,6 @@
 name: Format and Tests
 on:
   push:
-  pull_request:
-    branches:
-      - master
 
 jobs:
   build:
@@ -42,3 +39,11 @@ jobs:
     secrets: inherit
     with:
       publish: ${{ (github.ref == 'refs/heads/master' && !startsWith(github.event.head_commit.message, 'release:')) && 'commit' || '' }}
+
+  ci-ok:
+    if: always()
+    needs: [build, containers]
+    runs-on: ubuntu-latest
+    steps:
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
