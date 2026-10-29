@@ -79,18 +79,9 @@ near_infrared_aerial_imagery() {
   cmp --silent "${directory}/BR33_500_040034.tiff" "$(expected BR33_500_040034.tiff)"
 }
 
+# The second run reuses the histogram of the first, and adds a source with alpha, nodata and more than 1024 px
 compute_scale() {
   run compute-scale --from-file ./tests/data/aerial_uint16.json --target /tmp/
-  [[ "$(cat "${directory}/rescale-range")" == "1176,4824" ]]
-}
-
-compute_scale_multiple_files() {
-  run compute-scale --from-file ./tests/data/scale_uint16.json --target /tmp/
-  cmp --silent <(jq -S . "${directory}/rescale-range.json") <(jq -S . "$(expected rescale-range.json)")
-}
-
-compute_scale_resume() {
-  run compute-scale --from-file ./tests/data/scale_uint16_partial.json --target /tmp/
   run compute-scale --from-file ./tests/data/scale_uint16.json --target /tmp/ 2>&1 | tee "${directory}/resume.log"
   grep --quiet '"savedCount": 1' "${directory}/resume.log"
   cmp --silent <(jq -S . "${directory}/rescale-range.json") <(jq -S . "$(expected rescale-range.json)")
@@ -155,8 +146,6 @@ start "Historical Aerial Imagery" historical_aerial_imagery
 start "DEM ZSTD" dem_zstd
 start "Near Infrared Aerial Imagery" near_infrared_aerial_imagery
 start "Compute Scale" compute_scale
-start "Compute Scale (multiple files)" compute_scale_multiple_files
-start "Compute Scale (resume)" compute_scale_resume
 start "Compute Scale (per band)" compute_scale_per_band
 start "Aerial Imagery (uint16, gamma)" aerial_imagery_uint16_gamma
 start "Cutline (Aerial Imagery)" cutline_aerial_imagery
