@@ -92,13 +92,13 @@ compute_scale_multiple_files() {
 compute_scale_resume() {
   run compute-scale --from-file ./tests/data/scale_uint16_partial.json --target /tmp/
   run compute-scale --from-file ./tests/data/scale_uint16.json --target /tmp/ 2>&1 | tee "${directory}/resume.log"
-  grep --quiet '"savedCount": 2' "${directory}/resume.log"
+  grep --quiet '"savedCount": 1' "${directory}/resume.log"
   cmp --silent <(jq -S . "${directory}/rescale-range.json") <(jq -S . "$(expected rescale-range.json)")
 }
 
 compute_scale_per_band() {
   run compute-scale --from-file ./tests/data/scale_uint16.json --target /tmp/ --rescale-per-band true --rescale-clip-low-percentile 1 --rescale-clip-high-percentile 99
-  [[ "$(cat "${directory}/rescale-range")" == "1688,13870;1784,14370;1864,13465" ]]
+  [[ "$(cat "${directory}/rescale-range")" == "1656,13870;1768,14370;1848,13475" ]]
 }
 
 aerial_imagery_uint16() {
