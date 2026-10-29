@@ -138,6 +138,38 @@ def test_should_not_add_if_not_item(fake_collection_context: CollectionContext, 
 
 
 @mock_aws
+def test_should_fail_if_uri_has_no_files(fake_collection_context: CollectionContext) -> None:
+    s3_client: S3Client = client("s3", region_name=DEFAULT_REGION_NAME)
+    s3_client.create_bucket(Bucket="stacfiles")
+
+    with raises(NoItemsError):
+        create_collection_from_items(
+            collection_context=fake_collection_context,
+            uri=URI,
+            concurrency=CONCURRENCY,
+            current_datetime=any_epoch_datetime_string(),
+        )
+
+
+@mock_aws
+def test_should_read_items_in_subdirectories_of_uri(item: ImageryItem, fake_collection_context: CollectionContext) -> None:
+    s3_client: S3Client = client("s3", region_name=DEFAULT_REGION_NAME)
+    s3_client.create_bucket(Bucket="stacfiles")
+    item.add_collection("abc")
+    write("s3://stacfiles/flat/sub/item.json", dict_to_json_bytes(item.stac))
+
+    create_collection_from_items(
+        collection_context=replace(fake_collection_context, collection_id="abc"),
+        uri="s3://stacfiles/flat",
+        concurrency=CONCURRENCY,
+        current_datetime=any_epoch_datetime_string(),
+    )
+
+    resp = s3_client.get_object(Bucket="stacfiles", Key="flat/collection.json")
+    assert '"type": "Collection"' in resp["Body"].read().decode("utf-8")
+
+
+@mock_aws
 def test_should_determine_dates_from_items(item: ImageryItem, fake_collection_context: CollectionContext) -> None:
     # Mock AWS S3
     s3_client: S3Client = client("s3", region_name=DEFAULT_REGION_NAME)
