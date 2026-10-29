@@ -134,24 +134,22 @@ def test_preset_webp_uint16_is_rescaled(subtests: SubTests) -> None:
     with subtests.test():
         assert "compress=webp" in gdal_command
 
-
-def test_preset_webp_uint16_applies_rescale_range() -> None:
-    gdal_command = get_gdal_command(
-        CompressionPreset.WEBP.value,
-        epsg=EpsgNumber.NZTM_2000,
-        data_type=DataType.UINT16.value,
-        rescale_range=RescaleRange.parse("301,4012"),
-        band_count=4,
-    )
-
-    assert "-scale" not in gdal_command
-    assert gdal_command[gdal_command.index("-scale_1") : gdal_command.index("-scale_1") + 5] == [
-        "-scale_1",
-        "301",
-        "4012",
-        "0",
-        "255",
-    ]
+    with subtests.test(msg="with a rescale range"):
+        gdal_command = get_gdal_command(
+            CompressionPreset.WEBP.value,
+            epsg=EpsgNumber.NZTM_2000,
+            data_type=DataType.UINT16.value,
+            rescale_range=RescaleRange.parse("301,4012"),
+            band_count=4,
+        )
+        assert "-scale" not in gdal_command
+        assert gdal_command[gdal_command.index("-scale_1") : gdal_command.index("-scale_1") + 5] == [
+            "-scale_1",
+            "301",
+            "4012",
+            "0",
+            "255",
+        ]
 
 
 def test_rescale_range_is_rejected_without_rescaling(subtests: SubTests) -> None:

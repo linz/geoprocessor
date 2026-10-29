@@ -1,6 +1,4 @@
-from argparse import ArgumentTypeError
-
-from geoprocessor_raster.standardise_validate import get_args_parser, str_to_rescale_gamma, str_to_rescale_range
+from geoprocessor_raster.standardise_validate import get_args_parser
 from pytest import CaptureFixture, raises
 from pytest_subtests import SubTests
 
@@ -11,51 +9,32 @@ REQUIRED_ARGS = [
 ]
 
 
-def test_str_to_rescale_range(subtests: SubTests) -> None:
-    with subtests.test(msg="blank"):
-        assert str_to_rescale_range(" ") is None
-
-    with subtests.test(msg="range"):
-        assert str(str_to_rescale_range("301,4012")) == "301,4012"
-
-
-def test_rescale_range_argument(subtests: SubTests) -> None:
+def test_rescale_range_argument(subtests: SubTests, capsys: CaptureFixture[str]) -> None:
     parser = get_args_parser()
 
-    with subtests.test(msg="not provided"):
-        assert parser.parse_args(REQUIRED_ARGS).rescale_range is None
+    for args, expected in [
+        ([], None),
+        (["--rescale-range", " "], None),
+        (["--rescale-range", "1,10;2,20;3,30"], "1,10;2,20;3,30"),
+    ]:
+        with subtests.test(msg=" ".join(args) or "not provided"):
+            rescale_range = parser.parse_args([*REQUIRED_ARGS, *args]).rescale_range
+            assert (rescale_range if rescale_range is None else str(rescale_range)) == expected
 
-    with subtests.test(msg="empty"):
-        assert parser.parse_args([*REQUIRED_ARGS, "--rescale-range", ""]).rescale_range is None
-
-    with subtests.test(msg="per band"):
-        rescale_range = parser.parse_args([*REQUIRED_ARGS, "--rescale-range", "1,10;2,20;3,30"]).rescale_range
-        assert str(rescale_range) == "1,10;2,20;3,30"
-
-
-def test_rescale_range_argument_rejects_invalid(capsys: CaptureFixture[str]) -> None:
-    with raises(SystemExit):
-        get_args_parser().parse_args([*REQUIRED_ARGS, "--rescale-range", "4012,301"])
-
-    assert "--rescale-range: Invalid band range, expected 0 <= min < max <= 65535: 4012,301" in capsys.readouterr().err
-
-
-def test_str_to_gamma(subtests: SubTests) -> None:
-    for value, expected in [("", 1.0), (" ", 1.0), ("1", 1.0), ("1.3", 1.3)]:
-        with subtests.test(msg=repr(value)):
-            assert str_to_rescale_gamma(value) == expected
-
-    for value in ["0", "-1.3", "a", "nan", "inf"]:
-        with subtests.test(msg=value):
-            with raises(ArgumentTypeError):
-                str_to_rescale_gamma(value)
+    with subtests.test(msg="rejects an invalid range with its reason"):
+        with raises(SystemExit):
+            parser.parse_args([*REQUIRED_ARGS, "--rescale-range", "4012,301"])
+        assert "--rescale-range: Invalid band range, expected 0 <= min < max <= 65535: 4012,301" in capsys.readouterr().err
 
 
 def test_rescale_gamma_argument(subtests: SubTests) -> None:
     parser = get_args_parser()
 
-    with subtests.test(msg="not provided"):
-        assert parser.parse_args(REQUIRED_ARGS).rescale_gamma == 1.0
+    for args, expected in [([], 1.0), (["--rescale-gamma", " "], 1.0), (["--rescale-gamma", "1.3"], 1.3)]:
+        with subtests.test(msg=" ".join(args) or "not provided"):
+            assert parser.parse_args([*REQUIRED_ARGS, *args]).rescale_gamma == expected
 
-    with subtests.test(msg="provided"):
-        assert parser.parse_args([*REQUIRED_ARGS, "--rescale-gamma", "1.3"]).rescale_gamma == 1.3
+    for value in ["0", "-1.3", "a", "nan", "inf"]:
+        with subtests.test(msg=f"rejects {value}"):
+            with raises(SystemExit):
+                parser.parse_args([*REQUIRED_ARGS, "--rescale-gamma", value])

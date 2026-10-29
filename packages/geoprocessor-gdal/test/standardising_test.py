@@ -73,31 +73,36 @@ def test_config_rejects_unknown_data_type() -> None:
         standardising_config(CompressionPreset.RGBNIR_ZSTD.value, "int16")
 
 
-def test_config_allows_rescale_range_for_uint16_webp() -> None:
-    config = standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, RescaleRange.parse("301,4012"))
+def test_config_rescale(subtests: SubTests, capsys: CaptureFixture[str]) -> None:
+    webp_uint16 = (CompressionPreset.WEBP.value, DataType.UINT16.value)
+    rescale_range = RescaleRange.parse("301,4012")
 
-    assert str(config.rescale_range) == "301,4012"
-
-
-def test_config_warns_about_full_range_uint16_webp(subtests: SubTests, capsys: CaptureFixture[str]) -> None:
-    with subtests.test(msg="without a rescale range"):
-        standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value)
-        assert "webp_rescale_full_range" in capsys.readouterr().out
-
-    with subtests.test(msg="with a rescale range"):
-        standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, RescaleRange.parse("301,4012"))
+    with subtests.test(msg="allows a rescale range and gamma for uint16 webp"):
+        config = standardising_config(*webp_uint16, rescale_range, 1.3)
+        assert (str(config.rescale_range), config.rescale_gamma) == ("301,4012", 1.3)
         assert "webp_rescale_full_range" not in capsys.readouterr().out
 
+    with subtests.test(msg="warns about the full range without a rescale range"):
+        standardising_config(*webp_uint16)
+        assert "webp_rescale_full_range" in capsys.readouterr().out
 
-def test_config_rejects_rescale_range_without_uint16_webp(subtests: SubTests) -> None:
     for preset, data_type in [(CompressionPreset.WEBP, DataType.UINT8), (CompressionPreset.RGBNIR_ZSTD, DataType.UINT16)]:
-        with subtests.test(msg=f"{preset.value} {data_type.value}"):
+        with subtests.test(msg=f"rejects a rescale range for {preset.value} {data_type.value}"):
             with raises(ValueError, match="rescale range is only supported"):
-                standardising_config(preset.value, data_type.value, RescaleRange.parse("301,4012"))
+                standardising_config(preset.value, data_type.value, rescale_range)
+
+    with subtests.test(msg="rejects a gamma without a rescale range"):
+        with raises(ValueError, match="rescale gamma requires a rescale range"):
+            standardising_config(*webp_uint16, rescale_gamma=1.3)
+
+    for gamma in [0, -1.3]:
+        with subtests.test(msg=f"rejects gamma {gamma}"):
+            with raises(ValueError, match="positive rescale gamma"):
+                standardising_config(*webp_uint16, rescale_range, gamma)
 
 
-def test_apply_gdal_transformation_scales_each_output_band(tmp_path: Path) -> None:
-    config = standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, RescaleRange.parse("301,4012"))
+def test_apply_gdal_transformation_rescales_each_output_band(tmp_path: Path) -> None:
+    config = standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, RescaleRange.parse("301,4012"), 1.3)
 
     with (
         patch("geoprocessor_gdal.standardising.gdal_info", return_value=fake_gdalinfo()),
@@ -110,42 +115,8 @@ def test_apply_gdal_transformation_scales_each_output_band(tmp_path: Path) -> No
 
     command = run_gdal.call_args.args[0]
     assert command[command.index("-scale_3") : command.index("-scale_3") + 3] == ["-scale_3", "301", "4012"]
+    assert command[command.index("-exponent_3") : command.index("-exponent_3") + 2] == ["-exponent_3", "0.769231"]
     assert command[command.index("-scale_4") : command.index("-scale_4") + 3] == ["-scale_4", "0", "65535"]
-    assert "LINZ_RESCALE_RANGE=301,4012" in command
-
-
-def test_config_allows_rescale_gamma_with_rescale_range() -> None:
-    config = standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, RescaleRange.parse("301,4012"), 1.3)
-
-    assert config.rescale_gamma == 1.3
-
-
-def test_config_rejects_invalid_rescale_gamma(subtests: SubTests) -> None:
-    with subtests.test(msg="without rescale range"):
-        with raises(ValueError, match="rescale gamma requires a rescale range"):
-            standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, rescale_gamma=1.3)
-
-    for gamma in [0, -1.3]:
-        with subtests.test(msg=f"gamma {gamma}"):
-            with raises(ValueError, match="positive rescale gamma"):
-                standardising_config(
-                    CompressionPreset.WEBP.value, DataType.UINT16.value, RescaleRange.parse("301,4012"), gamma
-                )
-
-
-def test_apply_gdal_transformation_applies_rescale_gamma(tmp_path: Path) -> None:
-    config = standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, RescaleRange.parse("301,4012"), 1.3)
-
-    with (
-        patch("geoprocessor_gdal.standardising.gdal_info", return_value=fake_gdalinfo()),
-        patch(
-            "geoprocessor_gdal.standardising.get_gdal_band_offset", return_value=["-b", "1", "-b", "2", "-b", "3", "-b", "4"]
-        ),
-        patch("geoprocessor_gdal.standardising.run_gdal") as run_gdal,
-    ):
-        apply_gdal_transformation("input.vrt", config, str(tmp_path), tile_name="CE16_5000_1001")
-
-    command = run_gdal.call_args.args[0]
-    assert command[command.index("-exponent_1") : command.index("-exponent_1") + 2] == ["-exponent_1", "0.769231"]
     assert "-exponent_4" not in command
+    assert "LINZ_RESCALE_RANGE=301,4012" in command
     assert "LINZ_RESCALE_GAMMA=1.3" in command

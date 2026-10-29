@@ -1,6 +1,8 @@
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import numpy.typing as npt
@@ -29,46 +31,82 @@ from pytest import raises
 from pytest_subtests import SubTests
 
 
-def test_rescale_range_round_trip(subtests: SubTests) -> None:
+def staggered_bands() -> npt.NDArray[np.int64]:
+    """Histograms of three bands with one pixel per value: red 100-199, green 150-399, blue 50-299."""
+    bands = np.zeros((3, 65536), dtype=np.int64)
+    bands[0, 100:200] = bands[1, 150:400] = bands[2, 50:300] = 1
+    return bands
+
+
+def empty_histograms(band_count: int = 3) -> Histograms:
+    """Histograms with no counted pixels."""
+    return Histograms(np.zeros((band_count, 65536), dtype=np.int64), np.zeros(65536, dtype=np.int64))
+
+
+def rgb_gdalinfo(width: int, height: int, alpha: bool = True, no_data_value: int | None = None) -> GdalInfo:
+    gdalinfo: GdalInfo = fake_gdalinfo()
+    gdalinfo["size"] = [width, height]
+    for color in ["Red", "Green", "Blue"] + (["Alpha"] if alpha else []):
+        add_band(gdalinfo, color, no_data_value)
+    return gdalinfo
+
+
+def sample_writer(pixels: npt.NDArray[Any]) -> Callable[..., None]:
+    def write_sample(_command: list[str], **kwargs: Any) -> None:
+        tifffile.imwrite(kwargs["output_file"], pixels, photometric="minisblack", planarconfig="separate")
+
+    return write_sample
+
+
+@contextmanager
+def sampling(pixels: npt.NDArray[Any], gdalinfo: GdalInfo | None = None) -> Iterator[tuple[MagicMock, MagicMock, MagicMock]]:
+    """Patch downloading, `gdalinfo` and sampling so that every source TIFF is sampled as `pixels`.
+
+    Yields:
+        the mocked `download`, `gdal_info` and `run_gdal`
+    """
+    with (
+        patch("geoprocessor_gdal.gdal.gdal_rescale.download") as download,
+        patch(
+            "geoprocessor_gdal.gdal.gdal_rescale.gdal_info", return_value=gdalinfo or rgb_gdalinfo(2, 2, alpha=False)
+        ) as info,
+        patch("geoprocessor_gdal.gdal.gdal_rescale.run_gdal", side_effect=sample_writer(pixels)) as run,
+    ):
+        yield download, info, run
+
+
+def test_rescale_range_parse(subtests: SubTests) -> None:
     for value in ["301,4012", "301,4012;295,3980;310,4100", "0,65535"]:
         with subtests.test(msg=value):
             assert str(RescaleRange.parse(value)) == value
 
-
-def test_rescale_range_rejects_invalid(subtests: SubTests) -> None:
     for value in ["", "301", "301,4012,5000", "a,b", "4012,301", "301,301", "-1,4012", "301,65536", "1,2;3,4"]:
-        with subtests.test(msg=value):
+        with subtests.test(msg=f"rejects {value!r}"):
             with raises(ValueError):
                 RescaleRange.parse(value)
 
 
-def test_histogram_from_pixels_counts_each_band() -> None:
-    pixels = np.array([[[1, 2], [2, 3]], [[10, 10], [10, 10]]], dtype=np.uint16)
+def test_histogram_from_pixels(subtests: SubTests) -> None:
+    with subtests.test(msg="counts each band"):
+        histogram = histogram_from_pixels(np.array([[[1, 2], [2, 3]], [[10, 10], [10, 10]]], dtype=np.uint16))
+        assert histogram.shape == (2, 65536)
+        assert histogram[0, 1:4].tolist() == [1, 2, 1]
+        assert histogram[1, 10] == 4
 
-    histogram = histogram_from_pixels(pixels)
-
-    assert histogram.shape == (2, 65536)
-    assert histogram[0, 1:4].tolist() == [1, 2, 1]
-    assert histogram[1, 10] == 4
-
-
-def test_histogram_from_pixels_ignores_masked_pixels(subtests: SubTests) -> None:
     pixels = np.array([[[0, 5], [7, 9]], [[0, 0], [7, 9]]], dtype=np.uint16)
 
-    with subtests.test(msg="all-zero pixels"):
+    with subtests.test(msg="ignores all-zero pixels"):
         histogram = histogram_from_pixels(pixels)
         assert histogram.sum(axis=1).tolist() == [3, 3]
         assert histogram[1, 0] == 1
 
-    with subtests.test(msg="transparent pixels"):
-        alpha = np.array([[65535, 65535], [0, 65535]], dtype=np.uint16)
-        histogram = histogram_from_pixels(pixels, alpha=alpha)
+    with subtests.test(msg="ignores transparent pixels"):
+        histogram = histogram_from_pixels(pixels, alpha=np.array([[65535, 65535], [0, 65535]], dtype=np.uint16))
         assert histogram[0, 7] == 0
         assert histogram.sum(axis=1).tolist() == [2, 2]
 
-    with subtests.test(msg="nodata pixels"):
-        histogram = histogram_from_pixels(pixels, nodata=9)
-        assert histogram[:, 9].tolist() == [0, 0]
+    with subtests.test(msg="ignores nodata pixels"):
+        assert histogram_from_pixels(pixels, nodata=9)[:, 9].tolist() == [0, 0]
 
 
 def test_luminance_from_pixels(subtests: SubTests) -> None:
@@ -86,39 +124,31 @@ def test_luminance_from_pixels(subtests: SubTests) -> None:
         assert np.flatnonzero(luminance_from_pixels(pixels[:1])).tolist() == [7, 1000]
 
 
-def test_percentile_from_histogram_matches_numpy(subtests: SubTests) -> None:
+def test_percentile_from_histogram(subtests: SubTests) -> None:
     values = np.random.default_rng(42).integers(100, 5000, size=10_000, dtype=np.uint16)
     histogram = np.bincount(values, minlength=65536).astype(np.int64)
 
     for percentile in [1, 2, 50, 98, 99, 100]:
-        with subtests.test(msg=f"{percentile}%"):
+        with subtests.test(msg=f"matches numpy at {percentile}%"):
             expected = int(np.percentile(values, percentile, method="inverted_cdf"))
             assert percentile_from_histogram(histogram, percentile) == expected
 
+    with subtests.test(msg="0% is the minimum"):
+        assert percentile_from_histogram(histogram, 0) == values.min()
 
-def test_percentile_from_histogram_zero_is_minimum() -> None:
-    histogram = np.zeros(65536, dtype=np.int64)
-    histogram[[200, 300]] = 1
-
-    assert percentile_from_histogram(histogram, 0) == 200
-
-
-def test_percentile_from_histogram_rejects_empty() -> None:
-    with raises(ValueError, match="empty histogram"):
-        percentile_from_histogram(np.zeros(65536, dtype=np.int64), 1)
+    with subtests.test(msg="rejects an empty histogram"):
+        with raises(ValueError, match="empty histogram"):
+            percentile_from_histogram(np.zeros(65536, dtype=np.int64), 1)
 
 
 def test_rescale_range_from_histograms(subtests: SubTests) -> None:
-    histograms = np.zeros((3, 65536), dtype=np.int64)
-    histograms[0, 100:200] = 1
-    histograms[1, 150:400] = 1
-    histograms[2, 50:300] = 1
+    bands = staggered_bands()
 
     with subtests.test(msg="single range"):
-        assert rescale_range_from_histograms(histograms, 0, 100, rescale_per_band=False) == RescaleRange((BandRange(50, 399),))
+        assert rescale_range_from_histograms(bands, 0, 100, rescale_per_band=False) == RescaleRange((BandRange(50, 399),))
 
     with subtests.test(msg="per band"):
-        assert rescale_range_from_histograms(histograms, 0, 100, rescale_per_band=True) == RescaleRange(
+        assert rescale_range_from_histograms(bands, 0, 100, rescale_per_band=True) == RescaleRange(
             (BandRange(100, 199), BandRange(150, 399), BandRange(50, 299))
         )
 
@@ -129,14 +159,6 @@ def test_rescale_range_from_histograms(subtests: SubTests) -> None:
         with raises(ValueError, match="Low percentile 1 and high percentile 99 both give 1000"):
             rescale_range_from_histograms(narrow, 1, 99, rescale_per_band=True)
         assert rescale_range_from_histograms(narrow, 0, 100, rescale_per_band=False) == RescaleRange((BandRange(1000, 2000),))
-
-
-def rgb_gdalinfo(width: int, height: int, alpha: bool = True, no_data_value: int | None = None) -> GdalInfo:
-    gdalinfo: GdalInfo = fake_gdalinfo()
-    gdalinfo["size"] = [width, height]
-    for color in ["Red", "Green", "Blue"] + (["Alpha"] if alpha else []):
-        add_band(gdalinfo, color, no_data_value)
-    return gdalinfo
 
 
 def test_get_sample_command(subtests: SubTests) -> None:
@@ -157,107 +179,93 @@ def test_get_sample_command(subtests: SubTests) -> None:
         assert get_sample_command(gdalinfo)[-2:] == ["-b", "1"]
 
 
-def sample_writer(pixels: npt.NDArray[Any]) -> Callable[..., None]:
-    def write_sample(_command: list[str], **kwargs: Any) -> None:
-        tifffile.imwrite(kwargs["output_file"], pixels, photometric="minisblack", planarconfig="separate")
+def test_get_histograms(subtests: SubTests) -> None:
+    with subtests.test(msg="downloads the source and masks alpha and nodata"):
+        pixels = np.array(
+            [[[100, 200], [300, 7]], [[110, 210], [310, 7]], [[120, 220], [320, 7]], [[65535, 0], [65535, 65535]]],
+            dtype=np.uint16,
+        )
+        with sampling(pixels, rgb_gdalinfo(2, 2, no_data_value=7)) as (download, info, run):
+            histograms = get_histograms("s3://bucket/file.tiff")
 
-    return write_sample
+        local_path = download.call_args.args[1]
+        assert download.call_args.args[0] == "s3://bucket/file.tiff"
+        assert local_path.endswith("/file.tiff")
+        info.assert_called_once_with(local_path)
+        assert run.call_args.kwargs["input_file"] == local_path
+        assert histograms.bands.shape == (3, 65536)
+        assert np.flatnonzero(histograms.bands[0]).tolist() == [100, 300]
+        assert np.flatnonzero(histograms.bands[2]).tolist() == [120, 320]
+        assert np.flatnonzero(histograms.luminance).tolist() == [109, 309]
 
-
-def test_get_histograms_masks_alpha_and_nodata() -> None:
-    pixels = np.array(
-        [[[100, 200], [300, 7]], [[110, 210], [310, 7]], [[120, 220], [320, 7]], [[65535, 0], [65535, 65535]]],
-        dtype=np.uint16,
-    )
-
-    with (
-        patch("geoprocessor_gdal.gdal.gdal_rescale.download") as download,
-        patch("geoprocessor_gdal.gdal.gdal_rescale.gdal_info", return_value=rgb_gdalinfo(2, 2, no_data_value=7)) as info,
-        patch("geoprocessor_gdal.gdal.gdal_rescale.run_gdal", side_effect=sample_writer(pixels)) as run,
-    ):
-        histograms = get_histograms("s3://bucket/file.tiff")
-
-    local_path = download.call_args.args[1]
-    assert download.call_args.args[0] == "s3://bucket/file.tiff"
-    assert local_path.endswith("/file.tiff")
-    info.assert_called_once_with(local_path)
-    assert run.call_args.kwargs["input_file"] == local_path
-    assert histograms.bands.shape == (3, 65536)
-    assert np.flatnonzero(histograms.bands[0]).tolist() == [100, 300]
-    assert np.flatnonzero(histograms.bands[2]).tolist() == [120, 320]
-    assert np.flatnonzero(histograms.luminance).tolist() == [109, 309]
+    with subtests.test(msg="rejects non-uint16 sources"):
+        with sampling(np.ones((3, 2, 2), dtype=np.uint8)):
+            with raises(ValueError, match="Expected uint16"):
+                get_histograms("file.tiff")
 
 
-def test_get_histograms_rejects_non_uint16() -> None:
-    with (
-        patch("geoprocessor_gdal.gdal.gdal_rescale.gdal_info", return_value=rgb_gdalinfo(2, 2, alpha=False)),
-        patch("geoprocessor_gdal.gdal.gdal_rescale.run_gdal", side_effect=sample_writer(np.ones((3, 2, 2), dtype=np.uint8))),
-    ):
-        with raises(ValueError, match="Expected uint16"):
-            get_histograms("file.tiff")
+def test_get_dataset_histograms(tmp_path: Path, subtests: SubTests) -> None:
+    pixels = np.full((3, 2, 2), 100, dtype=np.uint16)
 
+    with subtests.test(msg="sums the sources and saves a histogram file per source"):
+        directory = tmp_path / "sums"
+        with sampling(pixels):
+            total = get_dataset_histograms(["a.tiff", "b.tiff", "c.tiff"], str(directory), concurrency=2)
+        assert total.bands[:, 100].tolist() == [12, 12, 12]
+        assert total.luminance[100] == 12
+        assert {path.name for path in directory.iterdir()} == {
+            get_histogram_file_name(f) for f in ["a.tiff", "b.tiff", "c.tiff"]
+        }
 
-def test_get_dataset_histograms_sums_files(tmp_path: Path) -> None:
-    with (
-        patch("geoprocessor_gdal.gdal.gdal_rescale.gdal_info", return_value=rgb_gdalinfo(2, 2, alpha=False)),
-        patch(
-            "geoprocessor_gdal.gdal.gdal_rescale.run_gdal",
-            side_effect=sample_writer(np.full((3, 2, 2), 100, dtype=np.uint16)),
-        ),
-    ):
-        total = get_dataset_histograms(["a.tiff", "b.tiff", "c.tiff"], str(tmp_path), concurrency=2)
-
-    assert total.bands[:, 100].tolist() == [12, 12, 12]
-    assert total.luminance[100] == 12
-    assert {path.name for path in tmp_path.iterdir()} == {get_histogram_file_name(f) for f in ["a.tiff", "b.tiff", "c.tiff"]}
-
-
-def test_get_dataset_histograms_reads_saved_histograms(tmp_path: Path, subtests: SubTests) -> None:
-    saved = Histograms(np.zeros((3, 65536), dtype=np.int64), np.zeros(65536, dtype=np.int64))
+    directory = tmp_path / "saved"
+    directory.mkdir()
+    saved = empty_histograms()
     saved.bands[:, 7] = saved.luminance[7] = 1000
-    (tmp_path / get_histogram_file_name("a.tiff")).write_bytes(histograms_to_bytes("a.tiff", saved))
+    (directory / get_histogram_file_name("a.tiff")).write_bytes(histograms_to_bytes("a.tiff", saved))
 
-    with (
-        patch("geoprocessor_gdal.gdal.gdal_rescale.gdal_info", return_value=rgb_gdalinfo(2, 2, alpha=False)),
-        patch(
-            "geoprocessor_gdal.gdal.gdal_rescale.run_gdal",
-            side_effect=sample_writer(np.full((3, 2, 2), 100, dtype=np.uint16)),
-        ),
-    ):
-        with subtests.test(msg="skips sources with a histogram file"):
-            total = get_dataset_histograms(["a.tiff", "b.tiff"], str(tmp_path))
-            assert total.bands[:, 7].tolist() == [1000, 1000, 1000]
-            assert total.bands[:, 100].tolist() == [4, 4, 4]
-            assert total.luminance[[7, 100]].tolist() == [1000, 4]
+    with subtests.test(msg="reads the sources that have a histogram file"):
+        with sampling(pixels):
+            total = get_dataset_histograms(["a.tiff", "b.tiff"], str(directory))
+        assert total.bands[:, 7].tolist() == [1000, 1000, 1000]
+        assert total.bands[:, 100].tolist() == [4, 4, 4]
+        assert total.luminance[[7, 100]].tolist() == [1000, 4]
 
-        with subtests.test(msg="force recomputes all sources"):
-            total = get_dataset_histograms(["a.tiff", "b.tiff"], str(tmp_path), force=True)
-            assert total.bands[:, 7].tolist() == [0, 0, 0]
-            assert total.bands[:, 100].tolist() == [8, 8, 8]
-            saved_file = histograms_from_bytes((tmp_path / get_histogram_file_name("a.tiff")).read_bytes(), "a.tiff")
-            assert saved_file.bands[:, 100].tolist() == [4, 4, 4]
+    with subtests.test(msg="force recomputes all sources"):
+        with sampling(pixels):
+            total = get_dataset_histograms(["a.tiff", "b.tiff"], str(directory), force=True)
+        assert total.bands[:, 7].tolist() == [0, 0, 0]
+        assert total.bands[:, 100].tolist() == [8, 8, 8]
+        saved_file = histograms_from_bytes((directory / get_histogram_file_name("a.tiff")).read_bytes(), "a.tiff")
+        assert saved_file.bands[:, 100].tolist() == [4, 4, 4]
+
+    with subtests.test(msg="caps the workers by the s3 sources left to download"):
+        directory = tmp_path / "downloads"
+        directory.mkdir()
+        (directory / get_histogram_file_name("s3://bucket/saved.tif")).write_bytes(
+            histograms_to_bytes("s3://bucket/saved.tif", empty_histograms())
+        )
+        with sampling(pixels), patch("geoprocessor_gdal.gdal.gdal_rescale.get_worker_count", return_value=1) as worker_count:
+            get_dataset_histograms(
+                ["s3://bucket/saved.tif", "s3://bucket/new.tif", "local.tif"], str(directory), 4, max_download_bytes=1000
+            )
+        worker_count.assert_called_once_with(["s3://bucket/new.tif"], 4, 1000)
 
 
-def test_histogram_file_round_trip() -> None:
-    histograms = Histograms(np.zeros((3, 65536), dtype=np.int64), np.zeros(65536, dtype=np.int64))
+def test_histogram_file(subtests: SubTests) -> None:
+    histograms = empty_histograms()
     histograms.bands[1, 100:200] = 5
     histograms.luminance[150:250] = 3
-
     data = histograms_to_bytes("s3://bucket/a.tiff", histograms)
 
-    assert len(data) < 10_000
-    read = histograms_from_bytes(data, "s3://bucket/a.tiff")
-    assert np.array_equal(read.bands, histograms.bands)
-    assert np.array_equal(read.luminance, histograms.luminance)
+    with subtests.test(msg="round trip"):
+        assert len(data) < 10_000
+        read = histograms_from_bytes(data, "s3://bucket/a.tiff")
+        assert np.array_equal(read.bands, histograms.bands)
+        assert np.array_equal(read.luminance, histograms.luminance)
 
-
-def test_histograms_from_bytes_rejects_other_source() -> None:
-    data = histograms_to_bytes(
-        "s3://bucket/a.tiff", Histograms(np.zeros((1, 65536), dtype=np.int64), np.zeros(65536, dtype=np.int64))
-    )
-
-    with raises(ValueError, match="Expected the histogram file of s3://bucket/b.tiff, got s3://bucket/a.tiff"):
-        histograms_from_bytes(data, "s3://bucket/b.tiff")
+    with subtests.test(msg="rejects the file of another source"):
+        with raises(ValueError, match="Expected the histogram file of s3://bucket/b.tiff, got s3://bucket/a.tiff"):
+            histograms_from_bytes(data, "s3://bucket/b.tiff")
 
 
 def test_get_histogram_file_name(subtests: SubTests) -> None:
@@ -284,35 +292,12 @@ def test_sum_histograms(subtests: SubTests) -> None:
         assert rgb.bands[0, 0] == 1
 
     with subtests.test(msg="rejects mixed band counts"):
-        gray = Histograms(np.ones((1, 65536), dtype=np.int64), np.ones(65536, dtype=np.int64))
         with raises(ValueError, match="Expected 3 bands like the other sources, got 1: gray.tiff"):
-            sum_histograms([("a.tiff", rgb), ("gray.tiff", gray)])
+            sum_histograms([("a.tiff", rgb), ("gray.tiff", empty_histograms(1))])
 
     with subtests.test(msg="rejects no histograms"):
         with raises(ValueError, match="No histograms"):
             sum_histograms([])
-
-
-def test_get_dataset_histograms_caps_workers_by_remaining_downloads(tmp_path: Path) -> None:
-    saved = Histograms(np.zeros((3, 65536), dtype=np.int64), np.zeros(65536, dtype=np.int64))
-    (tmp_path / get_histogram_file_name("s3://bucket/saved.tif")).write_bytes(
-        histograms_to_bytes("s3://bucket/saved.tif", saved)
-    )
-
-    with (
-        patch("geoprocessor_gdal.gdal.gdal_rescale.get_worker_count", return_value=1) as worker_count,
-        patch("geoprocessor_gdal.gdal.gdal_rescale.download"),
-        patch("geoprocessor_gdal.gdal.gdal_rescale.gdal_info", return_value=rgb_gdalinfo(2, 2, alpha=False)),
-        patch(
-            "geoprocessor_gdal.gdal.gdal_rescale.run_gdal",
-            side_effect=sample_writer(np.full((3, 2, 2), 100, dtype=np.uint16)),
-        ),
-    ):
-        get_dataset_histograms(
-            ["s3://bucket/saved.tif", "s3://bucket/new.tif", "local.tif"], str(tmp_path), 4, max_download_bytes=1000
-        )
-
-    worker_count.assert_called_once_with(["s3://bucket/new.tif"], 4, 1000)
 
 
 def test_get_worker_count(subtests: SubTests) -> None:
@@ -326,26 +311,20 @@ def test_get_worker_count(subtests: SubTests) -> None:
             assert get_worker_count(files, 16, 1000) == 3
             assert sorted(call.args[0] for call in listing.call_args_list) == ["s3://bucket/a/", "s3://bucket/b/"]
 
-        with subtests.test(msg="keeps the concurrency when the files fit"):
-            assert get_worker_count(files, 2, 1000) == 2
-
-        with subtests.test(msg="at least one worker"):
-            assert get_worker_count(files, 16, 10) == 1
-
-        with subtests.test(msg="no limit"):
-            assert get_worker_count(files, 16, None) == 16
-
-        with subtests.test(msg="no downloads"):
-            assert get_worker_count([], 16, 1000) == 16
+        for files_, concurrency, max_download_bytes, expected, msg in [
+            (files, 2, 1000, 2, "keeps the concurrency when the files fit"),
+            (files, 16, 10, 1, "at least one worker"),
+            (files, 16, None, 16, "no limit"),
+            ([], 16, 1000, 16, "no downloads"),
+        ]:
+            with subtests.test(msg=msg):
+                assert get_worker_count(files_, concurrency, max_download_bytes) == expected
 
 
 def test_get_clip_percentiles() -> None:
-    histograms = np.zeros((3, 65536), dtype=np.int64)
-    histograms[0, 100:200] = 1
-    histograms[1, 150:400] = 1
-    histograms[2, 50:300] = 1
+    bands = staggered_bands()
 
-    assert get_clip_percentiles(Histograms(histograms, histograms[1]), [100, 0, 2.5], max) == {
+    assert get_clip_percentiles(Histograms(bands, bands[1]), [100, 0, 2.5], max) == {
         "0": [150, 100, 150, 50, 150],
         "2.5": [156, 102, 156, 56, 156],
         "100": [399, 199, 399, 299, 399],
