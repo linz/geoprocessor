@@ -279,6 +279,7 @@ def test_list_file_names_local(setup: str) -> None:
     write(os.path.join(setup, "sub/c.npz"), b"c")
 
     assert list_file_names(setup, ".npz") == {"a.npz"}
+    assert list_file_names(setup, ".npz", recursive=True) == {"a.npz", "sub/c.npz"}
     assert list_file_names(os.path.join(setup, "missing")) == set()
 
 
@@ -291,6 +292,7 @@ def test_list_file_names_s3() -> None:
 
     assert list_file_names("s3://testbucket/dir", ".npz") == {"a.npz"}
     assert list_file_names("s3://testbucket/dir/") == {"a.npz", "b.json"}
+    assert list_file_names("s3://testbucket/dir", ".npz", recursive=True) == {"a.npz", "sub/c.npz"}
     assert list_file_names("s3://testbucket/missing/") == set()
 
 
