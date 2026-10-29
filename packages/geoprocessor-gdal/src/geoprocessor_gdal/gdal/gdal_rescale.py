@@ -26,7 +26,7 @@ UINT16_MAX = 65535
 UINT16_VALUE_COUNT = UINT16_MAX + 1
 SAMPLE_SIZE = 1024
 BAND_NAMES = {1: ("gray",), 3: ("red", "green", "blue")}
-HISTOGRAM_FILE_VERSION = 1
+HISTOGRAM_FILE_VERSION = 2
 HISTOGRAM_FILE_SUFFIX = ".npz"
 HISTOGRAM_FILE_HASH_LENGTH = 12
 
@@ -91,6 +91,17 @@ class RescaleRange:
         return self.ranges[0] if len(self.ranges) == 1 else self.ranges[band - 1]
 
 
+# Rec. 709 luminance weights of the red, green and blue bands
+LUMINANCE_WEIGHTS = np.array([0.2126, 0.7152, 0.0722])
+
+
+class Histograms(NamedTuple):
+    """Value counts of each colour band, with shape (bands, 65536), and of their luminance, with shape (65536,)."""
+
+    bands: npt.NDArray[np.int64]
+    luminance: npt.NDArray[np.int64]
+
+
 def histogram_from_pixels(
     pixels: npt.NDArray[np.uint16], alpha: npt.NDArray[np.uint16] | None = None, nodata: int | None = None
 ) -> npt.NDArray[np.int64]:
@@ -111,6 +122,33 @@ def histogram_from_pixels(
     if nodata is not None and 0 <= nodata <= UINT16_MAX:
         histogram[:, nodata] = 0
     return histogram
+
+
+def luminance_from_pixels(
+    pixels: npt.NDArray[np.uint16], alpha: npt.NDArray[np.uint16] | None = None, nodata: int | None = None
+) -> npt.NDArray[np.int64]:
+    """Count the luminance values of the pixels, ignoring transparent, all-zero pixels and pixels with a nodata band.
+
+    Args:
+        pixels: gray or red, green and blue pixel values with shape (bands, rows, columns)
+        alpha: alpha band with shape (rows, columns)
+        nodata: nodata value of the bands
+
+    Returns:
+        value counts with shape (65536,)
+
+    Examples:
+        >>> pixels = np.array([[[1000, 0]], [[2000, 0]], [[3000, 0]]], dtype=np.uint16)
+        >>> np.flatnonzero(luminance_from_pixels(pixels)).tolist()
+        [1860]
+    """
+    valid = np.any(pixels != 0, axis=0)
+    if alpha is not None:
+        valid &= alpha != 0
+    if nodata is not None:
+        valid &= np.all(pixels != nodata, axis=0)
+    values = pixels[0][valid] if len(pixels) == 1 else np.rint(LUMINANCE_WEIGHTS @ pixels[:, valid]).astype(np.uint16)
+    return np.bincount(values, minlength=UINT16_VALUE_COUNT).astype(np.int64)
 
 
 def percentile_from_histogram(histogram: npt.NDArray[np.int64], percentile: float) -> int:
@@ -166,28 +204,28 @@ def rescale_range_from_histograms(
 
 
 def get_clip_percentiles(
-    histograms: npt.NDArray[np.int64], percentiles: Iterable[float], combine: Callable[[Iterable[int]], int]
+    histograms: Histograms, percentiles: Iterable[float], combine: Callable[[Iterable[int]], int]
 ) -> dict[str, list[int]]:
-    """Get the value at each percentile combined for all bands, then per band.
+    """Get the value at each percentile combined for all bands, per band and of the luminance.
 
     Args:
-        histograms: value counts with shape (bands, 65536)
+        histograms: value counts of the bands and of their luminance
         percentiles: percentiles between 0 and 100
         combine: combines the band values into one value, `min` for low and `max` for high percentiles
 
     Returns:
-        the combined value and the value of each band, per percentile
+        the combined value, the value of each band and the luminance value, per percentile
 
     Examples:
-        >>> histograms = np.zeros((2, 65536), dtype=np.int64)
-        >>> histograms[0, 10:20] = histograms[1, 30:40] = 1
-        >>> get_clip_percentiles(histograms, [100, 0], max)
-        {'0': [30, 10, 30], '100': [39, 19, 39]}
+        >>> bands = np.zeros((2, 65536), dtype=np.int64)
+        >>> bands[0, 10:20] = bands[1, 30:40] = 1
+        >>> get_clip_percentiles(Histograms(bands, bands[0] + bands[1]), [100, 0], max)
+        {'0': [30, 10, 30, 10], '100': [39, 19, 39, 39]}
     """
     entries = {}
     for percentile in sorted(percentiles):
-        values = [percentile_from_histogram(histogram, percentile) for histogram in histograms]
-        entries[f"{percentile:g}"] = [combine(values), *values]
+        values = [percentile_from_histogram(histogram, percentile) for histogram in histograms.bands]
+        entries[f"{percentile:g}"] = [combine(values), *values, percentile_from_histogram(histograms.luminance, percentile)]
     return entries
 
 
@@ -226,15 +264,15 @@ def get_sample_command(info: GdalInfo, size: int = SAMPLE_SIZE) -> list[str]:
     ]
 
 
-def get_histograms(path: str, size: int = SAMPLE_SIZE) -> npt.NDArray[np.int64]:
-    """Get the colour band histograms of a TIFF read at reduced resolution.
+def get_histograms(path: str, size: int = SAMPLE_SIZE) -> Histograms:
+    """Get the colour band and luminance histograms of a TIFF read at reduced resolution.
 
     Args:
         path: path to the TIFF
         size: maximum width and height of the sample
 
     Returns:
-        value counts with shape (bands, 65536)
+        value counts of the bands and of their luminance
     """
     with tempfile.TemporaryDirectory() as tmp_path:
         local_path = path
@@ -253,9 +291,12 @@ def get_histograms(path: str, size: int = SAMPLE_SIZE) -> npt.NDArray[np.int64]:
     if find_band(info["bands"], "Alpha"):
         alpha = pixels[-1]
         pixels = pixels[:-1]
-    nodata = info["bands"][0].get("noDataValue")
-    histograms = histogram_from_pixels(pixels, alpha=alpha, nodata=None if nodata is None else int(nodata))
-    get_log().debug("histograms_computed", path=path, pixelCount=int(histograms[0].sum()))
+    nodata_value = info["bands"][0].get("noDataValue")
+    nodata = None if nodata_value is None else int(nodata_value)
+    histograms = Histograms(
+        histogram_from_pixels(pixels, alpha=alpha, nodata=nodata), luminance_from_pixels(pixels, alpha=alpha, nodata=nodata)
+    )
+    get_log().debug("histograms_computed", path=path, pixelCount=int(histograms.bands[0].sum()))
     return histograms
 
 
@@ -278,12 +319,12 @@ def get_histogram_file_name(source: str) -> str:
     return f"{name}.{digest}{HISTOGRAM_FILE_SUFFIX}"
 
 
-def histograms_to_bytes(source: str, histograms: npt.NDArray[np.int64], sample_size: int = SAMPLE_SIZE) -> bytes:
+def histograms_to_bytes(source: str, histograms: Histograms, sample_size: int = SAMPLE_SIZE) -> bytes:
     """Serialise the histograms of a source to a compressed `.npz` file.
 
     Args:
         source: path to the source TIFF
-        histograms: value counts with shape (bands, 65536)
+        histograms: value counts of the bands and of their luminance
         sample_size: maximum width and height the source was sampled at
 
     Returns:
@@ -292,15 +333,17 @@ def histograms_to_bytes(source: str, histograms: npt.NDArray[np.int64], sample_s
     metadata = {
         "version": HISTOGRAM_FILE_VERSION,
         "source": source,
-        "bands": BAND_NAMES[len(histograms)],
+        "bands": BAND_NAMES[len(histograms.bands)],
         "sampleSize": sample_size,
     }
     buffer = io.BytesIO()
-    np.savez_compressed(buffer, histograms=histograms, metadata=np.array(json.dumps(metadata)))
+    np.savez_compressed(
+        buffer, histograms=histograms.bands, luminance=histograms.luminance, metadata=np.array(json.dumps(metadata))
+    )
     return buffer.getvalue()
 
 
-def histograms_from_bytes(data: bytes, source: str) -> npt.NDArray[np.int64]:
+def histograms_from_bytes(data: bytes, source: str) -> Histograms:
     """Read the histograms of a source from a `.npz` file.
 
     Args:
@@ -308,11 +351,11 @@ def histograms_from_bytes(data: bytes, source: str) -> npt.NDArray[np.int64]:
         source: path to the source TIFF the file must belong to
 
     Returns:
-        value counts with shape (bands, 65536)
+        value counts of the bands and of their luminance
     """
     with np.load(io.BytesIO(data), allow_pickle=False) as npz:
         metadata = json.loads(str(npz["metadata"]))
-        histograms: npt.NDArray[np.int64] = np.array(npz["histograms"], dtype=np.int64)
+        histograms = Histograms(np.array(npz["histograms"], dtype=np.int64), np.array(npz["luminance"], dtype=np.int64))
     if metadata["version"] != HISTOGRAM_FILE_VERSION:
         raise ValueError(f"Expected histogram file version {HISTOGRAM_FILE_VERSION}, got {metadata['version']}: {source}")
     if metadata["source"] != source:
@@ -320,8 +363,8 @@ def histograms_from_bytes(data: bytes, source: str) -> npt.NDArray[np.int64]:
     return histograms
 
 
-def get_source_histograms(source: str, histogram_dir: str, saved: bool) -> tuple[str, npt.NDArray[np.int64]]:
-    """Read the colour band histograms of a source TIFF from its histogram file, or compute and save them.
+def get_source_histograms(source: str, histogram_dir: str, saved: bool) -> tuple[str, Histograms]:
+    """Read the histograms of a source TIFF from its histogram file, or compute and save them.
 
     Args:
         source: path to the TIFF
@@ -329,7 +372,7 @@ def get_source_histograms(source: str, histogram_dir: str, saved: bool) -> tuple
         saved: whether the histogram file of the source exists
 
     Returns:
-        the source path and its value counts with shape (bands, 65536)
+        the source path and its value counts of the bands and of their luminance
     """
     path = os.path.join(histogram_dir, get_histogram_file_name(source))
     if saved:
@@ -339,28 +382,31 @@ def get_source_histograms(source: str, histogram_dir: str, saved: bool) -> tuple
     return source, histograms
 
 
-def _get_source_histograms(task: tuple[str, str, bool]) -> tuple[str, npt.NDArray[np.int64]]:
+def _get_source_histograms(task: tuple[str, str, bool]) -> tuple[str, Histograms]:
     """Unpack the arguments of `get_source_histograms` for `Pool.imap_unordered`."""
     return get_source_histograms(*task)
 
 
-def sum_histograms(source_histograms: Iterable[tuple[str, npt.NDArray[np.int64]]]) -> npt.NDArray[np.int64]:
+def sum_histograms(source_histograms: Iterable[tuple[str, Histograms]]) -> Histograms:
     """Sum the histograms of all sources, which must have the same number of bands.
 
     Args:
-        source_histograms: source path and value counts with shape (bands, 65536) of each source
+        source_histograms: source path and value counts of the bands and of their luminance of each source
 
     Returns:
-        value counts with shape (bands, 65536)
+        value counts of the bands and of their luminance
     """
-    total: npt.NDArray[np.int64] | None = None
+    total: Histograms | None = None
     for source, histograms in source_histograms:
         if total is None:
-            total = histograms.copy()
-        elif histograms.shape != total.shape:
-            raise ValueError(f"Expected {len(total)} bands like the other sources, got {len(histograms)}: {source}")
+            total = Histograms(histograms.bands.copy(), histograms.luminance.copy())
+        elif histograms.bands.shape != total.bands.shape:
+            raise ValueError(
+                f"Expected {len(total.bands)} bands like the other sources, got {len(histograms.bands)}: {source}"
+            )
         else:
-            total += histograms
+            total.bands[:] += histograms.bands
+            total.luminance[:] += histograms.luminance
     if total is None:
         raise ValueError("No histograms to sum")
     return total
@@ -397,8 +443,8 @@ def get_dataset_histograms(
     concurrency: int = 1,
     force: bool = False,
     max_download_bytes: int | None = None,
-) -> npt.NDArray[np.int64]:
-    """Sum the colour band histograms of all TIFFs, reading the histogram files already in `histogram_dir`.
+) -> Histograms:
+    """Sum the colour band and luminance histograms of all TIFFs, reading the histogram files already in `histogram_dir`.
 
     Args:
         files: paths to the TIFFs
@@ -408,7 +454,7 @@ def get_dataset_histograms(
         max_download_bytes: maximum size in bytes of the `s3` TIFFs downloaded at a time, no limit if None
 
     Returns:
-        value counts with shape (bands, 65536)
+        value counts of the bands and of their luminance
     """
     saved = set() if force else list_file_names(histogram_dir, HISTOGRAM_FILE_SUFFIX)
     tasks = [(file, histogram_dir, get_histogram_file_name(file) in saved) for file in files]

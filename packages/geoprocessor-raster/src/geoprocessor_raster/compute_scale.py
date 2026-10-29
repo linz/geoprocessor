@@ -136,7 +136,7 @@ def main(args: list[str] | None = None) -> None:
     histograms = get_dataset_histograms(files, histogram_dir, arguments.concurrency, arguments.force, max_download_bytes)
     try:
         rescale_range = rescale_range_from_histograms(
-            histograms,
+            histograms.bands,
             arguments.rescale_clip_low_percentile,
             arguments.rescale_clip_high_percentile,
             arguments.rescale_per_band,
@@ -144,7 +144,7 @@ def main(args: list[str] | None = None) -> None:
     except ValueError as e:
         get_log().error("compute_scale_failed", error=str(e))
         sys.exit(1)
-    band_names = BAND_NAMES[len(histograms)]
+    band_names = BAND_NAMES[len(histograms.bands)]
 
     write(os.path.join(arguments.target, RESCALE_RANGE_FILE_NAME), str(rescale_range).encode("utf-8"))
     write(
@@ -156,9 +156,12 @@ def main(args: list[str] | None = None) -> None:
                 "rescaleClipHighPercentile": arguments.rescale_clip_high_percentile,
                 "rescalePerBand": arguments.rescale_per_band,
                 "fileCount": len(files),
-                "pixelCount": {name: int(histogram.sum()) for name, histogram in zip(band_names, histograms, strict=True)},
+                "pixelCount": {
+                    **{name: int(histogram.sum()) for name, histogram in zip(band_names, histograms.bands, strict=True)},
+                    "luminance": int(histograms.luminance.sum()),
+                },
                 "rescaleClipPercentiles": {
-                    "columns": ["all", *band_names],
+                    "columns": ["all", *band_names, "luminance"],
                     "low": get_clip_percentiles(histograms, {*CLIP_PERCENTILES, arguments.rescale_clip_low_percentile}, min),
                     "high": get_clip_percentiles(
                         histograms,

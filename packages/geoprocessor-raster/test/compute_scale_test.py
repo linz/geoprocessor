@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
+from geoprocessor_gdal.gdal.gdal_rescale import Histograms
 from geoprocessor_raster.compute_scale import main, str_to_percentile, str_to_positive_float
 from pytest import CaptureFixture, raises
 from pytest_subtests import SubTests
@@ -28,7 +29,9 @@ def test_should_write_rescale_range(tmp_path: Path) -> None:
     histograms[1, 150:400] = 1
     histograms[2, 50:300] = 1
 
-    with patch("geoprocessor_raster.compute_scale.get_dataset_histograms", return_value=histograms) as get_histograms:
+    with patch(
+        "geoprocessor_raster.compute_scale.get_dataset_histograms", return_value=Histograms(histograms, histograms[1])
+    ) as get_histograms:
         main(
             [
                 "--from-file",
@@ -46,13 +49,13 @@ def test_should_write_rescale_range(tmp_path: Path) -> None:
     assert (tmp_path / "rescale-range").read_text() == "50,399"
     details = json.loads((tmp_path / "rescale-range.json").read_text())
     assert details["fileCount"] == 2
-    assert details["pixelCount"] == {"red": 100, "green": 250, "blue": 250}
+    assert details["pixelCount"] == {"red": 100, "green": 250, "blue": 250, "luminance": 250}
     clip_percentiles = details["rescaleClipPercentiles"]
-    assert clip_percentiles["columns"] == ["all", "red", "green", "blue"]
+    assert clip_percentiles["columns"] == ["all", "red", "green", "blue", "luminance"]
     assert list(clip_percentiles["low"]) == ["0", "0.1", "0.2", "0.5", "1", "2", "3", "5"]
     assert list(clip_percentiles["high"]) == ["95", "97", "98", "99", "99.5", "99.8", "99.9", "100"]
-    assert clip_percentiles["low"]["0"] == [50, 100, 150, 50]
-    assert clip_percentiles["high"]["100"] == [399, 199, 399, 299]
+    assert clip_percentiles["low"]["0"] == [50, 100, 150, 50, 150]
+    assert clip_percentiles["high"]["100"] == [399, 199, 399, 299, 399]
 
 
 def test_should_write_per_band_rescale_range(tmp_path: Path) -> None:
@@ -61,7 +64,7 @@ def test_should_write_per_band_rescale_range(tmp_path: Path) -> None:
     histograms = np.zeros((3, 65536), dtype=np.int64)
     histograms[:, 100:200] = 1
 
-    with patch("geoprocessor_raster.compute_scale.get_dataset_histograms", return_value=histograms):
+    with patch("geoprocessor_raster.compute_scale.get_dataset_histograms", return_value=Histograms(histograms, histograms[1])):
         main(
             [
                 "--from-file",
@@ -84,7 +87,7 @@ def test_should_add_requested_percentiles_to_clip_percentiles(tmp_path: Path) ->
     histograms = np.zeros((3, 65536), dtype=np.int64)
     histograms[:, 1:1001] = 1
 
-    with patch("geoprocessor_raster.compute_scale.get_dataset_histograms", return_value=histograms):
+    with patch("geoprocessor_raster.compute_scale.get_dataset_histograms", return_value=Histograms(histograms, histograms[1])):
         main(
             [
                 "--from-file",
@@ -99,8 +102,8 @@ def test_should_add_requested_percentiles_to_clip_percentiles(tmp_path: Path) ->
         )
 
     clip_percentiles = json.loads((tmp_path / "rescale-range.json").read_text())["rescaleClipPercentiles"]
-    assert clip_percentiles["low"]["0.25"] == [3, 3, 3, 3]
-    assert clip_percentiles["high"]["97.3"] == [973, 973, 973, 973]
+    assert clip_percentiles["low"]["0.25"] == [3, 3, 3, 3, 3]
+    assert clip_percentiles["high"]["97.3"] == [973, 973, 973, 973, 973]
 
 
 def test_should_reject_low_percentile_above_high(tmp_path: Path, capsys: CaptureFixture[str]) -> None:
@@ -127,7 +130,9 @@ def test_should_pass_histogram_dir_and_force(tmp_path: Path) -> None:
     histograms = np.zeros((3, 65536), dtype=np.int64)
     histograms[:, 100:200] = 1
 
-    with patch("geoprocessor_raster.compute_scale.get_dataset_histograms", return_value=histograms) as get_histograms:
+    with patch(
+        "geoprocessor_raster.compute_scale.get_dataset_histograms", return_value=Histograms(histograms, histograms[1])
+    ) as get_histograms:
         main(
             ["--from-file", str(from_file), "--target", str(tmp_path), "--histogram-dir", "s3://bucket/histograms/", "--force"]
         )
@@ -141,7 +146,7 @@ def test_should_fail_when_percentiles_give_the_same_value(tmp_path: Path, capsys
     histograms = np.zeros((3, 65536), dtype=np.int64)
     histograms[:, 1000] = 1
 
-    with patch("geoprocessor_raster.compute_scale.get_dataset_histograms", return_value=histograms):
+    with patch("geoprocessor_raster.compute_scale.get_dataset_histograms", return_value=Histograms(histograms, histograms[1])):
         with raises(SystemExit):
             main(["--from-file", str(from_file), "--target", str(tmp_path)])
 
@@ -155,7 +160,9 @@ def test_should_pass_max_download_size(tmp_path: Path) -> None:
     histograms = np.zeros((3, 65536), dtype=np.int64)
     histograms[:, 100:200] = 1
 
-    with patch("geoprocessor_raster.compute_scale.get_dataset_histograms", return_value=histograms) as get_histograms:
+    with patch(
+        "geoprocessor_raster.compute_scale.get_dataset_histograms", return_value=Histograms(histograms, histograms[1])
+    ) as get_histograms:
         main(["--from-file", str(from_file), "--target", str(tmp_path), "--concurrency", "64", "--max-download-gb", "10"])
 
     get_histograms.assert_called_once_with(["a.tiff"], str(tmp_path / "histograms"), 64, False, 10_000_000_000)

@@ -8,6 +8,7 @@ import tifffile
 from fake_gdalinfo import add_band, fake_gdalinfo
 from geoprocessor_gdal.gdal.gdal_rescale import (
     BandRange,
+    Histograms,
     RescaleRange,
     get_clip_percentiles,
     get_dataset_histograms,
@@ -18,6 +19,7 @@ from geoprocessor_gdal.gdal.gdal_rescale import (
     histogram_from_pixels,
     histograms_from_bytes,
     histograms_to_bytes,
+    luminance_from_pixels,
     percentile_from_histogram,
     rescale_range_from_histograms,
     sum_histograms,
@@ -67,6 +69,21 @@ def test_histogram_from_pixels_ignores_masked_pixels(subtests: SubTests) -> None
     with subtests.test(msg="nodata pixels"):
         histogram = histogram_from_pixels(pixels, nodata=9)
         assert histogram[:, 9].tolist() == [0, 0]
+
+
+def test_luminance_from_pixels(subtests: SubTests) -> None:
+    pixels = np.array([[[1000, 0, 7, 1000]], [[2000, 0, 7, 2000]], [[3000, 0, 7, 3000]]], dtype=np.uint16)
+
+    with subtests.test(msg="weighted sum of red, green and blue, without all-zero and nodata pixels"):
+        assert np.flatnonzero(luminance_from_pixels(pixels, nodata=7)).tolist() == [1860]
+        assert luminance_from_pixels(pixels, nodata=7)[1860] == 2
+
+    with subtests.test(msg="without transparent pixels"):
+        alpha = np.array([[65535, 65535, 65535, 0]], dtype=np.uint16)
+        assert luminance_from_pixels(pixels, alpha=alpha, nodata=7)[1860] == 1
+
+    with subtests.test(msg="gray is its own luminance"):
+        assert np.flatnonzero(luminance_from_pixels(pixels[:1])).tolist() == [7, 1000]
 
 
 def test_percentile_from_histogram_matches_numpy(subtests: SubTests) -> None:
@@ -165,9 +182,10 @@ def test_get_histograms_masks_alpha_and_nodata() -> None:
     assert local_path.endswith("/file.tiff")
     info.assert_called_once_with(local_path)
     assert run.call_args.kwargs["input_file"] == local_path
-    assert histograms.shape == (3, 65536)
-    assert np.flatnonzero(histograms[0]).tolist() == [100, 300]
-    assert np.flatnonzero(histograms[2]).tolist() == [120, 320]
+    assert histograms.bands.shape == (3, 65536)
+    assert np.flatnonzero(histograms.bands[0]).tolist() == [100, 300]
+    assert np.flatnonzero(histograms.bands[2]).tolist() == [120, 320]
+    assert np.flatnonzero(histograms.luminance).tolist() == [109, 309]
 
 
 def test_get_histograms_rejects_non_uint16() -> None:
@@ -189,13 +207,14 @@ def test_get_dataset_histograms_sums_files(tmp_path: Path) -> None:
     ):
         total = get_dataset_histograms(["a.tiff", "b.tiff", "c.tiff"], str(tmp_path), concurrency=2)
 
-    assert total[:, 100].tolist() == [12, 12, 12]
+    assert total.bands[:, 100].tolist() == [12, 12, 12]
+    assert total.luminance[100] == 12
     assert {path.name for path in tmp_path.iterdir()} == {get_histogram_file_name(f) for f in ["a.tiff", "b.tiff", "c.tiff"]}
 
 
 def test_get_dataset_histograms_reads_saved_histograms(tmp_path: Path, subtests: SubTests) -> None:
-    saved = np.zeros((3, 65536), dtype=np.int64)
-    saved[:, 7] = 1000
+    saved = Histograms(np.zeros((3, 65536), dtype=np.int64), np.zeros(65536, dtype=np.int64))
+    saved.bands[:, 7] = saved.luminance[7] = 1000
     (tmp_path / get_histogram_file_name("a.tiff")).write_bytes(histograms_to_bytes("a.tiff", saved))
 
     with (
@@ -207,29 +226,35 @@ def test_get_dataset_histograms_reads_saved_histograms(tmp_path: Path, subtests:
     ):
         with subtests.test(msg="skips sources with a histogram file"):
             total = get_dataset_histograms(["a.tiff", "b.tiff"], str(tmp_path))
-            assert total[:, 7].tolist() == [1000, 1000, 1000]
-            assert total[:, 100].tolist() == [4, 4, 4]
+            assert total.bands[:, 7].tolist() == [1000, 1000, 1000]
+            assert total.bands[:, 100].tolist() == [4, 4, 4]
+            assert total.luminance[[7, 100]].tolist() == [1000, 4]
 
         with subtests.test(msg="force recomputes all sources"):
             total = get_dataset_histograms(["a.tiff", "b.tiff"], str(tmp_path), force=True)
-            assert total[:, 7].tolist() == [0, 0, 0]
-            assert total[:, 100].tolist() == [8, 8, 8]
+            assert total.bands[:, 7].tolist() == [0, 0, 0]
+            assert total.bands[:, 100].tolist() == [8, 8, 8]
             saved_file = histograms_from_bytes((tmp_path / get_histogram_file_name("a.tiff")).read_bytes(), "a.tiff")
-            assert saved_file[:, 100].tolist() == [4, 4, 4]
+            assert saved_file.bands[:, 100].tolist() == [4, 4, 4]
 
 
 def test_histogram_file_round_trip() -> None:
-    histograms = np.zeros((3, 65536), dtype=np.int64)
-    histograms[1, 100:200] = 5
+    histograms = Histograms(np.zeros((3, 65536), dtype=np.int64), np.zeros(65536, dtype=np.int64))
+    histograms.bands[1, 100:200] = 5
+    histograms.luminance[150:250] = 3
 
     data = histograms_to_bytes("s3://bucket/a.tiff", histograms)
 
     assert len(data) < 10_000
-    assert np.array_equal(histograms_from_bytes(data, "s3://bucket/a.tiff"), histograms)
+    read = histograms_from_bytes(data, "s3://bucket/a.tiff")
+    assert np.array_equal(read.bands, histograms.bands)
+    assert np.array_equal(read.luminance, histograms.luminance)
 
 
 def test_histograms_from_bytes_rejects_other_source() -> None:
-    data = histograms_to_bytes("s3://bucket/a.tiff", np.zeros((1, 65536), dtype=np.int64))
+    data = histograms_to_bytes(
+        "s3://bucket/a.tiff", Histograms(np.zeros((1, 65536), dtype=np.int64), np.zeros(65536, dtype=np.int64))
+    )
 
     with raises(ValueError, match="Expected the histogram file of s3://bucket/b.tiff, got s3://bucket/a.tiff"):
         histograms_from_bytes(data, "s3://bucket/b.tiff")
@@ -250,14 +275,18 @@ def test_get_histogram_file_name(subtests: SubTests) -> None:
 
 
 def test_sum_histograms(subtests: SubTests) -> None:
-    rgb = np.ones((3, 65536), dtype=np.int64)
+    rgb = Histograms(np.ones((3, 65536), dtype=np.int64), np.ones(65536, dtype=np.int64))
 
     with subtests.test(msg="sums"):
-        assert sum_histograms([("a.tiff", rgb), ("b.tiff", rgb)])[:, 0].tolist() == [2, 2, 2]
+        total = sum_histograms([("a.tiff", rgb), ("b.tiff", rgb)])
+        assert total.bands[:, 0].tolist() == [2, 2, 2]
+        assert total.luminance[0] == 2
+        assert rgb.bands[0, 0] == 1
 
     with subtests.test(msg="rejects mixed band counts"):
+        gray = Histograms(np.ones((1, 65536), dtype=np.int64), np.ones(65536, dtype=np.int64))
         with raises(ValueError, match="Expected 3 bands like the other sources, got 1: gray.tiff"):
-            sum_histograms([("a.tiff", rgb), ("gray.tiff", np.ones((1, 65536), dtype=np.int64))])
+            sum_histograms([("a.tiff", rgb), ("gray.tiff", gray)])
 
     with subtests.test(msg="rejects no histograms"):
         with raises(ValueError, match="No histograms"):
@@ -265,7 +294,7 @@ def test_sum_histograms(subtests: SubTests) -> None:
 
 
 def test_get_dataset_histograms_caps_workers_by_remaining_downloads(tmp_path: Path) -> None:
-    saved = np.zeros((3, 65536), dtype=np.int64)
+    saved = Histograms(np.zeros((3, 65536), dtype=np.int64), np.zeros(65536, dtype=np.int64))
     (tmp_path / get_histogram_file_name("s3://bucket/saved.tif")).write_bytes(
         histograms_to_bytes("s3://bucket/saved.tif", saved)
     )
@@ -316,8 +345,8 @@ def test_get_clip_percentiles() -> None:
     histograms[1, 150:400] = 1
     histograms[2, 50:300] = 1
 
-    assert get_clip_percentiles(histograms, [100, 0, 2.5], max) == {
-        "0": [150, 100, 150, 50],
-        "2.5": [156, 102, 156, 56],
-        "100": [399, 199, 399, 299],
+    assert get_clip_percentiles(Histograms(histograms, histograms[1]), [100, 0, 2.5], max) == {
+        "0": [150, 100, 150, 50, 150],
+        "2.5": [156, 102, 156, 56, 156],
+        "100": [399, 199, 399, 299, 399],
     }
