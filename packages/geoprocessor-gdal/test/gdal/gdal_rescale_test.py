@@ -316,7 +316,8 @@ def test_get_clip_percentiles() -> None:
     histograms[1, 150:400] = 1
     histograms[2, 50:300] = 1
 
-    assert get_clip_percentiles(histograms, ("red", "green", "blue"), [100, 0], max) == [
-        {"percentile": 0, "value": 150, "bands": {"red": 100, "green": 150, "blue": 50}},
-        {"percentile": 100, "value": 399, "bands": {"red": 199, "green": 399, "blue": 299}},
-    ]
+    assert get_clip_percentiles(histograms, [100, 0, 2.5], max) == {
+        "0": [150, 100, 150, 50],
+        "2.5": [156, 102, 156, 56],
+        "100": [399, 199, 399, 299],
+    }

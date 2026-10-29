@@ -6,10 +6,10 @@ import json
 import os
 import re
 import tempfile
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from multiprocessing import Pool
-from typing import Any, NamedTuple
+from typing import NamedTuple
 
 import numpy as np
 import numpy.typing as npt
@@ -166,28 +166,28 @@ def rescale_range_from_histograms(
 
 
 def get_clip_percentiles(
-    histograms: npt.NDArray[np.int64],
-    names: Sequence[str],
-    percentiles: Iterable[float],
-    combine: Callable[[Iterable[int]], int],
-) -> list[dict[str, Any]]:
-    """Get the value at each percentile per band and combined for all bands.
+    histograms: npt.NDArray[np.int64], percentiles: Iterable[float], combine: Callable[[Iterable[int]], int]
+) -> dict[str, list[int]]:
+    """Get the value at each percentile combined for all bands, then per band.
 
     Args:
         histograms: value counts with shape (bands, 65536)
-        names: band names
         percentiles: percentiles between 0 and 100
         combine: combines the band values into one value, `min` for low and `max` for high percentiles
 
     Returns:
-        one entry per percentile with the combined value and the value of each band
+        the combined value and the value of each band, per percentile
+
+    Examples:
+        >>> histograms = np.zeros((2, 65536), dtype=np.int64)
+        >>> histograms[0, 10:20] = histograms[1, 30:40] = 1
+        >>> get_clip_percentiles(histograms, [100, 0], max)
+        {'0': [30, 10, 30], '100': [39, 19, 39]}
     """
-    entries = []
+    entries = {}
     for percentile in sorted(percentiles):
-        values = {
-            name: percentile_from_histogram(histogram, percentile) for name, histogram in zip(names, histograms, strict=True)
-        }
-        entries.append({"percentile": percentile, "value": combine(values.values()), "bands": values})
+        values = [percentile_from_histogram(histogram, percentile) for histogram in histograms]
+        entries[f"{percentile:g}"] = [combine(values), *values]
     return entries
 
 

@@ -45,53 +45,14 @@ def test_should_write_rescale_range(tmp_path: Path) -> None:
     get_histograms.assert_called_once_with(["a.tiff", "b.tif"], str(tmp_path / "histograms"), 1, False, None)
     assert (tmp_path / "rescale-range").read_text() == "50,399"
     details = json.loads((tmp_path / "rescale-range.json").read_text())
-    assert details["bands"][1] == {"name": "green", "low": 150, "high": 399, "pixelCount": 250}
     assert details["fileCount"] == 2
-    low, high = details["rescaleClipPercentiles"]["low"], details["rescaleClipPercentiles"]["high"]
-    assert [entry["percentile"] for entry in low] == [
-        0,
-        0.1,
-        0.2,
-        0.3,
-        0.4,
-        0.5,
-        0.6,
-        0.7,
-        0.8,
-        0.9,
-        1,
-        1.5,
-        2,
-        2.5,
-        3,
-        3.5,
-        4,
-        4.5,
-        5,
-    ]
-    assert [entry["percentile"] for entry in high] == [
-        95,
-        95.5,
-        96,
-        96.5,
-        97,
-        97.5,
-        98,
-        98.5,
-        99,
-        99.1,
-        99.2,
-        99.3,
-        99.4,
-        99.5,
-        99.6,
-        99.7,
-        99.8,
-        99.9,
-        100,
-    ]
-    assert low[0] == {"percentile": 0, "value": 50, "bands": {"red": 100, "green": 150, "blue": 50}}
-    assert high[-1] == {"percentile": 100, "value": 399, "bands": {"red": 199, "green": 399, "blue": 299}}
+    assert details["pixelCount"] == {"red": 100, "green": 250, "blue": 250}
+    clip_percentiles = details["rescaleClipPercentiles"]
+    assert clip_percentiles["columns"] == ["all", "red", "green", "blue"]
+    assert list(clip_percentiles["low"]) == ["0", "0.1", "0.2", "0.5", "1", "2", "3", "5"]
+    assert list(clip_percentiles["high"]) == ["95", "97", "98", "99", "99.5", "99.8", "99.9", "100"]
+    assert clip_percentiles["low"]["0"] == [50, 100, 150, 50]
+    assert clip_percentiles["high"]["100"] == [399, 199, 399, 299]
 
 
 def test_should_write_per_band_rescale_range(tmp_path: Path) -> None:
@@ -138,8 +99,8 @@ def test_should_add_requested_percentiles_to_clip_percentiles(tmp_path: Path) ->
         )
 
     clip_percentiles = json.loads((tmp_path / "rescale-range.json").read_text())["rescaleClipPercentiles"]
-    assert {"percentile": 0.25, "value": 3, "bands": {"red": 3, "green": 3, "blue": 3}} in clip_percentiles["low"]
-    assert {"percentile": 97.3, "value": 973, "bands": {"red": 973, "green": 973, "blue": 973}} in clip_percentiles["high"]
+    assert clip_percentiles["low"]["0.25"] == [3, 3, 3, 3]
+    assert clip_percentiles["high"]["97.3"] == [973, 973, 973, 973]
 
 
 def test_should_reject_low_percentile_above_high(tmp_path: Path, capsys: CaptureFixture[str]) -> None:

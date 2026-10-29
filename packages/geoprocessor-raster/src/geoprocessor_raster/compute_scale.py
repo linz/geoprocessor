@@ -11,15 +11,14 @@ from geoprocessor_gdal.gdal.gdal_rescale import (
     BAND_NAMES,
     get_clip_percentiles,
     get_dataset_histograms,
-    percentile_from_histogram,
     rescale_range_from_histograms,
 )
 from geoprocessor_stac.json_codec import dict_to_json_bytes
 from linz_logger import get_log
 
 RESCALE_RANGE_FILE_NAME = "rescale-range"
-# Clip percentiles at each end: 0 to 1 in 0.1 steps, then up to 5 in 0.5 steps
-CLIP_PERCENTILES = tuple(step / 10 for step in range(10)) + tuple(step / 2 for step in range(2, 11))
+# Clip percentiles of the low end, mirrored for the high end
+CLIP_PERCENTILES = (0, 0.1, 0.2, 0.5, 1, 2, 3, 5)
 
 
 def str_to_percentile(value: str) -> float:
@@ -156,27 +155,17 @@ def main(args: list[str] | None = None) -> None:
                 "rescaleClipLowPercentile": arguments.rescale_clip_low_percentile,
                 "rescaleClipHighPercentile": arguments.rescale_clip_high_percentile,
                 "rescalePerBand": arguments.rescale_per_band,
-                "bands": [
-                    {
-                        "name": name,
-                        "low": percentile_from_histogram(histogram, arguments.rescale_clip_low_percentile),
-                        "high": percentile_from_histogram(histogram, arguments.rescale_clip_high_percentile),
-                        "pixelCount": int(histogram.sum()),
-                    }
-                    for name, histogram in zip(band_names, histograms, strict=True)
-                ],
+                "fileCount": len(files),
+                "pixelCount": {name: int(histogram.sum()) for name, histogram in zip(band_names, histograms, strict=True)},
                 "rescaleClipPercentiles": {
-                    "low": get_clip_percentiles(
-                        histograms, band_names, {*CLIP_PERCENTILES, arguments.rescale_clip_low_percentile}, min
-                    ),
+                    "columns": ["all", *band_names],
+                    "low": get_clip_percentiles(histograms, {*CLIP_PERCENTILES, arguments.rescale_clip_low_percentile}, min),
                     "high": get_clip_percentiles(
                         histograms,
-                        band_names,
                         {*(round(100 - p, 1) for p in CLIP_PERCENTILES), arguments.rescale_clip_high_percentile},
                         max,
                     ),
                 },
-                "fileCount": len(files),
             }
         ),
         content_type=ContentType.JSON.value,

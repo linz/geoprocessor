@@ -3,206 +3,29 @@
   "rescaleClipLowPercentile": 0.5,
   "rescaleClipHighPercentile": 99.5,
   "rescalePerBand": false,
-  "bands": [
-    { "name": "red", "low": 1496, "high": 13930, "pixelCount": 36942 },
-    { "name": "green", "low": 1640, "high": 14430, "pixelCount": 36942 },
-    { "name": "blue", "low": 1688, "high": 13535, "pixelCount": 36940 }
-  ],
+  "fileCount": 3,
+  "pixelCount": { "red": 36942, "green": 36942, "blue": 36940 },
   "rescaleClipPercentiles": {
-    "low": [
-      {
-        "percentile": 0.0,
-        "value": 1016,
-        "bands": { "red": 1016, "green": 1016, "blue": 1016 }
-      },
-      {
-        "percentile": 0.1,
-        "value": 1256,
-        "bands": { "red": 1256, "green": 1416, "blue": 1368 }
-      },
-      {
-        "percentile": 0.2,
-        "value": 1368,
-        "bands": { "red": 1368, "green": 1496, "blue": 1480 }
-      },
-      {
-        "percentile": 0.3,
-        "value": 1416,
-        "bands": { "red": 1416, "green": 1544, "blue": 1592 }
-      },
-      {
-        "percentile": 0.4,
-        "value": 1464,
-        "bands": { "red": 1464, "green": 1608, "blue": 1640 }
-      },
-      {
-        "percentile": 0.5,
-        "value": 1496,
-        "bands": { "red": 1496, "green": 1640, "blue": 1688 }
-      },
-      {
-        "percentile": 0.6,
-        "value": 1528,
-        "bands": { "red": 1528, "green": 1672, "blue": 1720 }
-      },
-      {
-        "percentile": 0.7,
-        "value": 1576,
-        "bands": { "red": 1576, "green": 1688, "blue": 1768 }
-      },
-      {
-        "percentile": 0.8,
-        "value": 1608,
-        "bands": { "red": 1608, "green": 1720, "blue": 1800 }
-      },
-      {
-        "percentile": 0.9,
-        "value": 1640,
-        "bands": { "red": 1640, "green": 1752, "blue": 1832 }
-      },
-      {
-        "percentile": 1.0,
-        "value": 1688,
-        "bands": { "red": 1688, "green": 1784, "blue": 1864 }
-      },
-      {
-        "percentile": 1.5,
-        "value": 1864,
-        "bands": { "red": 1864, "green": 1944, "blue": 1976 }
-      },
-      {
-        "percentile": 2.0,
-        "value": 2056,
-        "bands": { "red": 2088, "green": 2136, "blue": 2056 }
-      },
-      {
-        "percentile": 2.5,
-        "value": 2120,
-        "bands": { "red": 2232, "green": 2296, "blue": 2120 }
-      },
-      {
-        "percentile": 3.0,
-        "value": 2184,
-        "bands": { "red": 2376, "green": 2440, "blue": 2184 }
-      },
-      {
-        "percentile": 3.5,
-        "value": 2248,
-        "bands": { "red": 2488, "green": 2536, "blue": 2248 }
-      },
-      {
-        "percentile": 4.0,
-        "value": 2296,
-        "bands": { "red": 2600, "green": 2632, "blue": 2296 }
-      },
-      {
-        "percentile": 4.5,
-        "value": 2376,
-        "bands": { "red": 2680, "green": 2744, "blue": 2376 }
-      },
-      {
-        "percentile": 5.0,
-        "value": 2424,
-        "bands": { "red": 2760, "green": 2792, "blue": 2424 }
-      }
-    ],
-    "high": [
-      {
-        "percentile": 95.0,
-        "value": 13860,
-        "bands": { "red": 13360, "green": 13860, "blue": 12955 }
-      },
-      {
-        "percentile": 95.5,
-        "value": 13930,
-        "bands": { "red": 13430, "green": 13930, "blue": 13020 }
-      },
-      {
-        "percentile": 96.0,
-        "value": 13990,
-        "bands": { "red": 13490, "green": 13990, "blue": 13085 }
-      },
-      {
-        "percentile": 96.5,
-        "value": 14040,
-        "bands": { "red": 13540, "green": 14040, "blue": 13150 }
-      },
-      {
-        "percentile": 97.0,
-        "value": 14110,
-        "bands": { "red": 13610, "green": 14110, "blue": 13210 }
-      },
-      {
-        "percentile": 97.5,
-        "value": 14170,
-        "bands": { "red": 13670, "green": 14170, "blue": 13275 }
-      },
-      {
-        "percentile": 98.0,
-        "value": 14240,
-        "bands": { "red": 13740, "green": 14240, "blue": 13340 }
-      },
-      {
-        "percentile": 98.5,
-        "value": 14300,
-        "bands": { "red": 13800, "green": 14300, "blue": 13400 }
-      },
-      {
-        "percentile": 99.0,
-        "value": 14370,
-        "bands": { "red": 13870, "green": 14370, "blue": 13465 }
-      },
-      {
-        "percentile": 99.1,
-        "value": 14380,
-        "bands": { "red": 13880, "green": 14380, "blue": 13480 }
-      },
-      {
-        "percentile": 99.2,
-        "value": 14400,
-        "bands": { "red": 13900, "green": 14400, "blue": 13490 }
-      },
-      {
-        "percentile": 99.3,
-        "value": 14410,
-        "bands": { "red": 13910, "green": 14410, "blue": 13505 }
-      },
-      {
-        "percentile": 99.4,
-        "value": 14420,
-        "bands": { "red": 13920, "green": 14420, "blue": 13520 }
-      },
-      {
-        "percentile": 99.5,
-        "value": 14430,
-        "bands": { "red": 13930, "green": 14430, "blue": 13535 }
-      },
-      {
-        "percentile": 99.6,
-        "value": 14440,
-        "bands": { "red": 13940, "green": 14440, "blue": 13550 }
-      },
-      {
-        "percentile": 99.7,
-        "value": 14450,
-        "bands": { "red": 13950, "green": 14450, "blue": 13570 }
-      },
-      {
-        "percentile": 99.8,
-        "value": 14470,
-        "bands": { "red": 13970, "green": 14470, "blue": 13595 }
-      },
-      {
-        "percentile": 99.9,
-        "value": 14480,
-        "bands": { "red": 13980, "green": 14480, "blue": 13620 }
-      },
-      {
-        "percentile": 100.0,
-        "value": 14490,
-        "bands": { "red": 13990, "green": 14490, "blue": 13685 }
-      }
-    ]
-  },
-  "fileCount": 3
+    "columns": ["all", "red", "green", "blue"],
+    "low": {
+      "0": [1016, 1016, 1016, 1016],
+      "0.1": [1256, 1256, 1416, 1368],
+      "0.2": [1368, 1368, 1496, 1480],
+      "0.5": [1496, 1496, 1640, 1688],
+      "1": [1688, 1688, 1784, 1864],
+      "2": [2056, 2088, 2136, 2056],
+      "3": [2184, 2376, 2440, 2184],
+      "5": [2424, 2760, 2792, 2424]
+    },
+    "high": {
+      "95": [13860, 13360, 13860, 12955],
+      "97": [14110, 13610, 14110, 13210],
+      "98": [14240, 13740, 14240, 13340],
+      "99": [14370, 13870, 14370, 13465],
+      "99.5": [14430, 13930, 14430, 13535],
+      "99.8": [14470, 13970, 14470, 13595],
+      "99.9": [14480, 13980, 14480, 13620],
+      "100": [14490, 13990, 14490, 13685]
+    }
+  }
 }
