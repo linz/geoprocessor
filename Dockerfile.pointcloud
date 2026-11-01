@@ -1,6 +1,9 @@
+# Ubuntu updates published after the base image was built. Bump the date to pick up newer ones.
+ARG UBUNTU_SNAPSHOT=20261030T000000Z
+
 FROM ghcr.io/astral-sh/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 AS uv_source
 
-FROM ghcr.io/linz/pdal-docker:2.10.2@sha256:406bd6bc89ff874b4747b27700daf4c61bc2ba77fade3434eb8e96d688ba33b5 AS builder
+FROM ghcr.io/linz/pdal-docker:2.10.2@sha256:408aeb3dedd47c60fe8cd1cc13b28a74bbeb2d2181dd7fe4e42addf386ca2997 AS builder
 
 COPY --from=uv_source /uv /uvx /bin/
 
@@ -13,12 +16,18 @@ ENV UV_PROJECT_ENVIRONMENT=/venv
 ENV UV_PYTHON=/usr/bin/python3
 ENV UV_PYTHON_PREFERENCE=only-system
 
-RUN apt-get update \
-    && apt-get install --assume-yes --no-install-recommends tini
+ARG UBUNTU_SNAPSHOT
+RUN apt-get update --error-on=any --snapshot "$UBUNTU_SNAPSHOT" \
+    && apt-get install --snapshot "$UBUNTU_SNAPSHOT" --assume-yes --no-install-recommends tini
 
 RUN uv sync --frozen --no-dev --no-editable --package geoprocessor-pointcloud
 
-FROM ghcr.io/linz/pdal-docker:2.10.2@sha256:406bd6bc89ff874b4747b27700daf4c61bc2ba77fade3434eb8e96d688ba33b5
+FROM ghcr.io/linz/pdal-docker:2.10.2@sha256:408aeb3dedd47c60fe8cd1cc13b28a74bbeb2d2181dd7fe4e42addf386ca2997
+
+ARG UBUNTU_SNAPSHOT
+RUN apt-get update --error-on=any --snapshot "$UBUNTU_SNAPSHOT" \
+    && apt-get upgrade --snapshot "$UBUNTU_SNAPSHOT" --assume-yes --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
 
 ARG GIT_HASH
 ENV GIT_HASH=$GIT_HASH
