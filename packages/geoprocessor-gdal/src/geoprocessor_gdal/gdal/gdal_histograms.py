@@ -21,7 +21,7 @@ SAMPLE_CACHE_MIN_MB = 32
 BAND_NAMES = {1: ("gray",), 3: ("red", "green", "blue")}
 
 
-# Rec. 709 luminance weights of the red, green and blue bands
+# Rec. 709 luminance weights of the red, green and blue bands, https://en.wikipedia.org/wiki/Rec._709#Luma_coefficients
 LUMINANCE_WEIGHTS = np.array([0.2126, 0.7152, 0.0722])
 
 
