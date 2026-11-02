@@ -11,6 +11,7 @@ from geoprocessor_gdal.gdal.gdal_histograms import (
     Histograms,
     get_clip_percentiles,
     get_histograms,
+    get_sample_cache_mb,
     get_sample_command,
     get_sample_step,
     histogram_from_pixels,
@@ -20,7 +21,7 @@ from geoprocessor_gdal.gdal.gdal_histograms import (
 )
 from geoprocessor_gdal.gdal.gdalinfo import GdalInfo
 from geoprocessor_gdal.rescale_range import BandRange, RescaleRange
-from pytest import raises
+from pytest import CaptureFixture, raises
 from pytest_subtests import SubTests
 
 
@@ -31,12 +32,16 @@ def staggered_bands() -> npt.NDArray[np.int64]:
     return bands
 
 
-def rgb_gdalinfo(width: int, height: int, alpha: bool = True, no_data_value: int | None = None) -> GdalInfo:
-    """`gdalinfo` of a `width` x `height` RGB TIFF, with an alpha band unless `alpha` is false."""
+def rgb_gdalinfo(
+    width: int, height: int, alpha: bool = True, no_data_value: int | None = None, block: tuple[int, int] = (256, 256)
+) -> GdalInfo:
+    """`gdalinfo` of a `width` x `height` RGB TIFF in `block` blocks, with an alpha band unless `alpha` is false."""
     gdalinfo: GdalInfo = fake_gdalinfo()
+    gdalinfo["description"] = "file.tiff"
     gdalinfo["size"] = [width, height]
     for color in ["Red", "Green", "Blue"] + (["Alpha"] if alpha else []):
         add_band(gdalinfo, color, no_data_value)
+        gdalinfo["bands"][-1]["block"] = list(block)
     return gdalinfo
 
 
@@ -169,23 +174,38 @@ def test_get_sample_step(subtests: SubTests) -> None:
             assert get_sample_step(rgb_gdalinfo(width, height), size=1024) == expected
 
 
+def test_get_sample_cache_mb(subtests: SubTests, capsys: CaptureFixture[str]) -> None:
+    """The cache holds one row of blocks of every band with 25% headroom, from 32 MB up to `max_cache_mb`."""
+    with subtests.test(msg="one row of blocks of every band"):
+        assert get_sample_cache_mb(rgb_gdalinfo(10000, 15000, block=(512, 512)), 4096) == 50
+        assert get_sample_cache_mb(rgb_gdalinfo(10000, 15000, alpha=False, block=(512, 512)), 4096) == 38
+
+    with subtests.test(msg="at least 32 MB"):
+        assert get_sample_cache_mb(rgb_gdalinfo(4800, 7200), 4096) == 32
+        assert get_sample_cache_mb(rgb_gdalinfo(4800, 7200, block=(4800, 1)), 4096) == 32
+
+    with subtests.test(msg="capped at max_cache_mb with a warning"):
+        assert get_sample_cache_mb(rgb_gdalinfo(10000, 15000, block=(512, 512)), 40) == 40
+        assert "sample_cache_capped" in capsys.readouterr().out
+
+
 def test_get_sample_command(subtests: SubTests) -> None:
     """Every `step`th full-resolution pixel of the colour bands and alpha is sampled."""
     with subtests.test(msg="reads full resolution pixels, not overviews"):
-        command = get_sample_command(rgb_gdalinfo(4800, 7200), step=8)
+        command = get_sample_command(rgb_gdalinfo(4800, 7200), step=8, cache_mb=32)
         assert command[command.index("-oo") + 1] == "OVERVIEW_LEVEL=NONE"
 
-    with subtests.test(msg="caps the GDAL block cache"):
-        command = get_sample_command(rgb_gdalinfo(4800, 7200), step=8)
-        assert command[command.index("--config") + 1 : command.index("--config") + 3] == ["GDAL_CACHEMAX", "32"]
+    with subtests.test(msg="sets the GDAL block cache"):
+        command = get_sample_command(rgb_gdalinfo(4800, 7200), step=8, cache_mb=50)
+        assert command[command.index("--config") + 1 : command.index("--config") + 3] == ["GDAL_CACHEMAX", "50"]
 
     with subtests.test(msg="rgb with alpha"):
-        command = get_sample_command(rgb_gdalinfo(4801, 7200), step=8)
+        command = get_sample_command(rgb_gdalinfo(4801, 7200), step=8, cache_mb=32)
         assert command[command.index("-outsize") + 1 : command.index("-outsize") + 3] == ["601", "900"]
         assert command[-8:] == ["-b", "1", "-b", "2", "-b", "3", "-b", "4"]
 
     with subtests.test(msg="step 1 reads every pixel"):
-        command = get_sample_command(rgb_gdalinfo(500, 400, alpha=False), step=1)
+        command = get_sample_command(rgb_gdalinfo(500, 400, alpha=False), step=1, cache_mb=32)
         assert command[command.index("-outsize") + 1 : command.index("-outsize") + 3] == ["500", "400"]
         assert command[-6:] == ["-b", "1", "-b", "2", "-b", "3"]
 
@@ -193,7 +213,7 @@ def test_get_sample_command(subtests: SubTests) -> None:
         gdalinfo = fake_gdalinfo()
         gdalinfo["size"] = [100, 100]
         add_band(gdalinfo, "Gray")
-        assert get_sample_command(gdalinfo, step=1)[-2:] == ["-b", "1"]
+        assert get_sample_command(gdalinfo, step=1, cache_mb=32)[-2:] == ["-b", "1"]
 
 
 def test_get_histograms(subtests: SubTests) -> None:
@@ -223,6 +243,14 @@ def test_get_histograms(subtests: SubTests) -> None:
         assert command[command.index("-outsize") + 1 : command.index("-outsize") + 3] == ["1000", "667"]
         assert histograms.bands[:, 100].tolist() == [36, 36, 36]
         assert histograms.luminance[100] == 36
+
+    with subtests.test(msg="sizes the GDAL block cache up to max_cache_mb"):
+        gdalinfo = rgb_gdalinfo(10000, 15000, alpha=False, block=(512, 512))
+        for max_cache_mb, expected in [(4096, "38"), (32, "32")]:
+            with sampling(np.full((3, 2, 2), 100, dtype=np.uint16), gdalinfo) as (_, _, run):
+                get_histograms("file.tiff", max_cache_mb=max_cache_mb)
+            command = run.call_args.args[0]
+            assert command[command.index("GDAL_CACHEMAX") + 1] == expected
 
     with subtests.test(msg="rejects non-uint16 sources"):
         with sampling(np.ones((3, 2, 2), dtype=np.uint8)):

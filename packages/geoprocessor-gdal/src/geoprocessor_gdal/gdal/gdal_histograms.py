@@ -17,7 +17,7 @@ from linz_logger import get_log
 
 UINT16_VALUE_COUNT = UINT16_MAX + 1
 SAMPLE_SIZE = 1024
-SAMPLE_GDAL_CACHEMAX_MB = 32
+SAMPLE_CACHE_MIN_MB = 32
 BAND_NAMES = {1: ("gray",), 3: ("red", "green", "blue")}
 
 
@@ -188,12 +188,39 @@ def get_sample_step(info: GdalInfo, size: int = SAMPLE_SIZE) -> int:
     return math.ceil(max(info["size"]) / size)
 
 
-def get_sample_command(info: GdalInfo, step: int) -> list[str]:
+def get_sample_cache_mb(info: GdalInfo, max_cache_mb: int) -> int:
+    """Get the GDAL block cache that holds one row of blocks of every band, so that each block is decoded once.
+
+    Args:
+        info: gdalinfo of the source file
+        max_cache_mb: maximum cache in MB
+
+    Returns:
+        the cache in MB, at least `SAMPLE_CACHE_MIN_MB` and at most `max_cache_mb`
+
+    Examples:
+        >>> get_sample_cache_mb({"size": [10000, 15000], "bands": [{"block": [512, 512]}] * 4}, 4096)
+        50
+    """
+    bands = info["bands"]
+    block_width, block_height = bands[0]["block"]
+    blocks_per_row = math.ceil(info["size"][0] / block_width)
+    # Pixel-interleaved sources cache the blocks of every band, sampled or not
+    row_bytes = blocks_per_row * block_width * block_height * len(bands) * np.dtype(np.uint16).itemsize
+    cache_mb = max(SAMPLE_CACHE_MIN_MB, math.ceil(row_bytes * 1.25 / 2**20))
+    if cache_mb > max_cache_mb:
+        get_log().warning("sample_cache_capped", path=info["description"], cacheMb=max_cache_mb, requiredCacheMb=cache_mb)
+        return max_cache_mb
+    return cache_mb
+
+
+def get_sample_command(info: GdalInfo, step: int, cache_mb: int) -> list[str]:
     """Get a `gdal_translate` command to sample every `step`th full-resolution pixel of the colour and alpha bands.
 
     Args:
         info: gdalinfo of the source file
         step: step between the sampled pixels
+        cache_mb: GDAL block cache in MB
 
     Returns:
         a list of arguments to run `gdal_translate`
@@ -209,10 +236,9 @@ def get_sample_command(info: GdalInfo, step: int) -> list[str]:
     return [
         "gdal_translate",
         "-q",
-        # Each block is read once, so a larger cache only adds memory
         "--config",
         "GDAL_CACHEMAX",
-        str(SAMPLE_GDAL_CACHEMAX_MB),
+        str(cache_mb),
         # Overviews are averaged, which narrows the histogram
         "-oo",
         "OVERVIEW_LEVEL=NONE",
@@ -229,12 +255,13 @@ def get_sample_command(info: GdalInfo, step: int) -> list[str]:
     ]
 
 
-def get_histograms(path: str, size: int = SAMPLE_SIZE) -> Histograms:
+def get_histograms(path: str, size: int = SAMPLE_SIZE, max_cache_mb: int = SAMPLE_CACHE_MIN_MB) -> Histograms:
     """Get the colour band and luminance histograms of a TIFF read at reduced resolution.
 
     Args:
         path: path to the TIFF
         size: maximum width and height of the sample
+        max_cache_mb: maximum GDAL block cache in MB
 
     Returns:
         value counts of the bands and of their luminance, scaled to the full resolution of the TIFF
@@ -247,7 +274,8 @@ def get_histograms(path: str, size: int = SAMPLE_SIZE) -> Histograms:
         info = gdal_info(local_path)
         step = get_sample_step(info, size)
         sample_path = os.path.join(tmp_path, "sample.tiff")
-        run_gdal(get_sample_command(info, step), input_file=local_path, output_file=sample_path)
+        command = get_sample_command(info, step, get_sample_cache_mb(info, max_cache_mb))
+        run_gdal(command, input_file=local_path, output_file=sample_path)
         pixels = tifffile.imread(sample_path)
     if pixels.dtype != np.uint16:
         raise ValueError(f"Expected uint16 pixels, got {pixels.dtype}: {path}")
