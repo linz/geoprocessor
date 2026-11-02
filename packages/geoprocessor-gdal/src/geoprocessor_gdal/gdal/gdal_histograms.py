@@ -180,6 +180,10 @@ def get_sample_step(info: GdalInfo, size: int = SAMPLE_SIZE) -> int:
     Examples:
         >>> get_sample_step({"size": [3200, 4800]}, 1024)
         5
+        >>> get_sample_step({"size": [2048, 1024]}, 1024)
+        2
+        >>> get_sample_step({"size": [500, 400]}, 1024)
+        1
     """
     return math.ceil(max(info["size"]) / size)
 

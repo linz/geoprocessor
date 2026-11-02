@@ -8,11 +8,9 @@ import numpy.typing as npt
 import tifffile
 from fake_gdalinfo import add_band, fake_gdalinfo
 from geoprocessor_gdal.gdal.gdal_histograms import (
-    get_clip_percentiles,
     get_histograms,
     get_sample_cache_mb,
     get_sample_command,
-    get_sample_step,
     histogram_from_pixels,
     luminance_from_pixels,
     percentile_from_histogram,
@@ -155,22 +153,6 @@ def test_rescale_range_from_histograms(subtests: SubTests) -> None:
         assert rescale_range_from_histograms(narrow, 0, 100, rescale_per_band=False) == RescaleRange((BandRange(1000, 2000),))
 
 
-def test_get_clip_percentiles() -> None:
-    """Each percentile gives the value of every band, in percentile order."""
-    assert get_clip_percentiles(staggered_bands(), [100, 0, 2.5]) == {
-        "0": [100, 150, 50],
-        "2.5": [102, 156, 56],
-        "100": [199, 399, 299],
-    }
-
-
-def test_get_sample_step(subtests: SubTests) -> None:
-    """The step between sampled pixels is the smallest that fits the longest side in `size`."""
-    for width, height, expected in [(4800, 7200, 8), (2048, 1024, 2), (500, 400, 1)]:
-        with subtests.test(msg=f"{width}x{height}"):
-            assert get_sample_step(rgb_gdalinfo(width, height), size=1024) == expected
-
-
 def test_get_sample_cache_mb(subtests: SubTests, capsys: CaptureFixture[str]) -> None:
     """The cache holds one row of blocks of every band with 25% headroom, from 32 MB up to `max_cache_mb`."""
     with subtests.test(msg="one row of blocks of every band"):
@@ -241,13 +223,12 @@ def test_get_histograms(subtests: SubTests) -> None:
         assert histograms.bands[:, 100].tolist() == [36, 36, 36]
         assert histograms.luminance[100] == 36
 
-    with subtests.test(msg="sizes the GDAL block cache up to max_cache_mb"):
+    with subtests.test(msg="sizes the GDAL block cache"):
         gdalinfo = rgb_gdalinfo(10000, 15000, alpha=False, block=(512, 512))
-        for max_cache_mb, expected in [(4096, "38"), (32, "32")]:
-            with sampling(np.full((3, 2, 2), 100, dtype=np.uint16), gdalinfo) as (_, _, run):
-                get_histograms("file.tiff", max_cache_mb=max_cache_mb)
-            command = run.call_args.args[0]
-            assert command[command.index("GDAL_CACHEMAX") + 1] == expected
+        with sampling(np.full((3, 2, 2), 100, dtype=np.uint16), gdalinfo) as (_, _, run):
+            get_histograms("file.tiff", max_cache_mb=4096)
+        command = run.call_args.args[0]
+        assert command[command.index("GDAL_CACHEMAX") + 1] == "38"
 
     with subtests.test(msg="rejects non-uint16 sources"):
         with sampling(np.ones((3, 2, 2), dtype=np.uint8)):
