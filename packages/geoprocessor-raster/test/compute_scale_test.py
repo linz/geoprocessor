@@ -76,11 +76,30 @@ def test_should_write_rescale_range(tmp_path: Path) -> None:
     assert details["fileCount"] == 2
     assert details["pixelCount"] == {"red": 100, "green": 250, "blue": 250, "luminance": 250}
     clip_percentiles = details["rescaleClipPercentiles"]
-    assert clip_percentiles["columns"] == ["all", "red", "green", "blue", "luminance"]
-    assert list(clip_percentiles["low"]) == ["0", "0.1", "0.2", "0.5", "1", "2", "3", "5"]
-    assert list(clip_percentiles["high"]) == ["95", "97", "98", "99", "99.5", "99.8", "99.9", "100"]
-    assert clip_percentiles["low"]["0"] == [50, 100, 150, 50, 150]
-    assert clip_percentiles["high"]["100"] == [399, 199, 399, 299, 399]
+    assert clip_percentiles["columns"] == ["red", "green", "blue"]
+    expected_percentiles = [
+        "0",
+        "0.1",
+        "0.2",
+        "0.5",
+        "1",
+        "2",
+        "3",
+        "5",
+        "95",
+        "97",
+        "98",
+        "99",
+        "99.5",
+        "99.8",
+        "99.9",
+        "100",
+    ]
+    assert list(clip_percentiles["values"]) == expected_percentiles
+    assert clip_percentiles["values"]["0"] == [100, 150, 50]
+    assert clip_percentiles["values"]["100"] == [199, 399, 299]
+    assert list(details["luminancePercentiles"]) == expected_percentiles
+    assert [details["luminancePercentiles"][p] for p in ["0", "100"]] == [150, 399]
 
 
 def test_should_write_per_band_rescale_range(tmp_path: Path) -> None:
@@ -100,9 +119,10 @@ def test_should_add_requested_percentiles_to_clip_percentiles(tmp_path: Path) ->
 
     run_main(tmp_path, bands, "--rescale-clip-low-percentile", "0.25", "--rescale-clip-high-percentile", "97.3")
 
-    clip_percentiles = read_details(tmp_path)["rescaleClipPercentiles"]
-    assert clip_percentiles["low"]["0.25"] == [3, 3, 3, 3, 3]
-    assert clip_percentiles["high"]["97.3"] == [973, 973, 973, 973, 973]
+    details = read_details(tmp_path)
+    assert details["rescaleClipPercentiles"]["values"]["0.25"] == [3, 3, 3]
+    assert details["rescaleClipPercentiles"]["values"]["97.3"] == [973, 973, 973]
+    assert [details["luminancePercentiles"][p] for p in ["0.25", "97.3"]] == [3, 973]
 
 
 def test_should_pass_options_to_get_dataset_histograms(tmp_path: Path, subtests: SubTests) -> None:

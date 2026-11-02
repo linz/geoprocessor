@@ -1,7 +1,7 @@
 import math
 import os
 import tempfile
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from typing import NamedTuple
 
 import numpy as np
@@ -145,30 +145,26 @@ def rescale_range_from_histograms(
     return RescaleRange(ranges)
 
 
-def get_clip_percentiles(
-    histograms: Histograms, percentiles: Iterable[float], combine: Callable[[Iterable[int]], int]
-) -> dict[str, list[int]]:
-    """Get the value at each percentile combined for all bands, per band and of the luminance.
+def get_clip_percentiles(histograms: npt.NDArray[np.int64], percentiles: Iterable[float]) -> dict[str, list[int]]:
+    """Get the value of each band at each percentile.
 
     Args:
-        histograms: value counts of the bands and of their luminance
+        histograms: value counts with shape (bands, 65536)
         percentiles: percentiles between 0 and 100
-        combine: combines the band values into one value, `min` for low and `max` for high percentiles
 
     Returns:
-        the combined value, the value of each band and the luminance value, per percentile
+        the value of each band, per percentile
 
     Examples:
         >>> bands = np.zeros((2, 65536), dtype=np.int64)
         >>> bands[0, 10:20] = bands[1, 30:40] = 1
-        >>> get_clip_percentiles(Histograms(bands, bands[0] + bands[1]), [100, 0], max)
-        {'0': [30, 10, 30, 10], '100': [39, 19, 39, 39]}
+        >>> get_clip_percentiles(bands, [100, 0])
+        {'0': [10, 30], '100': [19, 39]}
     """
-    entries = {}
-    for percentile in sorted(percentiles):
-        values = [percentile_from_histogram(histogram, percentile) for histogram in histograms.bands]
-        entries[f"{percentile:g}"] = [combine(values), *values, percentile_from_histogram(histograms.luminance, percentile)]
-    return entries
+    return {
+        f"{percentile:g}": [percentile_from_histogram(histogram, percentile) for histogram in histograms]
+        for percentile in sorted(percentiles)
+    }
 
 
 def get_sample_step(info: GdalInfo, size: int = SAMPLE_SIZE) -> int:

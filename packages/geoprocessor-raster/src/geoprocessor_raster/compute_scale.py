@@ -7,7 +7,12 @@ from geoprocessor_common.cli.cli_helper import InputParameterError, load_input_f
 from geoprocessor_common.files.files_helper import ContentType, is_tiff
 from geoprocessor_common.files.fs import write
 from geoprocessor_common.log.time_helper import time_in_ms
-from geoprocessor_gdal.gdal.gdal_histograms import BAND_NAMES, get_clip_percentiles, rescale_range_from_histograms
+from geoprocessor_gdal.gdal.gdal_histograms import (
+    BAND_NAMES,
+    get_clip_percentiles,
+    percentile_from_histogram,
+    rescale_range_from_histograms,
+)
 from geoprocessor_raster.dataset_histograms import get_dataset_histograms
 from geoprocessor_stac.json_codec import dict_to_json_bytes
 from linz_logger import get_log
@@ -141,6 +146,12 @@ def main(args: list[str] | None = None) -> None:
         get_log().error("compute_scale_failed", error=str(e))
         sys.exit(1)
     band_names = BAND_NAMES[len(histograms.bands)]
+    clip_percentiles = {
+        *CLIP_PERCENTILES,
+        *(round(100 - p, 1) for p in CLIP_PERCENTILES),
+        arguments.rescale_clip_low_percentile,
+        arguments.rescale_clip_high_percentile,
+    }
 
     write(os.path.join(arguments.target, RESCALE_RANGE_FILE_NAME), str(rescale_range).encode("utf-8"))
     write(
@@ -157,13 +168,12 @@ def main(args: list[str] | None = None) -> None:
                     "luminance": int(histograms.luminance.sum()),
                 },
                 "rescaleClipPercentiles": {
-                    "columns": ["all", *band_names, "luminance"],
-                    "low": get_clip_percentiles(histograms, {*CLIP_PERCENTILES, arguments.rescale_clip_low_percentile}, min),
-                    "high": get_clip_percentiles(
-                        histograms,
-                        {*(round(100 - p, 1) for p in CLIP_PERCENTILES), arguments.rescale_clip_high_percentile},
-                        max,
-                    ),
+                    "columns": list(band_names),
+                    "values": get_clip_percentiles(histograms.bands, clip_percentiles),
+                },
+                "luminancePercentiles": {
+                    f"{percentile:g}": percentile_from_histogram(histograms.luminance, percentile)
+                    for percentile in sorted(clip_percentiles)
                 },
             }
         ),

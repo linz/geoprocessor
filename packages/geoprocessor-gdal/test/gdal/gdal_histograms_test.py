@@ -8,7 +8,6 @@ import numpy.typing as npt
 import tifffile
 from fake_gdalinfo import add_band, fake_gdalinfo
 from geoprocessor_gdal.gdal.gdal_histograms import (
-    Histograms,
     get_clip_percentiles,
     get_histograms,
     get_sample_cache_mb,
@@ -157,13 +156,11 @@ def test_rescale_range_from_histograms(subtests: SubTests) -> None:
 
 
 def test_get_clip_percentiles() -> None:
-    """Each percentile gives the bands combined with `combine`, then red, green, blue and luminance."""
-    bands = staggered_bands()
-
-    assert get_clip_percentiles(Histograms(bands, bands[1]), [100, 0, 2.5], max) == {
-        "0": [150, 100, 150, 50, 150],
-        "2.5": [156, 102, 156, 56, 156],
-        "100": [399, 199, 399, 299, 399],
+    """Each percentile gives the value of every band, in percentile order."""
+    assert get_clip_percentiles(staggered_bands(), [100, 0, 2.5]) == {
+        "0": [100, 150, 50],
+        "2.5": [102, 156, 56],
+        "100": [199, 399, 299],
     }
 
 
