@@ -1,5 +1,6 @@
 import argparse
 import json
+import math
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, NamedTuple
@@ -214,6 +215,31 @@ def str_to_positive_int(value: str) -> int:
     if parsed < 1:
         raise argparse.ArgumentTypeError("must be >= 1")
     return parsed
+
+
+def str_to_positive_float(value: str) -> float:
+    """Transform a string to a finite number above 0.
+
+    Example:
+        >>> str_to_positive_float("1.5")
+        1.5
+
+    Args:
+        value: string representing a positive number
+
+    Raises:
+        ArgumentTypeError: if the string is not a finite number above 0
+
+    Returns:
+        float: the positive number
+    """
+    try:
+        number = float(value)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(f"not a number: {value}") from e
+    if not math.isfinite(number) or number <= 0:
+        raise argparse.ArgumentTypeError(f"not a positive number: {value}")
+    return number
 
 
 def get_geometry_from_geojson_feature(feature: Any, file_path: str) -> shapely.geometry.base.BaseGeometry:

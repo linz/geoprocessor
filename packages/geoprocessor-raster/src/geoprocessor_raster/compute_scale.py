@@ -1,9 +1,14 @@
-import math
 import os
 import sys
 from argparse import ArgumentParser, ArgumentTypeError
 
-from geoprocessor_common.cli.cli_helper import InputParameterError, load_input_files, str_to_bool, str_to_positive_int
+from geoprocessor_common.cli.cli_helper import (
+    InputParameterError,
+    load_input_files,
+    str_to_bool,
+    str_to_positive_float,
+    str_to_positive_int,
+)
 from geoprocessor_common.files.files_helper import ContentType, is_tiff
 from geoprocessor_common.files.fs import write
 from geoprocessor_common.log.time_helper import time_in_ms
@@ -38,24 +43,6 @@ def str_to_percentile(value: str) -> float:
     if not 0 <= percentile <= 100:
         raise ArgumentTypeError(f"not between 0 and 100: {value}")
     return percentile
-
-
-def str_to_positive_float(value: str) -> float:
-    """Parse a positive number.
-
-    Args:
-        value: the number string
-
-    Returns:
-        the number
-    """
-    try:
-        number = float(value)
-    except ValueError as e:
-        raise ArgumentTypeError(f"not a number: {value}") from e
-    if not math.isfinite(number) or number <= 0:
-        raise ArgumentTypeError(f"not a positive number: {value}")
-    return number
 
 
 def get_args_parser() -> ArgumentParser:

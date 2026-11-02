@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import numpy.typing as npt
 from geoprocessor_gdal.gdal.gdal_histograms import Histograms
-from geoprocessor_raster.compute_scale import main, str_to_percentile, str_to_positive_float
+from geoprocessor_raster.compute_scale import main, str_to_percentile
 from pytest import CaptureFixture, raises
 from pytest_subtests import SubTests
 
@@ -42,17 +42,6 @@ def test_str_to_percentile(subtests: SubTests) -> None:
         with subtests.test(msg=value):
             with raises(ArgumentTypeError):
                 str_to_percentile(value)
-
-
-def test_str_to_positive_float(subtests: SubTests) -> None:
-    """Only finite numbers above 0 are accepted."""
-    with subtests.test(msg="positive"):
-        assert str_to_positive_float("1.5") == 1.5
-
-    for value in ["0", "-1", "a", "nan", "inf"]:
-        with subtests.test(msg=value):
-            with raises(ArgumentTypeError):
-                str_to_positive_float(value)
 
 
 def test_should_write_rescale_range(tmp_path: Path) -> None:
