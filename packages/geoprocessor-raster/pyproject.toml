@@ -12,6 +12,7 @@ dependencies = [
     "geoprocessor-gdal",
     "geoprocessor-stac",
     "linz-logger>=0.13.1",
+    "numpy",
 ]
 
 [project.scripts]
