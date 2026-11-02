@@ -1,13 +1,24 @@
+from collections.abc import Iterator
+from contextlib import contextmanager
+from typing import Any, Callable
+from unittest.mock import MagicMock, patch
+
 import numpy as np
 import numpy.typing as npt
+import tifffile
+from fake_gdalinfo import add_band, fake_gdalinfo
 from geoprocessor_gdal.gdal.gdal_histograms import (
     Histograms,
     get_clip_percentiles,
+    get_histograms,
+    get_sample_command,
+    get_sample_step,
     histogram_from_pixels,
     luminance_from_pixels,
     percentile_from_histogram,
     rescale_range_from_histograms,
 )
+from geoprocessor_gdal.gdal.gdalinfo import GdalInfo
 from geoprocessor_gdal.rescale_range import BandRange, RescaleRange
 from pytest import raises
 from pytest_subtests import SubTests
@@ -18,6 +29,41 @@ def staggered_bands() -> npt.NDArray[np.int64]:
     bands = np.zeros((3, 65536), dtype=np.int64)
     bands[0, 100:200] = bands[1, 150:400] = bands[2, 50:300] = 1
     return bands
+
+
+def rgb_gdalinfo(width: int, height: int, alpha: bool = True, no_data_value: int | None = None) -> GdalInfo:
+    """`gdalinfo` of a `width` x `height` RGB TIFF, with an alpha band unless `alpha` is false."""
+    gdalinfo: GdalInfo = fake_gdalinfo()
+    gdalinfo["size"] = [width, height]
+    for color in ["Red", "Green", "Blue"] + (["Alpha"] if alpha else []):
+        add_band(gdalinfo, color, no_data_value)
+    return gdalinfo
+
+
+def sample_writer(pixels: npt.NDArray[Any]) -> Callable[..., None]:
+    """Fake `run_gdal` that writes `pixels` as the sample TIFF."""
+
+    def write_sample(_command: list[str], **kwargs: Any) -> None:
+        tifffile.imwrite(kwargs["output_file"], pixels, photometric="minisblack", planarconfig="separate")
+
+    return write_sample
+
+
+@contextmanager
+def sampling(pixels: npt.NDArray[Any], gdalinfo: GdalInfo | None = None) -> Iterator[tuple[MagicMock, MagicMock, MagicMock]]:
+    """Patch downloading, `gdalinfo` and sampling so that every source TIFF is sampled as `pixels`.
+
+    Yields:
+        the mocked `download`, `gdal_info` and `run_gdal`
+    """
+    with (
+        patch("geoprocessor_gdal.gdal.gdal_histograms.download") as download,
+        patch(
+            "geoprocessor_gdal.gdal.gdal_histograms.gdal_info", return_value=gdalinfo or rgb_gdalinfo(2, 2, alpha=False)
+        ) as info,
+        patch("geoprocessor_gdal.gdal.gdal_histograms.run_gdal", side_effect=sample_writer(pixels)) as run,
+    ):
+        yield download, info, run
 
 
 def test_histogram_from_pixels(subtests: SubTests) -> None:
@@ -114,3 +160,71 @@ def test_get_clip_percentiles() -> None:
         "2.5": [156, 102, 156, 56, 156],
         "100": [399, 199, 399, 299, 399],
     }
+
+
+def test_get_sample_step(subtests: SubTests) -> None:
+    """The step between sampled pixels is the smallest that fits the longest side in `size`."""
+    for width, height, expected in [(4800, 7200, 8), (2048, 1024, 2), (500, 400, 1)]:
+        with subtests.test(msg=f"{width}x{height}"):
+            assert get_sample_step(rgb_gdalinfo(width, height), size=1024) == expected
+
+
+def test_get_sample_command(subtests: SubTests) -> None:
+    """Every `step`th full-resolution pixel of the colour bands and alpha is sampled."""
+    with subtests.test(msg="reads full resolution pixels, not overviews"):
+        command = get_sample_command(rgb_gdalinfo(4800, 7200), step=8)
+        assert command[command.index("-oo") + 1] == "OVERVIEW_LEVEL=NONE"
+
+    with subtests.test(msg="caps the GDAL block cache"):
+        command = get_sample_command(rgb_gdalinfo(4800, 7200), step=8)
+        assert command[command.index("--config") + 1 : command.index("--config") + 3] == ["GDAL_CACHEMAX", "32"]
+
+    with subtests.test(msg="rgb with alpha"):
+        command = get_sample_command(rgb_gdalinfo(4801, 7200), step=8)
+        assert command[command.index("-outsize") + 1 : command.index("-outsize") + 3] == ["601", "900"]
+        assert command[-8:] == ["-b", "1", "-b", "2", "-b", "3", "-b", "4"]
+
+    with subtests.test(msg="step 1 reads every pixel"):
+        command = get_sample_command(rgb_gdalinfo(500, 400, alpha=False), step=1)
+        assert command[command.index("-outsize") + 1 : command.index("-outsize") + 3] == ["500", "400"]
+        assert command[-6:] == ["-b", "1", "-b", "2", "-b", "3"]
+
+    with subtests.test(msg="gray"):
+        gdalinfo = fake_gdalinfo()
+        gdalinfo["size"] = [100, 100]
+        add_band(gdalinfo, "Gray")
+        assert get_sample_command(gdalinfo, step=1)[-2:] == ["-b", "1"]
+
+
+def test_get_histograms(subtests: SubTests) -> None:
+    """A uint16 source is downloaded, sampled and counted at full resolution without its transparent and nodata pixels."""
+    with subtests.test(msg="downloads the source and masks alpha and nodata"):
+        pixels = np.array(
+            [[[100, 200], [300, 7]], [[110, 210], [310, 7]], [[120, 220], [320, 7]], [[65535, 0], [65535, 65535]]],
+            dtype=np.uint16,
+        )
+        with sampling(pixels, rgb_gdalinfo(2, 2, no_data_value=7)) as (download, info, run):
+            histograms = get_histograms("s3://bucket/file.tiff")
+
+        local_path = download.call_args.args[1]
+        assert download.call_args.args[0] == "s3://bucket/file.tiff"
+        assert local_path.endswith("/file.tiff")
+        info.assert_called_once_with(local_path)
+        assert run.call_args.kwargs["input_file"] == local_path
+        assert histograms.bands.shape == (3, 65536)
+        assert np.flatnonzero(histograms.bands[0]).tolist() == [100, 300]
+        assert np.flatnonzero(histograms.bands[2]).tolist() == [120, 320]
+        assert np.flatnonzero(histograms.luminance).tolist() == [109, 309]
+
+    with subtests.test(msg="scales the counts to the full resolution"):
+        with sampling(np.full((3, 2, 2), 100, dtype=np.uint16), rgb_gdalinfo(3000, 2000, alpha=False)) as (_, _, run):
+            histograms = get_histograms("file.tiff")
+        command = run.call_args.args[0]
+        assert command[command.index("-outsize") + 1 : command.index("-outsize") + 3] == ["1000", "667"]
+        assert histograms.bands[:, 100].tolist() == [36, 36, 36]
+        assert histograms.luminance[100] == 36
+
+    with subtests.test(msg="rejects non-uint16 sources"):
+        with sampling(np.ones((3, 2, 2), dtype=np.uint8)):
+            with raises(ValueError, match="Expected uint16"):
+                get_histograms("file.tiff")

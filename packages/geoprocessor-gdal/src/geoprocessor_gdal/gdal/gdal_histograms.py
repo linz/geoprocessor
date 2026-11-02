@@ -1,11 +1,23 @@
+import math
+import os
+import tempfile
 from collections.abc import Callable, Iterable
 from typing import NamedTuple
 
 import numpy as np
 import numpy.typing as npt
+import tifffile
+from geoprocessor_common.aws.aws_helper import is_s3
+from geoprocessor_common.files.fs_s3 import download
+from geoprocessor_gdal.gdal.gdal_bands import find_band, get_rgb_bands_args
+from geoprocessor_gdal.gdal.gdal_helper import gdal_info, run_gdal
+from geoprocessor_gdal.gdal.gdalinfo import GdalInfo
 from geoprocessor_gdal.rescale_range import UINT16_MAX, BandRange, RescaleRange
+from linz_logger import get_log
 
 UINT16_VALUE_COUNT = UINT16_MAX + 1
+SAMPLE_SIZE = 1024
+SAMPLE_GDAL_CACHEMAX_MB = 32
 BAND_NAMES = {1: ("gray",), 3: ("red", "green", "blue")}
 
 
@@ -157,3 +169,101 @@ def get_clip_percentiles(
         values = [percentile_from_histogram(histogram, percentile) for histogram in histograms.bands]
         entries[f"{percentile:g}"] = [combine(values), *values, percentile_from_histogram(histograms.luminance, percentile)]
     return entries
+
+
+def get_sample_step(info: GdalInfo, size: int = SAMPLE_SIZE) -> int:
+    """Get the step between the sampled pixels so that the sample fits in `size`.
+
+    Args:
+        info: gdalinfo of the source file
+        size: maximum width and height of the sample
+
+    Returns:
+        the step in pixels, 1 to read every pixel
+
+    Examples:
+        >>> get_sample_step({"size": [3200, 4800]}, 1024)
+        5
+    """
+    return math.ceil(max(info["size"]) / size)
+
+
+def get_sample_command(info: GdalInfo, step: int) -> list[str]:
+    """Get a `gdal_translate` command to sample every `step`th full-resolution pixel of the colour and alpha bands.
+
+    Args:
+        info: gdalinfo of the source file
+        step: step between the sampled pixels
+
+    Returns:
+        a list of arguments to run `gdal_translate`
+    """
+    width, height = info["size"]
+    bands = info["bands"]
+    if band_gray := find_band(bands, "Gray"):
+        band_args = ["-b", str(band_gray["band"])]
+    else:
+        band_args = get_rgb_bands_args(bands)
+    if band_alpha := find_band(bands, "Alpha"):
+        band_args += ["-b", str(band_alpha["band"])]
+    return [
+        "gdal_translate",
+        "-q",
+        # Each block is read once, so a larger cache only adds memory
+        "--config",
+        "GDAL_CACHEMAX",
+        str(SAMPLE_GDAL_CACHEMAX_MB),
+        # Overviews are averaged, which narrows the histogram
+        "-oo",
+        "OVERVIEW_LEVEL=NONE",
+        "-of",
+        "GTiff",
+        "-co",
+        "interleave=band",
+        "-outsize",
+        str(math.ceil(width / step)),
+        str(math.ceil(height / step)),
+        "-r",
+        "nearest",
+        *band_args,
+    ]
+
+
+def get_histograms(path: str, size: int = SAMPLE_SIZE) -> Histograms:
+    """Get the colour band and luminance histograms of a TIFF read at reduced resolution.
+
+    Args:
+        path: path to the TIFF
+        size: maximum width and height of the sample
+
+    Returns:
+        value counts of the bands and of their luminance, scaled to the full resolution of the TIFF
+    """
+    with tempfile.TemporaryDirectory() as tmp_path:
+        local_path = path
+        if is_s3(path):
+            local_path = os.path.join(tmp_path, os.path.basename(path))
+            download(path, local_path)
+        info = gdal_info(local_path)
+        step = get_sample_step(info, size)
+        sample_path = os.path.join(tmp_path, "sample.tiff")
+        run_gdal(get_sample_command(info, step), input_file=local_path, output_file=sample_path)
+        pixels = tifffile.imread(sample_path)
+    if pixels.dtype != np.uint16:
+        raise ValueError(f"Expected uint16 pixels, got {pixels.dtype}: {path}")
+    if pixels.ndim == 2:
+        pixels = pixels[np.newaxis]
+    alpha = None
+    if find_band(info["bands"], "Alpha"):
+        alpha = pixels[-1]
+        pixels = pixels[:-1]
+    nodata_value = info["bands"][0].get("noDataValue")
+    nodata = None if nodata_value is None else int(nodata_value)
+    # Each sampled pixel stands for step x step source pixels
+    weight = step * step
+    histograms = Histograms(
+        histogram_from_pixels(pixels, alpha=alpha, nodata=nodata) * weight,
+        luminance_from_pixels(pixels, alpha=alpha, nodata=nodata) * weight,
+    )
+    get_log().debug("histograms_computed", path=path, pixelCount=int(histograms.bands[0].sum()))
+    return histograms
