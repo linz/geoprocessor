@@ -170,12 +170,14 @@ def test_get_sample_cache_mb(subtests: SubTests, capsys: CaptureFixture[str]) ->
 
 
 def test_rescale_gamma_from_median(subtests: SubTests) -> None:
-    """The gamma scales the median to the target between the lowest min and highest max of all bands, clamped to 0.5 - 3."""
+    """The gamma scales a gray median to the target through each band range, weighted like luminance, clamped to 0.5 - 3."""
     for msg, rescale_range, median, target, expected in [
         ("brightens a dark median", "428,60228", 8796, 0.4, 2.15),
         ("keeps a median at the target", "0,1000", 400, 0.4, 1.0),
         ("darkens a bright median", "0,1000", 600, 0.4, 0.56),
-        ("uses the lowest min and highest max of all bands", "500,1000;0,800;200,900", 400, 0.4, 1.0),
+        ("same per band ranges match a single range", "428,60228;428,60228;428,60228", 8796, 0.4, 2.15),
+        ("weights per band ranges like the luminance", "428,60228;900,30000;428,58000", 8796, 0.4, 1.58),
+        ("clips per band fractions to 0 - 1", "500,1000;0,800;200,300", 400, 0.4, 0.92),
         ("clamps a very dark median to 3", "1000,2000", 1001, 0.4, 3.0),
         ("gives 3 for a median at the low end", "1000,2000", 1000, 0.4, 3.0),
         ("gives 3 for a median below the low end", "1000,2000", 500, 0.4, 3.0),

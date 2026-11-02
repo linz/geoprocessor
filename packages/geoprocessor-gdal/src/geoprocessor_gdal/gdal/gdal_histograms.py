@@ -148,7 +148,7 @@ def rescale_range_from_histograms(
 
 
 def rescale_gamma_from_median(rescale_range: RescaleRange, median: int, target: float) -> float:
-    """Get the gamma that scales `median` to `target` of white within the lowest min and highest max of `rescale_range`.
+    """Get the gamma that scales a gray pixel of `median` to `target` of white through the range of each band.
 
     Args:
         rescale_range: source ranges scaled to 8-bit
@@ -161,12 +161,14 @@ def rescale_gamma_from_median(rescale_range: RescaleRange, median: int, target: 
     Examples:
         >>> rescale_gamma_from_median(RescaleRange.parse("428,60228"), 8796, 0.4)
         2.15
-        >>> rescale_gamma_from_median(RescaleRange.parse("428,60228"), 300, 0.4)
-        3.0
+        >>> rescale_gamma_from_median(RescaleRange.parse("428,60228;900,30000;428,58000"), 8796, 0.4)
+        1.58
     """
-    low = min(band_range.min for band_range in rescale_range.ranges)
-    high = max(band_range.max for band_range in rescale_range.ranges)
-    fraction = (median - low) / (high - low)
+    fractions = np.clip(
+        [(median - band_range.min) / (band_range.max - band_range.min) for band_range in rescale_range.ranges], 0, 1
+    )
+    # Per band ranges are weighted like the luminance
+    fraction = float(fractions[0] if len(fractions) == 1 else LUMINANCE_WEIGHTS @ fractions)
     if fraction <= 0:
         return RESCALE_GAMMA_MAX
     return round(min(max(math.log(fraction) / math.log(target), RESCALE_GAMMA_MIN), RESCALE_GAMMA_MAX), 2)
