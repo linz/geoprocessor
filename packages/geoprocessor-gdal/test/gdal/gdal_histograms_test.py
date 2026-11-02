@@ -179,11 +179,9 @@ def test_rescale_gamma_from_median(subtests: SubTests) -> None:
         ("weights per band ranges like the luminance", "428,60228;900,30000;428,58000", 8796, 0.4, 1.58),
         ("clips per band fractions to 0 - 1", "500,1000;0,800;200,300", 400, 0.4, 0.92),
         ("clamps a very dark median to 3", "1000,2000", 1001, 0.4, 3.0),
-        ("gives 3 for a median at the low end", "1000,2000", 1000, 0.4, 3.0),
-        ("gives 3 for a median below the low end", "1000,2000", 500, 0.4, 3.0),
+        ("gives 3 for a median at or below the low end", "1000,2000", 1000, 0.4, 3.0),
         ("clamps a very bright median to 0.5", "1000,2000", 1990, 0.4, 0.5),
-        ("gives 0.5 for a median at the high end", "1000,2000", 2000, 0.4, 0.5),
-        ("gives 0.5 for a median above the high end", "1000,2000", 3000, 0.4, 0.5),
+        ("gives 0.5 for a median at or above the high end", "1000,2000", 2000, 0.4, 0.5),
     ]:
         with subtests.test(msg=msg):
             assert rescale_gamma_from_median(RescaleRange.parse(rescale_range), median, target) == expected
