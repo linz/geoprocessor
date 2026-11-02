@@ -19,6 +19,8 @@ UINT16_VALUE_COUNT = UINT16_MAX + 1
 SAMPLE_SIZE = 1024
 SAMPLE_CACHE_MIN_MB = 32
 BAND_NAMES = {1: ("gray",), 3: ("red", "green", "blue")}
+RESCALE_GAMMA_MIN = 0.5
+RESCALE_GAMMA_MAX = 3.0
 
 
 # Rec. 709 luminance weights of the red, green and blue bands, https://en.wikipedia.org/wiki/Rec._709#Luma_coefficients
@@ -143,6 +145,33 @@ def rescale_range_from_histograms(
                 f"both give {band_range.min}: {ranges}"
             )
     return RescaleRange(ranges)
+
+
+def rescale_gamma_from_median(rescale_range: RescaleRange, median: int, target: float) -> float:
+    """Get the gamma that scales a gray pixel of `median` to `target` of white through the range of each band.
+
+    Args:
+        rescale_range: source ranges scaled to 8-bit
+        median: source value to scale to `target`, e.g. the median luminance
+        target: output brightness as a fraction of white, between 0 and 1
+
+    Returns:
+        the gamma rounded to 2 decimals, between `RESCALE_GAMMA_MIN` and `RESCALE_GAMMA_MAX`
+
+    Examples:
+        >>> rescale_gamma_from_median(RescaleRange.parse("428,60228"), 8796, 0.4)
+        2.15
+        >>> rescale_gamma_from_median(RescaleRange.parse("428,60228;900,30000;428,58000"), 8796, 0.4)
+        1.58
+    """
+    fractions = np.clip(
+        [(median - band_range.min) / (band_range.max - band_range.min) for band_range in rescale_range.ranges], 0, 1
+    )
+    # Per band ranges are weighted like the luminance
+    fraction = float(fractions[0] if len(fractions) == 1 else LUMINANCE_WEIGHTS @ fractions)
+    if fraction <= 0:
+        return RESCALE_GAMMA_MAX
+    return round(min(max(math.log(fraction) / math.log(target), RESCALE_GAMMA_MIN), RESCALE_GAMMA_MAX), 2)
 
 
 def get_clip_percentiles(histograms: npt.NDArray[np.int64], percentiles: Iterable[float]) -> dict[str, list[int]]:

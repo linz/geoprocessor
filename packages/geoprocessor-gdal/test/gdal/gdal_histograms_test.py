@@ -14,6 +14,7 @@ from geoprocessor_gdal.gdal.gdal_histograms import (
     histogram_from_pixels,
     luminance_from_pixels,
     percentile_from_histogram,
+    rescale_gamma_from_median,
     rescale_range_from_histograms,
 )
 from geoprocessor_gdal.gdal.gdalinfo import GdalInfo
@@ -166,6 +167,24 @@ def test_get_sample_cache_mb(subtests: SubTests, capsys: CaptureFixture[str]) ->
     with subtests.test(msg="capped at max_cache_mb with a warning"):
         assert get_sample_cache_mb(rgb_gdalinfo(10000, 15000, block=(512, 512)), 40) == 40
         assert "sample_cache_capped" in capsys.readouterr().out
+
+
+def test_rescale_gamma_from_median(subtests: SubTests) -> None:
+    """The gamma scales a gray median to the target through each band range, weighted like luminance, clamped to 0.5 - 3."""
+    for msg, rescale_range, median, target, expected in [
+        ("brightens a dark median", "428,60228", 8796, 0.4, 2.15),
+        ("keeps a median at the target", "0,1000", 400, 0.4, 1.0),
+        ("darkens a bright median", "0,1000", 600, 0.4, 0.56),
+        ("same per band ranges match a single range", "428,60228;428,60228;428,60228", 8796, 0.4, 2.15),
+        ("weights per band ranges like the luminance", "428,60228;900,30000;428,58000", 8796, 0.4, 1.58),
+        ("clips per band fractions to 0 - 1", "500,1000;0,800;200,300", 400, 0.4, 0.92),
+        ("clamps a very dark median to 3", "1000,2000", 1001, 0.4, 3.0),
+        ("gives 3 for a median at or below the low end", "1000,2000", 1000, 0.4, 3.0),
+        ("clamps a very bright median to 0.5", "1000,2000", 1990, 0.4, 0.5),
+        ("gives 0.5 for a median at or above the high end", "1000,2000", 2000, 0.4, 0.5),
+    ]:
+        with subtests.test(msg=msg):
+            assert rescale_gamma_from_median(RescaleRange.parse(rescale_range), median, target) == expected
 
 
 def test_get_sample_command(subtests: SubTests) -> None:

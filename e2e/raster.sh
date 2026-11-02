@@ -84,6 +84,7 @@ compute_scale() {
   run compute-scale --from-file ./tests/data/aerial_uint16.json --target /tmp/
   run compute-scale --from-file ./tests/data/scale_uint16.json --target /tmp/ 2>&1 | tee "${directory}/resume.log"
   grep --quiet '"savedCount": 1' "${directory}/resume.log"
+  [[ "$(cat "${directory}/rescale-gamma")" == "0.68" ]]
   cmp --silent <(jq -S . "${directory}/rescale-range.json") <(jq -S . "$(expected rescale-range.json)")
 }
 

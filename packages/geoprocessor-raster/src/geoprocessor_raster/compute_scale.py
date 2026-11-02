@@ -16,6 +16,7 @@ from geoprocessor_gdal.gdal.gdal_histograms import (
     BAND_NAMES,
     get_clip_percentiles,
     percentile_from_histogram,
+    rescale_gamma_from_median,
     rescale_range_from_histograms,
 )
 from geoprocessor_raster.dataset_histograms import get_dataset_histograms
@@ -23,6 +24,7 @@ from geoprocessor_stac.json_codec import dict_to_json_bytes
 from linz_logger import get_log
 
 RESCALE_RANGE_FILE_NAME = "rescale-range"
+RESCALE_GAMMA_FILE_NAME = "rescale-gamma"
 # Clip percentiles of the low end, mirrored for the high end
 CLIP_PERCENTILES = (0, 0.1, 0.2, 0.5, 1, 2, 3, 5)
 
@@ -43,6 +45,24 @@ def str_to_percentile(value: str) -> float:
     if not 0 <= percentile <= 100:
         raise ArgumentTypeError(f"not between 0 and 100: {value}")
     return percentile
+
+
+def str_to_fraction(value: str) -> float:
+    """Parse a number between 0 and 1, both excluded.
+
+    Args:
+        value: the number string
+
+    Returns:
+        the number
+    """
+    try:
+        number = float(value)
+    except ValueError as e:
+        raise ArgumentTypeError(f"not a number: {value}") from e
+    if not 0 < number < 1:
+        raise ArgumentTypeError(f"not between 0 and 1: {value}")
+    return number
 
 
 def get_args_parser() -> ArgumentParser:
@@ -76,6 +96,14 @@ def get_args_parser() -> ArgumentParser:
         type=str_to_bool,
         default=False,
         help="Compute one range per band instead of one range for all bands ('true' / 'false'). Defaults to false.",
+    )
+    parser.add_argument(
+        "--rescale-gamma-target",
+        dest="rescale_gamma_target",
+        type=str_to_fraction,
+        default=0.4,
+        help="Output brightness, as a fraction of white, that the rescale gamma scales the median luminance to. "
+        "Defaults to 0.4.",
     )
     parser.add_argument(
         "--concurrency",
@@ -129,9 +157,11 @@ def main(args: list[str] | None = None) -> None:
             arguments.rescale_clip_high_percentile,
             arguments.rescale_per_band,
         )
+        luminance_median = percentile_from_histogram(histograms.luminance, 50)
     except ValueError as e:
         get_log().error("compute_scale_failed", error=str(e))
         sys.exit(1)
+    rescale_gamma = rescale_gamma_from_median(rescale_range, luminance_median, arguments.rescale_gamma_target)
     band_names = BAND_NAMES[len(histograms.bands)]
     clip_percentiles = {
         *CLIP_PERCENTILES,
@@ -141,14 +171,18 @@ def main(args: list[str] | None = None) -> None:
     }
 
     write(os.path.join(arguments.target, RESCALE_RANGE_FILE_NAME), str(rescale_range).encode("utf-8"))
+    write(os.path.join(arguments.target, RESCALE_GAMMA_FILE_NAME), f"{rescale_gamma:g}".encode("utf-8"))
     write(
         os.path.join(arguments.target, f"{RESCALE_RANGE_FILE_NAME}.json"),
         dict_to_json_bytes(
             {
                 "rescaleRange": str(rescale_range),
+                "rescaleGamma": rescale_gamma,
                 "rescaleClipLowPercentile": arguments.rescale_clip_low_percentile,
                 "rescaleClipHighPercentile": arguments.rescale_clip_high_percentile,
                 "rescalePerBand": arguments.rescale_per_band,
+                "rescaleGammaTarget": arguments.rescale_gamma_target,
+                "luminanceMedian": luminance_median,
                 "fileCount": len(files),
                 "pixelCount": {
                     **{name: int(histogram.sum()) for name, histogram in zip(band_names, histograms.bands, strict=True)},
@@ -168,7 +202,11 @@ def main(args: list[str] | None = None) -> None:
     )
 
     get_log().info(
-        "compute_scale_end", rescaleRange=str(rescale_range), fileCount=len(files), duration=time_in_ms() - start_time
+        "compute_scale_end",
+        rescaleRange=str(rescale_range),
+        rescaleGamma=rescale_gamma,
+        fileCount=len(files),
+        duration=time_in_ms() - start_time,
     )
 
 
