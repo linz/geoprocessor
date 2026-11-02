@@ -4,17 +4,26 @@ import json
 import os
 import re
 from collections.abc import Iterable
+from functools import partial
 from multiprocessing import Pool
 
 import numpy as np
 from geoprocessor_common.aws.aws_helper import is_s3
 from geoprocessor_common.files.fs import list_file_names, list_file_sizes, read, write
-from geoprocessor_gdal.gdal.gdal_histograms import BAND_NAMES, SAMPLE_SIZE, Histograms, get_histograms
+from geoprocessor_gdal.gdal.gdal_histograms import (
+    BAND_NAMES,
+    SAMPLE_CACHE_MIN_MB,
+    SAMPLE_SIZE,
+    Histograms,
+    get_histograms,
+)
 from linz_logger import get_log
 
 HISTOGRAM_FILE_VERSION = 1
 HISTOGRAM_FILE_SUFFIX = ".npz"
 HISTOGRAM_FILE_HASH_LENGTH = 12
+# GDAL block cache shared by the workers
+SAMPLE_CACHE_BUDGET_MB = 4096
 
 
 def get_histogram_file_name(source: str) -> str:
@@ -80,13 +89,16 @@ def histograms_from_bytes(data: bytes, source: str) -> Histograms:
     return histograms
 
 
-def get_source_histograms(source: str, histogram_dir: str, saved: bool) -> tuple[str, Histograms]:
+def get_source_histograms(
+    source: str, histogram_dir: str, saved: bool, max_cache_mb: int = SAMPLE_CACHE_MIN_MB
+) -> tuple[str, Histograms]:
     """Read the histograms of a source TIFF from its histogram file, or compute and save them.
 
     Args:
         source: path to the TIFF
         histogram_dir: directory of the histogram files
         saved: whether the histogram file of the source exists
+        max_cache_mb: maximum GDAL block cache in MB to compute the histograms
 
     Returns:
         the source path and its value counts of the bands and of their luminance
@@ -94,14 +106,14 @@ def get_source_histograms(source: str, histogram_dir: str, saved: bool) -> tuple
     path = os.path.join(histogram_dir, get_histogram_file_name(source))
     if saved:
         return source, histograms_from_bytes(read(path), source)
-    histograms = get_histograms(source)
+    histograms = get_histograms(source, max_cache_mb=max_cache_mb)
     write(path, histograms_to_bytes(source, histograms))
     return source, histograms
 
 
-def _get_source_histograms(task: tuple[str, str, bool]) -> tuple[str, Histograms]:
+def _get_source_histograms(task: tuple[str, str, bool], max_cache_mb: int) -> tuple[str, Histograms]:
     """Unpack the arguments of `get_source_histograms` for `Pool.imap_unordered`."""
-    return get_source_histograms(*task)
+    return get_source_histograms(*task, max_cache_mb=max_cache_mb)
 
 
 def sum_histograms(source_histograms: Iterable[tuple[str, Histograms]]) -> Histograms:
@@ -154,6 +166,24 @@ def get_worker_count(files: list[str], concurrency: int, max_download_bytes: int
     return workers
 
 
+def get_worker_cache_mb(workers: int) -> int:
+    """Get the share of each worker of `SAMPLE_CACHE_BUDGET_MB`, at least `SAMPLE_CACHE_MIN_MB`.
+
+    Args:
+        workers: number of workers
+
+    Returns:
+        the maximum GDAL block cache of each worker in MB
+
+    Examples:
+        >>> get_worker_cache_mb(64)
+        64
+        >>> get_worker_cache_mb(256)
+        32
+    """
+    return max(SAMPLE_CACHE_MIN_MB, SAMPLE_CACHE_BUDGET_MB // workers)
+
+
 def get_dataset_histograms(
     files: list[str],
     histogram_dir: str,
@@ -177,8 +207,13 @@ def get_dataset_histograms(
     tasks = [(file, histogram_dir, get_histogram_file_name(file) in saved) for file in files]
     downloads = [file for file, _, is_saved in tasks if not is_saved and is_s3(file)]
     workers = get_worker_count(downloads, concurrency, max_download_bytes)
+    max_cache_mb = get_worker_cache_mb(workers)
     get_log().info(
-        "dataset_histograms_start", fileCount=len(files), savedCount=sum(task[2] for task in tasks), workers=workers
+        "dataset_histograms_start",
+        fileCount=len(files),
+        savedCount=sum(task[2] for task in tasks),
+        workers=workers,
+        maxCacheMb=max_cache_mb,
     )
     with Pool(workers) as p:
-        return sum_histograms(p.imap_unordered(_get_source_histograms, tasks))
+        return sum_histograms(p.imap_unordered(partial(_get_source_histograms, max_cache_mb=max_cache_mb), tasks))

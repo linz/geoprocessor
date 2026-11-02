@@ -6,12 +6,13 @@ from geoprocessor_gdal.gdal.gdal_histograms import Histograms
 from geoprocessor_raster.dataset_histograms import (
     get_dataset_histograms,
     get_histogram_file_name,
+    get_source_histograms,
     get_worker_count,
     histograms_from_bytes,
     histograms_to_bytes,
     sum_histograms,
 )
-from pytest import raises
+from pytest import CaptureFixture, raises
 from pytest_subtests import SubTests
 
 
@@ -27,9 +28,11 @@ def source_histograms() -> Histograms:
     return histograms
 
 
-def test_get_dataset_histograms(tmp_path: Path, subtests: SubTests) -> None:
+def test_get_dataset_histograms(tmp_path: Path, subtests: SubTests, capsys: CaptureFixture[str]) -> None:
     """Source histograms are summed and saved per source, and a rerun reads the saved ones unless forced."""
-    computing = patch("geoprocessor_raster.dataset_histograms.get_histograms", side_effect=lambda _: source_histograms())
+    computing = patch(
+        "geoprocessor_raster.dataset_histograms.get_histograms", side_effect=lambda *_, **__: source_histograms()
+    )
 
     with subtests.test(msg="sums the sources and saves a histogram file per source"):
         directory = tmp_path / "sums"
@@ -73,6 +76,19 @@ def test_get_dataset_histograms(tmp_path: Path, subtests: SubTests) -> None:
                 ["s3://bucket/saved.tif", "s3://bucket/new.tif", "local.tif"], str(directory), 4, max_download_bytes=1000
             )
         worker_count.assert_called_once_with(["s3://bucket/new.tif"], 4, 1000)
+
+    with subtests.test(msg="shares the cache budget between the workers"):
+        capsys.readouterr()
+        with computing:
+            get_dataset_histograms(["a.tiff"], str(tmp_path / "cache"), concurrency=4)
+        assert '"maxCacheMb": 1024' in capsys.readouterr().out
+
+
+def test_get_source_histograms(tmp_path: Path) -> None:
+    """A source without a histogram file is sampled with the cache of its worker."""
+    with patch("geoprocessor_raster.dataset_histograms.get_histograms", return_value=source_histograms()) as computing:
+        assert get_source_histograms("a.tiff", str(tmp_path), saved=False, max_cache_mb=64)[0] == "a.tiff"
+    computing.assert_called_once_with("a.tiff", max_cache_mb=64)
 
 
 def test_histogram_file(subtests: SubTests) -> None:
