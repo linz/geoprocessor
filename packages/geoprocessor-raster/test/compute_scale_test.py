@@ -45,6 +45,7 @@ def test_str_to_percentile(subtests: SubTests) -> None:
 
 
 def test_str_to_fraction(subtests: SubTests) -> None:
+    """Fractions must be numbers between 0 and 1, both excluded."""
     for value, expected in [("0.001", 0.001), ("0.4", 0.4), ("0.999", 0.999)]:
         with subtests.test(msg=value):
             assert str_to_fraction(value) == expected
@@ -113,6 +114,7 @@ def test_should_write_per_band_rescale_range(tmp_path: Path) -> None:
 
 
 def test_should_write_rescale_gamma(tmp_path: Path, subtests: SubTests) -> None:
+    """compute-scale writes the gamma that scales the median luminance to `--rescale-gamma-target`, 0.4 by default."""
     bands = np.zeros((3, 65536), dtype=np.int64)
     bands[:, 1:1001] = 1
 
