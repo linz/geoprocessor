@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0](https://github.com/linz/geoprocessor/compare/geoprocessor-raster-v1.1.0...geoprocessor-raster-v1.2.0) (2026-11-04)
+
+
+### Features
+
+* rescale 16-bit webp with a source range and gamma TDE-2199 ([#1731](https://github.com/linz/geoprocessor/issues/1731)) ([4dbf695](https://github.com/linz/geoprocessor/commit/4dbf6954d5fd6caa52c7090b694a51e563d8c91b))
+* scale 16-bit sources to 8-bit using dataset percentiles TDE-2075 ([#1710](https://github.com/linz/geoprocessor/issues/1710)) ([5a9c848](https://github.com/linz/geoprocessor/commit/5a9c84874830775d7d6b4d155e63e841ae86df98))
+
 ## [1.1.0](https://github.com/linz/geoprocessor/compare/geoprocessor-raster-v1.0.0...geoprocessor-raster-v1.1.0) (2026-10-13)
 
 
