@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/linz/geoprocessor/compare/geoprocessor-common-v0.2.0...geoprocessor-common-v0.3.0) (2026-11-04)
+
+
+### Features
+
+* scale 16-bit sources to 8-bit using dataset percentiles TDE-2075 ([#1710](https://github.com/linz/geoprocessor/issues/1710)) ([5a9c848](https://github.com/linz/geoprocessor/commit/5a9c84874830775d7d6b4d155e63e841ae86df98))
+
 ## [0.2.0](https://github.com/linz/geoprocessor/compare/geoprocessor-common-v0.1.3...geoprocessor-common-v0.2.0) (2026-10-13)
 
 

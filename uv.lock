@@ -319,7 +319,7 @@ wheels = [
 
 [[package]]
 name = "geoprocessor"
-version = "10.1.1"
+version = "10.2.0"
 source = { virtual = "." }
 default-groups = "all"
 dependencies = [
@@ -373,7 +373,7 @@ dev = [
 
 [[package]]
 name = "geoprocessor-common"
-version = "0.2.0"
+version = "0.3.0"
 source = { editable = "packages/geoprocessor-common" }
 dependencies = [
     { name = "boto3" },
@@ -412,7 +412,7 @@ dev = [
 
 [[package]]
 name = "geoprocessor-gdal"
-version = "0.2.0"
+version = "0.3.0"
 source = { editable = "packages/geoprocessor-gdal" }
 dependencies = [
     { name = "geoprocessor-common" },
@@ -507,7 +507,7 @@ dev = [
 
 [[package]]
 name = "geoprocessor-raster"
-version = "1.1.0"
+version = "1.2.0"
 source = { editable = "packages/geoprocessor-raster" }
 dependencies = [
     { name = "geoprocessor-common" },
