@@ -1,3 +1,4 @@
+from argparse import ArgumentTypeError
 from datetime import datetime
 from typing import Any
 
@@ -8,11 +9,23 @@ from geoprocessor_common.cli.cli_helper import (
     get_non_empty_features,
     get_tile_files,
     parse_list,
+    str_to_positive_float,
     valid_date,
 )
 from pytest import raises
 from pytest_subtests import SubTests
 from shapely.geometry import MultiPolygon
+
+
+def test_str_to_positive_float(subtests: SubTests) -> None:
+    """Only finite numbers above 0 are accepted."""
+    with subtests.test(msg="positive"):
+        assert str_to_positive_float("1.5") == 1.5
+
+    for value in ["0", "-1", "a", "nan", "inf"]:
+        with subtests.test(msg=value):
+            with raises(ArgumentTypeError):
+                str_to_positive_float(value)
 
 
 def test_get_tile_files(subtests: SubTests) -> None:

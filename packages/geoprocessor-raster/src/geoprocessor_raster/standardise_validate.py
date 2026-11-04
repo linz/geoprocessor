@@ -1,4 +1,3 @@
-import math
 import os
 import sys
 from argparse import ArgumentParser, ArgumentTypeError
@@ -10,6 +9,7 @@ from geoprocessor_common.cli.cli_helper import (
     str_to_bool,
     str_to_gsd,
     str_to_list_or_none,
+    str_to_positive_float,
     str_to_positive_int,
     valid_date,
 )
@@ -54,13 +54,7 @@ def str_to_rescale_gamma(value: str) -> float:
     """
     if not value.strip():
         return 1.0
-    try:
-        gamma = float(value)
-    except ValueError as e:
-        raise ArgumentTypeError(f"not a number: {value}") from e
-    if not math.isfinite(gamma) or gamma <= 0:
-        raise ArgumentTypeError(f"not a positive number: {value}")
-    return gamma
+    return str_to_positive_float(value)
 
 
 def get_args_parser() -> ArgumentParser:

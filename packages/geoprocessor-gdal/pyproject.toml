@@ -10,6 +10,7 @@ requires-python = "~=3.12.3"
 dependencies = [
     "geoprocessor-common",
     "linz-logger>=0.13.1",
+    "numpy",
     "shapely>=2.0",
     "tifffile",
 ]

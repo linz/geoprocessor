@@ -103,3 +103,20 @@ def exists(path: str) -> bool:
         True if the path exists
     """
     return os.path.exists(path)
+
+
+def list_file_sizes(directory: str, suffix: str) -> dict[str, int]:
+    """List the names and sizes of the files in a local directory, without its subdirectories.
+
+    Args:
+        directory: A local path to a directory
+        suffix: Only list file names ending with this suffix
+
+    Returns:
+        the size in bytes of each file name, empty if the directory does not exist
+    """
+    if not os.path.isdir(directory):
+        return {}
+    return {
+        entry.name: entry.stat().st_size for entry in os.scandir(directory) if entry.is_file() and entry.name.endswith(suffix)
+    }
