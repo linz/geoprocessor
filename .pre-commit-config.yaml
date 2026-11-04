@@ -8,7 +8,7 @@ repos:
         name: black
         entry: black
         language: system
-        args: [--target-version=py312]
+        args: [--target-version=py314]
         stages: [pre-commit]
         types: [python]
 
