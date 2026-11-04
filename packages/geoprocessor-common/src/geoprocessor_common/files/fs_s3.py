@@ -15,9 +15,9 @@ from linz_logger import get_log
 if TYPE_CHECKING:
     from botocore.response import StreamingBody
     from mypy_boto3_s3 import S3Client
-    from mypy_boto3_s3.type_defs import GetObjectOutputTypeDef
+    from mypy_boto3_s3.type_defs import GetObjectOutputTypeDef, ListObjectsV2RequestPaginateTypeDef
 else:
-    S3Client = GetObjectOutputTypeDef = StreamingBody = dict
+    S3Client = GetObjectOutputTypeDef = ListObjectsV2RequestPaginateTypeDef = StreamingBody = dict
 
 
 def write(destination: str, source: bytes, content_type: str | None = None) -> None:
@@ -227,12 +227,13 @@ def exists(path: str, needs_credentials: bool = False) -> bool:
         raise
 
 
-def list_file_sizes(directory: str, suffix: str, needs_credentials: bool = False) -> dict[str, int]:
-    """List the names and sizes of the objects in an s3 directory, without its subdirectories.
+def list_file_sizes(directory: str, suffix: str, recursive: bool = False, needs_credentials: bool = False) -> dict[str, int]:
+    """List the names and sizes of the objects in an s3 directory.
 
     Args:
         directory: An s3 path to a directory
         suffix: Only list object names ending with this suffix
+        recursive: Also list the objects in its subdirectories, named by their path relative to `directory`
         needs_credentials: if listing needs credentials. Defaults to False.
 
     Returns:
@@ -240,11 +241,12 @@ def list_file_sizes(directory: str, suffix: str, needs_credentials: bool = False
     """
     prefix = os.path.join(prefix_from_path(directory), "")
     s3_client: S3Client = get_session(directory).client("s3") if needs_credentials else client("s3")
+    request: ListObjectsV2RequestPaginateTypeDef = {"Bucket": bucket_name_from_path(directory), "Prefix": prefix}
+    if not recursive:
+        request["Delimiter"] = "/"
     sizes = {}
     try:
-        for response in s3_client.get_paginator("list_objects_v2").paginate(
-            Bucket=bucket_name_from_path(directory), Prefix=prefix, Delimiter="/"
-        ):
+        for response in s3_client.get_paginator("list_objects_v2").paginate(**request):
             for content in response.get("Contents", []):
                 name = content["Key"][len(prefix) :]
                 if name.endswith(suffix):
@@ -252,7 +254,7 @@ def list_file_sizes(directory: str, suffix: str, needs_credentials: bool = False
     except ClientError as ce:
         if not needs_credentials and ce.response["Error"]["Code"] == "AccessDenied":
             get_log().debug("list_s3_needs_credentials", path=directory)
-            return list_file_sizes(directory, suffix, True)
+            return list_file_sizes(directory, suffix, recursive, True)
         raise
     return sizes
 
@@ -289,33 +291,6 @@ def prefix_from_path(path: str) -> str:
     """
     bucket_name = bucket_name_from_path(path)
     return path.replace(f"s3://{bucket_name}/", "")
-
-
-def list_files_in_uri(uri: str, suffixes: list[str], s3_client: S3Client | None) -> list[str]:
-    """Get a list of file paths from a s3 path based on their suffixes
-
-    Args:
-        uri: an s3 path
-        suffixes: a a list of suffixes. example: [".json", "_meta.xml"]
-        s3_client: an s3 client
-
-    Returns:
-        a list of file paths
-    """
-    s3_client = s3_client or client("s3")
-    files = []
-    paginator = s3_client.get_paginator("list_objects_v2")
-    response_iterator = paginator.paginate(Bucket=bucket_name_from_path(uri), Prefix=prefix_from_path(uri))
-
-    for response in response_iterator:
-        for contents_data in response["Contents"]:
-            key = contents_data["Key"]
-            if not key.lower().endswith(tuple(suffixes)):
-                get_log().trace("skipping file not json", file=key, action="collection_from_items", reason="skip")
-                continue
-            files.append(key)
-    get_log().info("Files Listed", number_of_files=len(files))
-    return files
 
 
 def _get_object(bucket: str, file_name: str, s3_client: S3Client) -> GetObjectOutputTypeDef:

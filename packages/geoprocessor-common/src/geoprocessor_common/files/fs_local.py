@@ -105,18 +105,22 @@ def exists(path: str) -> bool:
     return os.path.exists(path)
 
 
-def list_file_sizes(directory: str, suffix: str) -> dict[str, int]:
-    """List the names and sizes of the files in a local directory, without its subdirectories.
+def list_file_sizes(directory: str, suffix: str, recursive: bool = False) -> dict[str, int]:
+    """List the names and sizes of the files in a local directory.
 
     Args:
         directory: A local path to a directory
         suffix: Only list file names ending with this suffix
+        recursive: Also list the files in its subdirectories, named by their path relative to `directory`
 
     Returns:
         the size in bytes of each file name, empty if the directory does not exist
     """
     if not os.path.isdir(directory):
         return {}
+    paths = Path(directory).rglob("*") if recursive else Path(directory).iterdir()
     return {
-        entry.name: entry.stat().st_size for entry in os.scandir(directory) if entry.is_file() and entry.name.endswith(suffix)
+        str(path.relative_to(directory)): path.stat().st_size
+        for path in paths
+        if path.is_file() and path.name.endswith(suffix)
     }
