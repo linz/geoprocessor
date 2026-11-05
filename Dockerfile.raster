@@ -10,12 +10,16 @@ COPY uv.lock pyproject.toml /build/
 COPY ./packages/ /build/packages/
 
 ENV UV_PROJECT_ENVIRONMENT=/venv
-ENV UV_PYTHON=/usr/bin/python3
-ENV UV_PYTHON_PREFERENCE=only-system
+# The osgeo image ships Python 3.14, so use a uv-managed Python.
+# GDAL's Python scripts (gdal_edit, gdal_fillnodata) keep running on the system Python, which has the GDAL bindings.
+ENV UV_PYTHON=3.15.2
+ENV UV_PYTHON_PREFERENCE=only-managed
+ENV UV_PYTHON_INSTALL_DIR=/python
 
 RUN apt-get update \
     && apt-get install --assume-yes --no-install-recommends tini
 
+RUN uv python install
 RUN uv sync --frozen --no-dev --no-editable --package geoprocessor-raster
 
 FROM ghcr.io/osgeo/gdal:ubuntu-small-3.13.3@sha256:64250faf833c06d4b21afce4c27190039ba7ab58d70f0eebc87cf77d929c0b40
@@ -26,6 +30,7 @@ ARG GIT_VERSION
 ENV GIT_VERSION=$GIT_VERSION
 
 COPY --from=builder /usr/bin/tini /usr/bin/tini
+COPY --from=builder /python /python
 COPY --from=builder /venv /venv
 
 ENV PATH="/venv/bin:$PATH"
