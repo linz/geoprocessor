@@ -1,39 +1,34 @@
 FROM ghcr.io/astral-sh/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 AS uv_source
 
-FROM ghcr.io/linz/pdal-docker:2.10.2@sha256:2b8ba098ab74d6dd6c6342b6db7535c065b9cfe89942516ea659b7d976eefb2e AS builder
+# TODO: built locally from ../pdal-docker with `docker build --target pdal --tag li-pdal-docker:placeholder .`
+# Once published, this becomes ghcr.io/linz/li-pdal-docker:<version>@sha256:<digest>, which Dependabot keeps up to date.
+FROM li-pdal-docker:placeholder AS builder
 
-COPY --from=uv_source /uv /uvx /bin/
+COPY --from=uv_source /uv /bin/
 
 WORKDIR /build
 
 COPY uv.lock pyproject.toml /build/
 COPY ./packages/ /build/packages/
 
+# Our packages go in a virtual environment on the base image's Python (conda-forge)
 ENV UV_PROJECT_ENVIRONMENT=/venv
-# pdal-docker ships Python 3.14, so use a uv-managed Python matching the raster image
-ENV UV_PYTHON=3.15.2
-ENV UV_PYTHON_PREFERENCE=only-managed
-ENV UV_PYTHON_INSTALL_DIR=/python
+ENV UV_PYTHON=$CONDA_PREFIX/bin/python
+ENV UV_PYTHON_PREFERENCE=only-system
 
-RUN apt-get update \
-    && apt-get install --assume-yes --no-install-recommends tini
-
-RUN uv python install
 RUN uv sync --frozen --no-dev --no-editable --package geoprocessor-pointcloud
 
-FROM ghcr.io/linz/pdal-docker:2.10.2@sha256:2b8ba098ab74d6dd6c6342b6db7535c065b9cfe89942516ea659b7d976eefb2e
+FROM li-pdal-docker:placeholder
 
 ARG GIT_HASH
 ENV GIT_HASH=$GIT_HASH
 ARG GIT_VERSION
 ENV GIT_VERSION=$GIT_VERSION
 
-COPY --from=builder /usr/bin/tini /usr/bin/tini
-COPY --from=builder /python /python
 COPY --from=builder /venv /venv
 
 ENV PATH="/venv/bin:$PATH"
 
 WORKDIR /app
 
-ENTRYPOINT ["/usr/bin/tini", "--"]
+ENTRYPOINT ["tini", "--"]
