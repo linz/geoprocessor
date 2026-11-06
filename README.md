@@ -31,6 +31,8 @@ Two Docker containers are provided to run the Python scripts:
 | `geoprocessor/raster`     | `Dockerfile.raster`     | `geoprocessor-raster`     | [GDAL](https://gdal.org/) |
 | `geoprocessor/pointcloud` | `Dockerfile.pointcloud` | `geoprocessor-pointcloud` | [PDAL](https://pdal.io/)  |
 
+Each container starts from a LINZ base image that has GDAL or PDAL and Python from [conda-forge](https://conda-forge.org/) on `ubuntu`, and installs its packages with uv (`uv.lock`) into a virtual environment on that Python. `requires-python` must match the base images' Python, or the container builds fail.
+
 The containers are available [in GitHub Packages](https://github.com/orgs/linz/packages?repo_name=geoprocessor).
 
 ### Usage

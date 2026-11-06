@@ -1,3 +1,4 @@
+from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from unittest.mock import patch
 
@@ -28,6 +29,8 @@ def source_histograms() -> Histograms:
     return histograms
 
 
+# Forkserver workers would not inherit the patches
+@patch("geoprocessor_raster.dataset_histograms.Pool", ThreadPool)
 def test_get_dataset_histograms(tmp_path: Path, subtests: SubTests, capsys: CaptureFixture[str]) -> None:
     """Source histograms are summed and saved per source, and a rerun reads the saved ones unless forced."""
     computing = patch(
