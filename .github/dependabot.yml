@@ -11,6 +11,9 @@ updates:
       timezone: Pacific/Auckland
     cooldown:
       default-days: 15
+      exclude:
+        # Our base images: their conda-forge updates already waited for pixi's exclude-newer, so don't delay them again
+        - linz/*
     commit-message:
       prefix: build(deps)
 
