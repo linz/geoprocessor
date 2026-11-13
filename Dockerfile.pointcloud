@@ -1,8 +1,7 @@
 FROM ghcr.io/astral-sh/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 AS uv_source
 
-# TODO: built locally from ../pdal-docker with `docker build --target pdal --tag li-pdal-docker:placeholder .`
-# Once published, this becomes ghcr.io/linz/li-pdal-docker:<version>@sha256:<digest>, which Dependabot keeps up to date.
-FROM li-pdal-docker:placeholder AS builder
+# LINZ's PDAL base image, from https://github.com/linz/geocontainers. Dependabot updates its tag and digest.
+FROM ghcr.io/linz/li-pdal-docker:2.10.2@sha256:6b6860328c53da7a0e73426bc5af3917de7a628a4929103afd0757132fa76e1b AS builder
 
 COPY --from=uv_source /uv /bin/
 
@@ -18,7 +17,7 @@ ENV UV_PYTHON_PREFERENCE=only-system
 
 RUN uv sync --frozen --no-dev --no-editable --package geoprocessor-pointcloud
 
-FROM li-pdal-docker:placeholder
+FROM ghcr.io/linz/li-pdal-docker:2.10.2@sha256:6b6860328c53da7a0e73426bc5af3917de7a628a4929103afd0757132fa76e1b
 
 ARG GIT_HASH
 ENV GIT_HASH=$GIT_HASH
