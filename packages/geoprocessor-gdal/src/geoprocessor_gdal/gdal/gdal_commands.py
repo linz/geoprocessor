@@ -12,6 +12,7 @@ from geoprocessor_gdal.gdal.gdal_presets import (
     COMPRESS_WEBP_LOSSLESS,
     COMPRESS_ZSTD,
     DEM_LERC,
+    INTENSITY_NO_DATA_VALUE,
     SCALE_254_ADD_NO_DATA,
     WEBP_OVERVIEWS,
     ZSTD_OVERVIEWS,
@@ -108,7 +109,8 @@ def get_gdal_command(
         preset: gdal preset to use. Defined in `gdal.gdal_presets.py`
         epsg: the EPSG code of the file
         data_type: the data type of the dataset. Defined in `gdal.gdal_presets.py`. Defaults to `uint8`.
-                   RGBNIR_ZSTD `uint16` is written as a BIGTIFF as the tiffs may exceed 4GB.
+                   `uint16` that is not rescaled to 8-bit (RGBNIR_ZSTD, INTENSITY_ZSTD) is written as a BIGTIFF
+                   as the tiffs may exceed 4GB.
         rescale_range: source ranges of the colour bands when rescaling to 8-bit
         band_count: number of output bands, required with `rescale_range`
         rescale_gamma: gamma applied to the colour bands with `rescale_range`, 1 is linear
@@ -143,6 +145,7 @@ def get_gdal_command(
         CompressionPreset.RGBNIR_ZSTD.value: ZSTD_OPTIONS,
         CompressionPreset.DEM_ZSTD.value: ZSTD_OPTIONS,
         CompressionPreset.DEM_LERC.value: DEM_LERC,
+        CompressionPreset.INTENSITY_ZSTD.value: ZSTD_OPTIONS + ["-a_nodata", str(INTENSITY_NO_DATA_VALUE)],
     }
 
     preset_options: list[str] | None = PRESET_OPTIONS.get(preset)

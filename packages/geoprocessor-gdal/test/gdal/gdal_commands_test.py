@@ -158,6 +158,7 @@ def test_rescale_range_is_rejected_without_rescaling(subtests: SubTests) -> None
         (CompressionPreset.WEBP, DataType.UINT8),
         (CompressionPreset.RGBNIR_ZSTD, DataType.UINT16),
         (CompressionPreset.LZW, DataType.UINT8),
+        (CompressionPreset.INTENSITY_ZSTD, DataType.UINT16),
     ]:
         with subtests.test(msg=f"{preset.value} {data_type.value}"):
             with raises(ValueError, match="only supported when rescaling to 8-bit"):
@@ -323,6 +324,72 @@ def test_preset_dem_lerc(subtests: SubTests) -> None:
 
     with subtests.test():
         assert f"EPSG:{EpsgNumber.NZTM_2000.value}" in gdal_command
+
+
+def test_preset_intensity_zstd(subtests: SubTests) -> None:
+    gdal_command = get_gdal_command(
+        CompressionPreset.INTENSITY_ZSTD.value, epsg=EpsgNumber.NZTM_2000, data_type=DataType.UINT16.value
+    )
+
+    with subtests.test():
+        assert "COG" in gdal_command
+
+    with subtests.test():
+        assert "blocksize=512" in gdal_command
+
+    with subtests.test():
+        assert f"EPSG:{EpsgNumber.NZTM_2000.value}" in gdal_command
+
+    with subtests.test():
+        assert "num_threads=all_cpus" in gdal_command
+
+    with subtests.test():
+        assert "overviews=ignore_existing" in gdal_command
+
+    with subtests.test():
+        assert "compress=zstd" in gdal_command
+
+    with subtests.test():
+        assert "level=17" in gdal_command
+
+    with subtests.test():
+        assert "predictor=2" in gdal_command
+
+    with subtests.test():
+        assert "overview_compress=zstd" in gdal_command
+
+    with subtests.test():
+        assert "-scale" not in gdal_command
+
+    with subtests.test():
+        assert "compress=webp" not in gdal_command
+
+    with subtests.test():
+        assert "overview_compress=webp" not in gdal_command
+
+    with subtests.test():
+        assert "compress=lerc" not in gdal_command
+
+    with subtests.test():
+        assert "max_z_error=0.001" not in gdal_command
+
+    with subtests.test():
+        assert "-9999" not in gdal_command
+
+    with subtests.test():
+        assert "AREA_OR_POINT=Area" not in gdal_command
+
+    with subtests.test():
+        assert "bigtiff=yes" in gdal_command
+
+    with subtests.test():
+        assert "bigtiff=no" not in gdal_command
+
+    with subtests.test():
+        assert "Byte" not in gdal_command
+
+    with subtests.test():
+        assert "-a_nodata 0" in " ".join(gdal_command)
 
 
 def test_cutline_params(subtests: SubTests) -> None:
