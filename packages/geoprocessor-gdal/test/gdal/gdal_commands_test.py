@@ -325,6 +325,7 @@ def test_preset_dem_lerc(subtests: SubTests) -> None:
     with subtests.test():
         assert f"EPSG:{EpsgNumber.NZTM_2000.value}" in gdal_command
 
+
 def test_preset_intensity_zstd(subtests: SubTests) -> None:
     gdal_command = get_gdal_command(
         CompressionPreset.INTENSITY_ZSTD.value, epsg=EpsgNumber.NZTM_2000, data_type=DataType.UINT16.value
