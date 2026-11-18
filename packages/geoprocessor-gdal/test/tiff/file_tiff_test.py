@@ -552,7 +552,7 @@ def test_check_no_data_invalid_minus_9999_intensity() -> None:
     assert file_tiff.get_errors()
 
 
-def test_check_no_data_no_value_intensity() -> None:
+def test_check_no_data_invalid_no_value_intensity() -> None:
     """
     tests check_no_data when the input layer has no no_data value assigned and an intensity preset
     """
@@ -562,4 +562,6 @@ def test_check_no_data_no_value_intensity() -> None:
     file_tiff = FileTiff(["test"], CompressionPreset.INTENSITY_ZSTD.value)
     file_tiff.check_no_data(gdalinfo)
 
-    assert not file_tiff.get_errors()
+    assert file_tiff.get_errors() == [
+        {"type": FileTiffErrorType.NO_DATA, "message": "noDataValue is not provided", "current": "None"}
+    ]

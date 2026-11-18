@@ -24,6 +24,9 @@ class FileTiffType(str, Enum):
     INTENSITY = "Intensity"
 
 
+SINGLE_BAND_TIFF_TYPES = (FileTiffType.DEM, FileTiffType.INTENSITY)
+
+
 class FileTiff:
     # pylint: disable=too-many-instance-attributes
     """Wrapper to carry information about the TIFF or list of TIFF within the same tile."""
@@ -254,12 +257,20 @@ class FileTiff:
     def check_no_data(self, gdalinfo: GdalInfo) -> None:
         """Add a Non Visual QA error if the "noDataValue" of the first band is not the expected value
         for the TIFF type: 255 for imagery (unless an alpha band is present), -9999 for DEM, or 0 for intensity.
+        Intensity also requires a "noDataValue" to be set.
 
         Args:
             gdalinfo: `gdalinfo` output
         """
         bands = gdalinfo["bands"]
         if self._tiff_type != "DEM" and len(bands) in (4, 5) and bands[-1]["colorInterpretation"] == "Alpha":
+            return
+        if self._tiff_type == FileTiffType.INTENSITY and not self.is_no_data(gdalinfo):
+            self.add_error(
+                error_type=FileTiffErrorType.NO_DATA,
+                error_message="noDataValue is not provided",
+                custom_fields={"current": "None"},
+            )
             return
         if "noDataValue" in bands[0]:
             current_nodata_val = bands[0]["noDataValue"]
@@ -317,7 +328,7 @@ class FileTiff:
         if len(bands) == bands_num + 2:
             if bands[bands_num]["colorInterpretation"] == "NIR" and bands[bands_num + 1]["colorInterpretation"] == "Alpha":
                 bands_num += 2
-        if self._tiff_type in ["DEM", "Intensity"]:
+        if self._tiff_type in SINGLE_BAND_TIFF_TYPES:
             bands_num = 1
         if len(bands) != bands_num:
             self.add_error(
@@ -350,7 +361,7 @@ class FileTiff:
         band_greyscale_ints = {1: "Gray", 2: "Gray", 3: "Gray"}
         band_rgbn_ints = {1: "Red", 2: "Green", 3: "Blue", 4: "NIR", 5: "Alpha"}
         optional_colour_ints = {4: "Alpha"}
-        if self._tiff_type in ["DEM", "Intensity"]:
+        if self._tiff_type in SINGLE_BAND_TIFF_TYPES:
             band_colour_ints = {1: "Gray"}
         if len(bands) == 5 and bands[3]["colorInterpretation"] == "NIR":
             n = 1
