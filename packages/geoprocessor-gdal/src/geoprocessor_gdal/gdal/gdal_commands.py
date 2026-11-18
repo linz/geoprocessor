@@ -12,7 +12,6 @@ from geoprocessor_gdal.gdal.gdal_presets import (
     COMPRESS_WEBP_LOSSLESS,
     COMPRESS_ZSTD,
     DEM_LERC,
-    INTENSITY_NO_DATA_VALUE,
     SCALE_254_ADD_NO_DATA,
     WEBP_OVERVIEWS,
     ZSTD_OVERVIEWS,
@@ -145,7 +144,7 @@ def get_gdal_command(
         CompressionPreset.RGBNIR_ZSTD.value: ZSTD_OPTIONS,
         CompressionPreset.DEM_ZSTD.value: ZSTD_OPTIONS,
         CompressionPreset.DEM_LERC.value: DEM_LERC,
-        CompressionPreset.INTENSITY_ZSTD.value: ZSTD_OPTIONS + ["-a_nodata", str(INTENSITY_NO_DATA_VALUE)],
+        CompressionPreset.INTENSITY_ZSTD.value: ZSTD_OPTIONS,
     }
 
     preset_options: list[str] | None = PRESET_OPTIONS.get(preset)
