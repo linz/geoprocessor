@@ -23,6 +23,7 @@ from geoprocessor_stac.imagery.constants import (
     DSM_HILLSHADE,
     DSM_HILLSHADE_IGOR,
     HUMAN_READABLE_REGIONS,
+    INTENSITY,
     LIFECYCLE_SUFFIXES,
     NEAR_INFRARED_AERIAL_PHOTOS,
     NEAR_INFRARED_SATELLITE_IMAGERY,
@@ -55,6 +56,7 @@ NEAR_INFRARED_CATEGORIES = {
     NEAR_INFRARED_AERIAL_PHOTOS,
     NEAR_INFRARED_SATELLITE_IMAGERY,
 }
+UINT16_CATEGORIES = {*NEAR_INFRARED_CATEGORIES, INTENSITY}
 IMAGERY = {SCANNED_AERIAL_PHOTOS, *ANY_SATELLITE_IMAGERY, *ANY_ORTHO_AERIAL_PHOTOS}
 ELEVATION = {DEM, DSM}
 HILLSHADES = {DEM_HILLSHADE, DEM_HILLSHADE_IGOR, DSM_HILLSHADE, DSM_HILLSHADE_IGOR}
@@ -129,9 +131,9 @@ class ImageryCollection:  # pylint: disable=too-many-instance-attributes
             "updated": updated_datetime,
         }
 
-        # Only include data_type for `UINT16` near-infrared imagery
-        # as only near-infrared output stays 16-bit, other `UINT16` sources are rescaled to 8-bit (WEBP)
-        if self.data_type == DataType.UINT16 and context.category in NEAR_INFRARED_CATEGORIES:
+        # Only include data_type for `UINT16` categories that stay 16-bit (near-infrared imagery and intensity),
+        # other `UINT16` sources are rescaled to 8-bit (WEBP)
+        if self.data_type == DataType.UINT16 and context.category in UINT16_CATEGORIES:
             self.stac["data_type"] = self.data_type.value
 
         # Optional metadata - if not provided, the field will not be added to the Collection
@@ -177,9 +179,9 @@ class ImageryCollection:  # pylint: disable=too-many-instance-attributes
             updated_datetime: The updated datetime of the Collection.
         """
         self.stac["gsd"] = float(context.gsd)
-        # Only include data_type for `UINT16` near-infrared imagery
-        # as only near-infrared output stays 16-bit, other `UINT16` sources are rescaled to 8-bit (WEBP)
-        if context.data_type == DataType.UINT16 and context.category in NEAR_INFRARED_CATEGORIES:
+        # Only include data_type for `UINT16` categories that stay 16-bit (near-infrared imagery and intensity),
+        # other `UINT16` sources are rescaled to 8-bit (WEBP)
+        if context.data_type == DataType.UINT16 and context.category in UINT16_CATEGORIES:
             self.stac["data_type"] = context.data_type.value
         else:
             self.stac.pop("data_type", None)
@@ -220,7 +222,7 @@ class ImageryCollection:  # pylint: disable=too-many-instance-attributes
         Near-Infrared Aerial Photos / Ancillary Aerial Photos / Ancillary Near-Infrared Aerial Photos /
         Scanned Aerial Photos:
           https://github.com/linz/imagery/blob/master/docs/naming.md
-        DEM / DSM / DEM Hillshade / DEM Hillshade Igor / DSM Hillshade / DSM Hillshade Igor:
+        DEM / DSM / Intensity / DEM Hillshade / DEM Hillshade Igor / DSM Hillshade / DSM Hillshade Igor:
           https://github.com/linz/elevation/blob/master/docs/naming.md
 
         Raises:
@@ -276,7 +278,7 @@ class ImageryCollection:  # pylint: disable=too-many-instance-attributes
                 lifecycle_suffix,
             ]
 
-        elif category in ELEVATION:
+        elif category in {*ELEVATION, INTENSITY}:
             components = [
                 self._combine_with_region(region, self._combine_with_event(geographic_description, event_name)),
                 DATA_DOMAINS[self.domain],
@@ -333,6 +335,8 @@ class ImageryCollection:  # pylint: disable=too-many-instance-attributes
           prefix is dropped and the description reads as plain (near-infrared) orthophotography instead.
         DEM / DSM:
           [Digital Elevation Model / Digital Surface Model] within the [Region] region captured in [year(s)].
+        Intensity:
+          Intensity Raster within the [Region] region captured in [year(s)].
         DEM/DSM Hillshade / Hillshade Igor:
           [Digital Elevation Model / Digital Surface Model] [mono-directional / whiter multi-directional]
           hillshade derived from 1m LiDAR. Gaps filled with lower resolution elevation data (8m contour) as needed.
@@ -349,8 +353,8 @@ class ImageryCollection:  # pylint: disable=too-many-instance-attributes
 
         category = self.stac["linz:geospatial_category"]
 
-        components = [DATA_DOMAINS[self.domain] if category in {*ELEVATION, *HILLSHADES} else None]
-        if category in {*IMAGERY, *ELEVATION}:
+        components = [DATA_DOMAINS[self.domain] if category in {*ELEVATION, *HILLSHADES, INTENSITY} else None]
+        if category in {*IMAGERY, *ELEVATION, INTENSITY}:
             components.extend(self._get_imagery_description_components())
         elif category in HILLSHADES:
             components.extend(self._get_hillshade_description_components())
@@ -387,6 +391,7 @@ class ImageryCollection:  # pylint: disable=too-many-instance-attributes
             NEAR_INFRARED_AERIAL_PHOTOS: "Near-infrared orthophotography",
             DEM: "Digital Elevation Model",
             DSM: "Digital Surface Model",
+            INTENSITY: "Intensity Raster",
         }
 
         base_description = EVENTS[category]["description"] if is_ancillary_event else base_descriptions[category]

@@ -446,6 +446,22 @@ published as a record of the Cyclone Gabrielle event.",
         ),
         param(
             CollectionContext(
+                category="intensity",
+                domain="coastal",
+                region="bay-of-plenty",
+                geographic_description="Tauranga",
+                lifecycle="completed",
+                linz_slug=fake_linz_slug(),
+                gsd=Decimal("2"),
+                data_type=DataType.UINT16,
+                collection_id="a-random-collection-id",
+            ),
+            "Bay of Plenty - Tauranga Coastal LiDAR 2m Intensity (2023)",
+            "Coastal Intensity Raster within the Bay of Plenty region captured in 2023.",
+            id="Coastal Intensity",
+        ),
+        param(
+            CollectionContext(
                 category="dem-hillshade",
                 domain="coastal",
                 region="new-zealand",
@@ -1134,6 +1150,25 @@ def test_update_metadata(fake_collection_context: CollectionContext, subtests: S
         assert collection.stac.get("linz:geographic_description") is None
 
 
+def test_update_data_type_uint16_included_for_intensity(fake_collection_context: CollectionContext) -> None:
+    """Verify that updating a Collection to intensity with uint16 records the data type in STAC JSON."""
+    collection = ImageryCollection(fake_collection_context, any_epoch_datetime_string(), any_epoch_datetime_string())
+    new_metadata = CollectionContext(
+        category="intensity",
+        domain="coastal",
+        region="bay-of-plenty",
+        gsd=Decimal("2"),
+        data_type=DataType.UINT16,
+        lifecycle="completed",
+        linz_slug=fake_linz_slug(),
+        collection_id="a-random-collection-id",
+    )
+
+    collection.update(new_metadata, "2025-01-01T00:00:00Z")
+
+    assert collection.stac["data_type"] == "uint16", "uint16 should be included in STAC JSON for intensity"
+
+
 def test_data_type_uint8_omitted_from_stac() -> None:
     """Verify that uint8 is omitted from STAC JSON output, as only the higher bit depths are recorded."""
     context = CollectionContext(
@@ -1164,6 +1199,24 @@ def test_data_type_uint16_included_in_stac() -> None:
     collection = ImageryCollection(context, any_epoch_datetime_string(), any_epoch_datetime_string())
 
     assert collection.stac["data_type"] == "uint16", "uint16 should be included in STAC JSON"
+
+
+def test_data_type_uint16_included_in_stac_for_intensity() -> None:
+    """Verify that uint16 is included in STAC JSON output for intensity rasters."""
+    context = CollectionContext(
+        category="intensity",
+        domain="coastal",
+        region="bay-of-plenty",
+        geographic_description="Tauranga",
+        lifecycle="completed",
+        linz_slug=fake_linz_slug(),
+        gsd=Decimal("2"),
+        data_type=DataType.UINT16,
+        collection_id="a-random-collection-id",
+    )
+    collection = ImageryCollection(context, any_epoch_datetime_string(), any_epoch_datetime_string())
+
+    assert collection.stac["data_type"] == "uint16", "uint16 should be included in STAC JSON for intensity"
 
 
 def test_data_type_float32_omitted_from_stac() -> None:
