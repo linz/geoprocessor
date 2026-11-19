@@ -1,13 +1,22 @@
+import json
+from pathlib import Path
 from subprocess import CompletedProcess
+from typing import Any
 from unittest.mock import patch
 from uuid import UUID
 
 import pytest
 from geoprocessor_pdal.pdal_commands import (
+    COPC_WRITER_OPTIONS,
     PDALExecutionException,
+    get_merge_copc_pipeline,
     get_pdal_command,
     get_pdal_version,
     pdal_copc_project_id_option,
+    pdal_merge_copc,
+    pdal_pipeline_command,
+    pdal_translate_copc_command,
+    run_pdal,
 )
 from ulid import ULID
 
@@ -99,3 +108,77 @@ def test_pdal_copc_project_id_option_rejects_a_collection_id_of_the_wrong_length
     """
     with pytest.raises(ValueError, match="26 characters"):
         pdal_copc_project_id_option("01HQRJ4ESMVNAKX9T6E9Y0F5Z")
+
+
+def test_pdal_translate_copc_command_uses_the_shared_writer_options() -> None:
+    """
+    tests that translate and merge write COPC files with the same header options
+    """
+    assert pdal_translate_copc_command == [
+        "translate",
+        "--writer=writers.copc",
+        *(f"--writers.copc.{key}={value}" for key, value in COPC_WRITER_OPTIONS.items()),
+    ]
+
+
+def test_get_merge_copc_pipeline_reads_every_input_then_writes_one_copc_file() -> None:
+    pipeline = get_merge_copc_pipeline(["a.laz", "b.laz"], "merged.copc.laz")
+
+    assert pipeline == [
+        "a.laz",
+        "b.laz",
+        {"type": "writers.copc", "filename": "merged.copc.laz", **COPC_WRITER_OPTIONS},
+    ]
+
+
+def test_get_merge_copc_pipeline_sets_the_project_id_to_the_collection_id() -> None:
+    writer = get_merge_copc_pipeline(["a.laz"], "merged.copc.laz", collection_id="01HQRJ4ESMVNAKX9T6E9Y0F5ZK")[-1]
+
+    assert writer["project_id"] == "018df122-3b34-dd55-3ea7-46727c0797f3"
+
+
+def test_get_merge_copc_pipeline_rejects_no_input_files() -> None:
+    with pytest.raises(ValueError, match="At least one input file"):
+        get_merge_copc_pipeline([], "merged.copc.laz")
+
+
+def test_pdal_merge_copc_runs_the_pipeline_as_json() -> None:
+    """
+    tests that the pipeline is written to a JSON file and passed to `pdal pipeline`
+    """
+    pipelines: list[Any] = []
+
+    def read_pipeline(command: list[str], input_file: str) -> None:
+        assert command == pdal_pipeline_command
+        pipelines.append(json.loads(Path(input_file).read_text(encoding="utf-8")))
+
+    with patch("geoprocessor_pdal.pdal_commands.run_pdal", side_effect=read_pipeline):
+        result = pdal_merge_copc(["a.laz", "b.laz"], "merged.copc.laz")
+
+    assert result == "merged.copc.laz"
+    assert pipelines == [get_merge_copc_pipeline(["a.laz", "b.laz"], "merged.copc.laz")]
+
+
+def test_run_pdal_uploads_an_s3_output_before_removing_the_temp_dir(tmp_path: Path) -> None:
+    """
+    Regression: the temp dir holding the S3 output was removed before the output was uploaded
+    """
+    input_file = tmp_path / "in.laz"
+    input_file.write_bytes(b"laz")
+    uploaded: list[bytes] = []
+
+    def fake_pdal(command: list[str], **_: Any) -> CompletedProcess[bytes]:
+        Path(command[-1]).write_bytes(b"copc")
+        return CompletedProcess(command, 0, b"", b"")
+
+    def fake_copy(source: str, target: str) -> None:
+        assert target == "s3://bucket/out.copc.laz"
+        uploaded.append(Path(source).read_bytes())
+
+    with (
+        patch("geoprocessor_pdal.pdal_commands.subprocess.run", side_effect=fake_pdal),
+        patch("geoprocessor_pdal.pdal_commands.copy", side_effect=fake_copy),
+    ):
+        run_pdal(["translate"], input_file=str(input_file), output_file="s3://bucket/out.copc.laz")
+
+    assert uploaded == [b"copc"]

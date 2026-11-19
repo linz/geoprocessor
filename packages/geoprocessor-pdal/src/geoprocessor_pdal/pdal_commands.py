@@ -1,8 +1,10 @@
+import json
 import os
 import subprocess
 from functools import cache
 from shutil import rmtree
-from tempfile import mkdtemp
+from tempfile import TemporaryDirectory, mkdtemp
+from typing import Any
 
 from geoprocessor_common.aws.aws_helper import is_s3
 from geoprocessor_common.epsg import EpsgNumber
@@ -72,9 +74,14 @@ pdal_translate_add_proj_command = get_pdal_command(
 )
 
 
+def collection_id_to_project_id(collection_id: str) -> str:
+    """The collection ULID as the UUID that `writers.copc.project_id` takes."""
+    return str(ULID.from_str(collection_id).to_uuid())
+
+
 def pdal_copc_project_id_option(collection_id: str) -> str:
     """`writers.copc.project_id` option using the collection ULID as a UUID."""
-    return f"--writers.copc.project_id={ULID.from_str(collection_id).to_uuid()}"
+    return f"--writers.copc.project_id={collection_id_to_project_id(collection_id)}"
 
 
 # `forward` keeps the global encoding (GPS time type), scale, offset and VLRs of the input file. The other header
@@ -93,6 +100,68 @@ pdal_translate_copc_command = get_pdal_command(
         f"--writers.copc.a_srs=EPSG:{EpsgNumber.NZTM_2000}+{EpsgNumber.NZVD_2016}",
     ],
 )
+
+# The same `writers.copc` options as `pdal_translate_copc_command`, for the merge pipeline.
+# A test checks that the two stay the same.
+COPC_WRITER_OPTIONS: dict[str, str] = {
+    "forward": "global_encoding,scale,offset,vlr",
+    "filesource_id": "0",
+    "extra_dims": "all",
+    "system_id": "TRANSFORMATION",
+    "a_srs": f"EPSG:{EpsgNumber.NZTM_2000}+{EpsgNumber.NZVD_2016}",
+}
+
+pdal_pipeline_command = get_pdal_command("pipeline", [])
+
+
+def get_merge_copc_pipeline(input_files: list[str], output_file: str, collection_id: str | None = None) -> list[Any]:
+    """Build a PDAL pipeline that merges LAS/LAZ/COPC files into one COPC file.
+
+    PDAL merges every reader that feeds a writer, so the pipeline is the input files followed by the COPC writer.
+
+    Args:
+        input_files: local paths of the files to merge
+        output_file: local path of the COPC file to write
+        collection_id: ULID of the STAC collection, written to the LAS header as the Project ID. Defaults to None.
+
+    Raises:
+        ValueError: if there are no input files
+
+    Returns:
+        the pipeline, ready to be written as JSON
+    """
+    if not input_files:
+        raise ValueError("At least one input file is needed to merge")
+
+    writer: dict[str, str] = {"type": "writers.copc", "filename": output_file, **COPC_WRITER_OPTIONS}
+    if collection_id:
+        writer["project_id"] = collection_id_to_project_id(collection_id)
+
+    return [*input_files, writer]
+
+
+def pdal_merge_copc(input_files: list[str], output_file: str, collection_id: str | None = None) -> str:
+    """Merge local LAS/LAZ/COPC files into one local COPC file.
+
+    Args:
+        input_files: local paths of the files to merge
+        output_file: local path of the COPC file to write
+        collection_id: ULID of the STAC collection, written to the LAS header as the Project ID. Defaults to None.
+
+    Returns:
+        the path of the merged COPC file
+    """
+    pipeline = get_merge_copc_pipeline(input_files, output_file, collection_id)
+
+    with TemporaryDirectory() as tmp_path:
+        pipeline_file = os.path.join(tmp_path, "merge_copc.json")
+        with open(pipeline_file, "w", encoding="utf-8") as file:
+            json.dump(pipeline, file)
+        get_log().info("pdal_merge_copc", inputFileCount=len(input_files), output=output_file)
+        run_pdal(pdal_pipeline_command, input_file=pipeline_file)
+
+    return output_file
+
 
 pdal_info_command = get_pdal_command(
     "info",
@@ -147,6 +216,7 @@ def run_pdal(
         proc = subprocess.run(pdal_command, env=pdal_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
     except subprocess.CalledProcessError as cpe:
         get_log().error("run_pdal_failed", command=" ".join(pdal_command), error=str(cpe.stderr, "utf-8"))
+        rmtree(temp_dir)
         raise PDALExecutionException(f"PDAL {str(cpe.stderr, 'utf-8')}") from cpe
     finally:
         get_log().info("run_pdal_end", command=" ".join(pdal_command), duration=time_in_ms() - start_time)
@@ -154,9 +224,9 @@ def run_pdal(
     if proc.stderr:
         get_log().warning("run_pdal_stderr", command=" ".join(pdal_command), stderr=proc.stderr.decode())
 
-    rmtree(temp_dir)
     if temp_output_file and output_file:  # Upload the file to S3
         copy(source=temp_output_file, target=output_file)
+    rmtree(temp_dir)  # after the upload, which reads from it
 
     get_log().trace("run_pdal_succeeded", command=" ".join(pdal_command), stdout=proc.stdout.decode())
 
