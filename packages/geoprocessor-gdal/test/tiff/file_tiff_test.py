@@ -417,6 +417,21 @@ def test_should_throw_when_encountering_non_integer_no_data_value() -> None:
     ]
 
 
+def test_check_no_data_invalid_0_dem() -> None:
+    """
+    tests check_no_data when the input layer has an invalid no data value of 0 and a DEM preset
+    """
+    gdalinfo = fake_gdalinfo()
+    add_band(gdalinfo, no_data_value=0)
+
+    file_tiff = FileTiff(["test"], CompressionPreset.DEM_LERC.value)
+    file_tiff.check_no_data(gdalinfo)
+
+    assert file_tiff.get_errors() == [
+        {"type": FileTiffErrorType.NO_DATA, "message": "noDataValue is not -9999", "current": "0"}
+    ]
+
+
 def test_checksum_is_not_set_by_default() -> None:
     file_tiff = FileTiff(["test.tiff"], CompressionPreset.WEBP.value)
 
@@ -558,6 +573,24 @@ def test_check_no_data_invalid_no_value_intensity() -> None:
     """
     gdalinfo = fake_gdalinfo()
     add_band(gdalinfo)
+
+    file_tiff = FileTiff(["test"], CompressionPreset.INTENSITY_ZSTD.value)
+    file_tiff.check_no_data(gdalinfo)
+
+    assert file_tiff.get_errors() == [
+        {"type": FileTiffErrorType.NO_DATA, "message": "noDataValue is not provided", "current": "None"}
+    ]
+
+
+def test_check_no_data_invalid_alpha_intensity() -> None:
+    """
+    tests check_no_data when the input layer has an alpha band but no no_data value assigned and an intensity preset
+    """
+    gdalinfo = fake_gdalinfo()
+    add_band(gdalinfo, color_interpretation="Gray")
+    add_band(gdalinfo, color_interpretation="Gray")
+    add_band(gdalinfo, color_interpretation="Gray")
+    add_band(gdalinfo, color_interpretation="Alpha")
 
     file_tiff = FileTiff(["test"], CompressionPreset.INTENSITY_ZSTD.value)
     file_tiff.check_no_data(gdalinfo)

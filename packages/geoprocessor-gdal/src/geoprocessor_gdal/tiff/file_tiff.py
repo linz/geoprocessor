@@ -263,21 +263,33 @@ class FileTiff:
             gdalinfo: `gdalinfo` output
         """
         bands = gdalinfo["bands"]
-        if self._tiff_type != FileTiffType.DEM and len(bands) in (4, 5) and bands[-1]["colorInterpretation"] == "Alpha":
+        if (
+            self._tiff_type not in SINGLE_BAND_TIFF_TYPES
+            and len(bands) in (4, 5)
+            and bands[-1]["colorInterpretation"] == "Alpha"
+        ):
             return
-        if self._tiff_type == FileTiffType.INTENSITY and not self.is_no_data(gdalinfo):
-            self.add_error(
-                error_type=FileTiffErrorType.NO_DATA,
-                error_message="noDataValue is not provided",
-                custom_fields={"current": "None"},
-            )
+        if self._tiff_type == FileTiffType.INTENSITY:
+            current_nodata_val = bands[0].get("noDataValue")
+            if current_nodata_val is None:
+                self.add_error(
+                    error_type=FileTiffErrorType.NO_DATA,
+                    error_message="noDataValue is not provided",
+                    custom_fields={"current": "None"},
+                )
+            elif Decimal(current_nodata_val) != INTENSITY_NO_DATA_VALUE:
+                self.add_error(
+                    error_type=FileTiffErrorType.NO_DATA,
+                    error_message=f"noDataValue is not {INTENSITY_NO_DATA_VALUE}",
+                    custom_fields={"current": f"{current_nodata_val}"},
+                )
             return
         if "noDataValue" in bands[0]:
             current_nodata_val = bands[0]["noDataValue"]
             # Convert `gdalinfo -json` no data value string to decimal for numeric comparison
             if (
                 self._tiff_type == FileTiffType.DEM
-                and current_nodata_val
+                and current_nodata_val is not None
                 and Decimal(current_nodata_val) != DEFAULT_NO_DATA_VALUE
             ):
                 self.add_error(
@@ -289,16 +301,6 @@ class FileTiff:
                 self.add_error(
                     error_type=FileTiffErrorType.NO_DATA,
                     error_message="noDataValue is not 255",
-                    custom_fields={"current": f"{current_nodata_val}"},
-                )
-            elif (
-                self._tiff_type == FileTiffType.INTENSITY
-                and current_nodata_val is not None
-                and Decimal(current_nodata_val) != INTENSITY_NO_DATA_VALUE
-            ):
-                self.add_error(
-                    error_type=FileTiffErrorType.NO_DATA,
-                    error_message=f"noDataValue is not {INTENSITY_NO_DATA_VALUE}",
                     custom_fields={"current": f"{current_nodata_val}"},
                 )
 
