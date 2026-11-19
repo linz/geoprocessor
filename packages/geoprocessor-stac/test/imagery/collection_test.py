@@ -1150,39 +1150,25 @@ def test_update_metadata(fake_collection_context: CollectionContext, subtests: S
         assert collection.stac.get("linz:geographic_description") is None
 
 
-def test_update_data_type_uint16_included_for_intensity(fake_collection_context: CollectionContext) -> None:
-    """Verify that updating a Collection to intensity with uint16 records the data type in STAC JSON."""
-    collection = ImageryCollection(fake_collection_context, any_epoch_datetime_string(), any_epoch_datetime_string())
-    new_metadata = CollectionContext(
-        category="intensity",
-        domain="coastal",
-        region="bay-of-plenty",
-        gsd=Decimal("2"),
-        data_type=DataType.UINT16,
-        lifecycle="completed",
-        linz_slug=fake_linz_slug(),
-        collection_id="a-random-collection-id",
-    )
+def test_update_data_type_uint16_included(fake_collection_context: CollectionContext, subtests: SubTests) -> None:
+    """Verify that updating a Collection to a category that stays 16-bit records uint16 in STAC JSON."""
+    for category, domain in [("near-infrared-aerial-photos", "land"), ("intensity", "coastal")]:
+        with subtests.test(msg=category):
+            collection = ImageryCollection(fake_collection_context, any_epoch_datetime_string(), any_epoch_datetime_string())
+            new_metadata = CollectionContext(
+                category=category,
+                domain=domain,
+                region="hawkes-bay",
+                gsd=Decimal("1.0"),
+                data_type=DataType.UINT16,
+                lifecycle="completed",
+                linz_slug=fake_linz_slug(),
+                collection_id="a-random-collection-id",
+            )
 
-    collection.update(new_metadata, "2025-01-01T00:00:00Z")
+            collection.update(new_metadata, "2025-01-01T00:00:00Z")
 
-    assert collection.stac["data_type"] == "uint16", "uint16 should be included in STAC JSON for intensity"
-
-
-def test_data_type_uint8_omitted_from_stac() -> None:
-    """Verify that uint8 is omitted from STAC JSON output, as only the higher bit depths are recorded."""
-    context = CollectionContext(
-        category="rural-aerial-photos",
-        domain="land",
-        region="hawkes-bay",
-        gsd=Decimal("0.3"),
-        data_type=DataType.UINT8,
-        lifecycle="completed",
-        linz_slug=fake_linz_slug(),
-    )
-    collection = ImageryCollection(context, any_epoch_datetime_string(), any_epoch_datetime_string())
-
-    assert "data_type" not in collection.stac, "uint8 should be omitted from STAC"
+            assert collection.stac["data_type"] == "uint16"
 
 
 def test_data_type_uint16_included_in_stac(subtests: SubTests) -> None:
@@ -1203,33 +1189,23 @@ def test_data_type_uint16_included_in_stac(subtests: SubTests) -> None:
             assert collection.stac["data_type"] == "uint16"
 
 
-def test_data_type_float32_omitted_from_stac() -> None:
-    """Verify that float32 is omitted from STAC JSON output, DEM collections do not record it"""
-    context = CollectionContext(
-        category="dem",
-        domain="land",
-        region="hawkes-bay",
-        gsd=Decimal("1.0"),
-        data_type=DataType.FLOAT32,
-        lifecycle="completed",
-        linz_slug=fake_linz_slug(),
-    )
-    collection = ImageryCollection(context, any_epoch_datetime_string(), any_epoch_datetime_string())
+def test_data_type_omitted_from_stac(subtests: SubTests) -> None:
+    """Verify that data_type is omitted from STAC JSON output unless the output stays 16-bit."""
+    for msg, category, data_type in [
+        ("uint8 imagery", "rural-aerial-photos", DataType.UINT8),
+        ("float32 DEM", "dem", DataType.FLOAT32),
+        ("uint16 RGB imagery rescaled to 8-bit", "rural-aerial-photos", DataType.UINT16),
+    ]:
+        with subtests.test(msg=msg):
+            context = CollectionContext(
+                category=category,
+                domain="land",
+                region="hawkes-bay",
+                gsd=Decimal("0.3"),
+                data_type=data_type,
+                lifecycle="completed",
+                linz_slug=fake_linz_slug(),
+            )
+            collection = ImageryCollection(context, any_epoch_datetime_string(), any_epoch_datetime_string())
 
-    assert "data_type" not in collection.stac, "float32 should be omitted from STAC"
-
-
-def test_data_type_uint16_omitted_from_stac_for_rgb() -> None:
-    """Verify that uint16 is omitted from STAC JSON output for RGB imagery, as it is the input data type"""
-    context = CollectionContext(
-        category="rural-aerial-photos",
-        domain="land",
-        region="hawkes-bay",
-        gsd=Decimal("0.3"),
-        data_type=DataType.UINT16,
-        lifecycle="completed",
-        linz_slug=fake_linz_slug(),
-    )
-    collection = ImageryCollection(context, any_epoch_datetime_string(), any_epoch_datetime_string())
-
-    assert "data_type" not in collection.stac, "uint16 should be omitted from STAC for RGB imagery"
+            assert "data_type" not in collection.stac
