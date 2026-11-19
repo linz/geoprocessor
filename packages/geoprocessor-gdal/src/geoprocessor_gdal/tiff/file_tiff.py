@@ -263,7 +263,7 @@ class FileTiff:
             gdalinfo: `gdalinfo` output
         """
         bands = gdalinfo["bands"]
-        if self._tiff_type != "DEM" and len(bands) in (4, 5) and bands[-1]["colorInterpretation"] == "Alpha":
+        if self._tiff_type != FileTiffType.DEM and len(bands) in (4, 5) and bands[-1]["colorInterpretation"] == "Alpha":
             return
         if self._tiff_type == FileTiffType.INTENSITY and not self.is_no_data(gdalinfo):
             self.add_error(
@@ -275,13 +275,17 @@ class FileTiff:
         if "noDataValue" in bands[0]:
             current_nodata_val = bands[0]["noDataValue"]
             # Convert `gdalinfo -json` no data value string to decimal for numeric comparison
-            if self._tiff_type == "DEM" and current_nodata_val and Decimal(current_nodata_val) != DEFAULT_NO_DATA_VALUE:
+            if (
+                self._tiff_type == FileTiffType.DEM
+                and current_nodata_val
+                and Decimal(current_nodata_val) != DEFAULT_NO_DATA_VALUE
+            ):
                 self.add_error(
                     error_type=FileTiffErrorType.NO_DATA,
                     error_message=f"noDataValue is not {DEFAULT_NO_DATA_VALUE}",
                     custom_fields={"current": f"{current_nodata_val}"},
                 )
-            elif self._tiff_type == "Imagery" and current_nodata_val != 255:
+            elif self._tiff_type == FileTiffType.IMAGERY and current_nodata_val != 255:
                 self.add_error(
                     error_type=FileTiffErrorType.NO_DATA,
                     error_message="noDataValue is not 255",
