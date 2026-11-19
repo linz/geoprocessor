@@ -1185,38 +1185,22 @@ def test_data_type_uint8_omitted_from_stac() -> None:
     assert "data_type" not in collection.stac, "uint8 should be omitted from STAC"
 
 
-def test_data_type_uint16_included_in_stac() -> None:
-    """Verify that uint16 is included in STAC JSON output for near-infrared imagery."""
-    context = CollectionContext(
-        category="near-infrared-aerial-photos",
-        domain="land",
-        region="hawkes-bay",
-        gsd=Decimal("1.0"),
-        data_type=DataType.UINT16,
-        lifecycle="completed",
-        linz_slug=fake_linz_slug(),
-    )
-    collection = ImageryCollection(context, any_epoch_datetime_string(), any_epoch_datetime_string())
+def test_data_type_uint16_included_in_stac(subtests: SubTests) -> None:
+    """Verify that uint16 is included in STAC JSON output for categories that stay 16-bit."""
+    for category, domain in [("near-infrared-aerial-photos", "land"), ("intensity", "coastal")]:
+        with subtests.test(msg=category):
+            context = CollectionContext(
+                category=category,
+                domain=domain,
+                region="hawkes-bay",
+                gsd=Decimal("1.0"),
+                data_type=DataType.UINT16,
+                lifecycle="completed",
+                linz_slug=fake_linz_slug(),
+            )
+            collection = ImageryCollection(context, any_epoch_datetime_string(), any_epoch_datetime_string())
 
-    assert collection.stac["data_type"] == "uint16", "uint16 should be included in STAC JSON"
-
-
-def test_data_type_uint16_included_in_stac_for_intensity() -> None:
-    """Verify that uint16 is included in STAC JSON output for intensity rasters."""
-    context = CollectionContext(
-        category="intensity",
-        domain="coastal",
-        region="bay-of-plenty",
-        geographic_description="Tauranga",
-        lifecycle="completed",
-        linz_slug=fake_linz_slug(),
-        gsd=Decimal("2"),
-        data_type=DataType.UINT16,
-        collection_id="a-random-collection-id",
-    )
-    collection = ImageryCollection(context, any_epoch_datetime_string(), any_epoch_datetime_string())
-
-    assert collection.stac["data_type"] == "uint16", "uint16 should be included in STAC JSON for intensity"
+            assert collection.stac["data_type"] == "uint16"
 
 
 def test_data_type_float32_omitted_from_stac() -> None:
