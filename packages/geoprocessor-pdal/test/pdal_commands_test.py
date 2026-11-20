@@ -130,6 +130,18 @@ def test_get_merge_copc_pipeline_rejects_no_input_files() -> None:
         get_merge_copc_pipeline([], "merged.copc.laz")
 
 
+@pytest.mark.parametrize(
+    "input_files, output_file",
+    [(["a.laz", "s3://bucket/b.laz"], "merged.copc.laz"), (["a.laz"], "s3://bucket/merged.copc.laz")],
+)
+def test_get_merge_copc_pipeline_rejects_s3_paths(input_files: list[str], output_file: str) -> None:
+    """
+    tests that S3 paths, which PDAL would receive untouched, raise a clear error instead
+    """
+    with pytest.raises(ValueError, match="must be local.*s3://bucket/"):
+        get_merge_copc_pipeline(input_files, output_file)
+
+
 def test_pdal_merge_copc_runs_the_pipeline_as_json() -> None:
     """
     tests that the pipeline is written to a JSON file and passed to `pdal pipeline`

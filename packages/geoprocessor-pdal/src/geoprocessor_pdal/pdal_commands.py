@@ -117,13 +117,16 @@ def get_merge_copc_pipeline(input_files: list[str], output_file: str, collection
         collection_id: ULID of the STAC collection, written to the LAS header as the Project ID. Defaults to None.
 
     Raises:
-        ValueError: if there are no input files
+        ValueError: if there are no input files, or if any path is on S3
 
     Returns:
         the pipeline, ready to be written as JSON
     """
     if not input_files:
         raise ValueError("At least one input file is needed to merge")
+    # `run_pdal` only moves the pipeline file to and from S3; the paths inside it go to PDAL as they are.
+    if s3_paths := [path for path in [*input_files, output_file] if is_s3(path)]:
+        raise ValueError(f"Merge paths must be local, download from and upload to S3 around the merge: {s3_paths}")
 
     writer: dict[str, str] = {"type": "writers.copc", "filename": output_file, **COPC_WRITER_OPTIONS}
     if collection_id:
