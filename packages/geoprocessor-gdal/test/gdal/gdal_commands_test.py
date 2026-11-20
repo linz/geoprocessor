@@ -331,11 +331,11 @@ def test_preset_intensity_zstd(subtests: SubTests) -> None:
         CompressionPreset.INTENSITY_ZSTD.value, epsg=EpsgNumber.NZTM_2000, data_type=DataType.UINT16.value
     )
 
-    for option in ["compress=zstd", "level=17", "predictor=2", "overview_compress=zstd", "bigtiff=yes"]:
+    for option in ["compress=zstd", "level=17", "predictor=2", "overview_compress=zstd", "bigtiff=no"]:
         with subtests.test(msg=f"{option} is set"):
             assert option in gdal_command
 
-    for option in ["-scale", "Byte", "-a_nodata", "compress=webp", "compress=lerc", "bigtiff=no"]:
+    for option in ["-scale", "Byte", "-a_nodata", "compress=webp", "compress=lerc", "bigtiff=yes"]:
         with subtests.test(msg=f"{option} is not set"):
             assert option not in gdal_command
 
