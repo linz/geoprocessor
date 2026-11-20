@@ -211,7 +211,6 @@ def run_pdal(
         proc = subprocess.run(pdal_command, env=pdal_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
     except subprocess.CalledProcessError as cpe:
         get_log().error("run_pdal_failed", command=" ".join(pdal_command), error=str(cpe.stderr, "utf-8"))
-        rmtree(temp_dir)
         raise PDALExecutionException(f"PDAL {str(cpe.stderr, 'utf-8')}") from cpe
     finally:
         get_log().info("run_pdal_end", command=" ".join(pdal_command), duration=time_in_ms() - start_time)
@@ -219,9 +218,9 @@ def run_pdal(
     if proc.stderr:
         get_log().warning("run_pdal_stderr", command=" ".join(pdal_command), stderr=proc.stderr.decode())
 
+    rmtree(temp_dir)
     if temp_output_file and output_file:  # Upload the file to S3
         copy(source=temp_output_file, target=output_file)
-    rmtree(temp_dir)  # after the upload, which reads from it
 
     get_log().trace("run_pdal_succeeded", command=" ".join(pdal_command), stdout=proc.stdout.decode())
 

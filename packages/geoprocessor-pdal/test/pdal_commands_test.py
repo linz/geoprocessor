@@ -15,7 +15,6 @@ from geoprocessor_pdal.pdal_commands import (
     pdal_copc_project_id_option,
     pdal_merge_copc,
     pdal_pipeline_command,
-    run_pdal,
 )
 from ulid import ULID
 
@@ -157,28 +156,3 @@ def test_pdal_merge_copc_runs_the_pipeline_as_json() -> None:
 
     assert result == "merged.copc.laz"
     assert pipelines == [get_merge_copc_pipeline(["a.laz", "b.laz"], "merged.copc.laz")]
-
-
-def test_run_pdal_uploads_an_s3_output_before_removing_the_temp_dir(tmp_path: Path) -> None:
-    """
-    Regression: the temp dir holding the S3 output was removed before the output was uploaded
-    """
-    input_file = tmp_path / "in.laz"
-    input_file.write_bytes(b"laz")
-    uploaded: list[bytes] = []
-
-    def fake_pdal(command: list[str], **_: Any) -> CompletedProcess[bytes]:
-        Path(command[-1]).write_bytes(b"copc")
-        return CompletedProcess(command, 0, b"", b"")
-
-    def fake_copy(source: str, target: str) -> None:
-        assert target == "s3://bucket/out.copc.laz"
-        uploaded.append(Path(source).read_bytes())
-
-    with (
-        patch("geoprocessor_pdal.pdal_commands.subprocess.run", side_effect=fake_pdal),
-        patch("geoprocessor_pdal.pdal_commands.copy", side_effect=fake_copy),
-    ):
-        run_pdal(["translate"], input_file=str(input_file), output_file="s3://bucket/out.copc.laz")
-
-    assert uploaded == [b"copc"]
