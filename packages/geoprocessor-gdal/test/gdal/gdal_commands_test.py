@@ -158,6 +158,7 @@ def test_rescale_range_is_rejected_without_rescaling(subtests: SubTests) -> None
         (CompressionPreset.WEBP, DataType.UINT8),
         (CompressionPreset.RGBNIR_ZSTD, DataType.UINT16),
         (CompressionPreset.LZW, DataType.UINT8),
+        (CompressionPreset.INTENSITY_ZSTD, DataType.UINT16),
     ]:
         with subtests.test(msg=f"{preset.value} {data_type.value}"):
             with raises(ValueError, match="only supported when rescaling to 8-bit"):
@@ -323,6 +324,20 @@ def test_preset_dem_lerc(subtests: SubTests) -> None:
 
     with subtests.test():
         assert f"EPSG:{EpsgNumber.NZTM_2000.value}" in gdal_command
+
+
+def test_preset_intensity_zstd(subtests: SubTests) -> None:
+    gdal_command = get_gdal_command(
+        CompressionPreset.INTENSITY_ZSTD.value, epsg=EpsgNumber.NZTM_2000, data_type=DataType.UINT16.value
+    )
+
+    for option in ["compress=zstd", "level=17", "predictor=2", "overview_compress=zstd", "bigtiff=no"]:
+        with subtests.test(msg=f"{option} is set"):
+            assert option in gdal_command
+
+    for option in ["-scale", "Byte", "-a_nodata", "compress=webp", "compress=lerc", "bigtiff=yes"]:
+        with subtests.test(msg=f"{option} is not set"):
+            assert option not in gdal_command
 
 
 def test_cutline_params(subtests: SubTests) -> None:

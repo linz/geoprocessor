@@ -6,7 +6,7 @@ from typing import Any
 from urllib.parse import unquote
 
 from geoprocessor_gdal.gdal.gdal_helper import GDALExecutionException, gdal_info, run_gdal
-from geoprocessor_gdal.gdal.gdal_presets import DEFAULT_NO_DATA_VALUE, CompressionPreset
+from geoprocessor_gdal.gdal.gdal_presets import DEFAULT_NO_DATA_VALUE, INTENSITY_NO_DATA_VALUE, CompressionPreset
 from geoprocessor_gdal.gdal.gdalinfo import GdalInfo
 
 
@@ -21,6 +21,10 @@ class FileTiffErrorType(str, Enum):
 class FileTiffType(str, Enum):
     IMAGERY = "Imagery"
     DEM = "DEM"
+    INTENSITY = "Intensity"
+
+
+SINGLE_BAND_TIFF_TYPES = (FileTiffType.DEM, FileTiffType.INTENSITY)
 
 
 class FileTiff:
@@ -57,6 +61,8 @@ class FileTiff:
             CompressionPreset.DEM_ZSTD.value,
         ]:
             self._tiff_type = FileTiffType.DEM
+        elif preset == CompressionPreset.INTENSITY_ZSTD.value:
+            self._tiff_type = FileTiffType.INTENSITY
         else:
             self._tiff_type = FileTiffType.IMAGERY
 
@@ -249,25 +255,49 @@ class FileTiff:
         return False
 
     def check_no_data(self, gdalinfo: GdalInfo) -> None:
-        """Add a Non Visual QA error if there is no "noDataValue" and no alpha band for non-DEMs,
-        or the "noDataValue" is not equal to 255, or -9999 for DEM in the "bands".
+        """Add a Non Visual QA error if the "noDataValue" of the first band is not the expected value
+        for the TIFF type: 255 for imagery (unless an alpha band is present), -9999 for DEM, or 0 for intensity.
+        Intensity also requires a "noDataValue" to be set.
 
         Args:
             gdalinfo: `gdalinfo` output
         """
         bands = gdalinfo["bands"]
-        if self._tiff_type != "DEM" and len(bands) in (4, 5) and bands[-1]["colorInterpretation"] == "Alpha":
+        if (
+            self._tiff_type not in SINGLE_BAND_TIFF_TYPES
+            and len(bands) in (4, 5)
+            and bands[-1]["colorInterpretation"] == "Alpha"
+        ):
+            return
+        if self._tiff_type == FileTiffType.INTENSITY:
+            current_nodata_val = bands[0].get("noDataValue")
+            if current_nodata_val is None:
+                self.add_error(
+                    error_type=FileTiffErrorType.NO_DATA,
+                    error_message="noDataValue is not provided",
+                    custom_fields={"current": "None"},
+                )
+            elif Decimal(current_nodata_val) != INTENSITY_NO_DATA_VALUE:
+                self.add_error(
+                    error_type=FileTiffErrorType.NO_DATA,
+                    error_message=f"noDataValue is not {INTENSITY_NO_DATA_VALUE}",
+                    custom_fields={"current": f"{current_nodata_val}"},
+                )
             return
         if "noDataValue" in bands[0]:
             current_nodata_val = bands[0]["noDataValue"]
             # Convert `gdalinfo -json` no data value string to decimal for numeric comparison
-            if self._tiff_type == "DEM" and current_nodata_val and Decimal(current_nodata_val) != DEFAULT_NO_DATA_VALUE:
+            if (
+                self._tiff_type == FileTiffType.DEM
+                and current_nodata_val is not None
+                and Decimal(current_nodata_val) != DEFAULT_NO_DATA_VALUE
+            ):
                 self.add_error(
                     error_type=FileTiffErrorType.NO_DATA,
                     error_message=f"noDataValue is not {DEFAULT_NO_DATA_VALUE}",
                     custom_fields={"current": f"{current_nodata_val}"},
                 )
-            elif self._tiff_type == "Imagery" and current_nodata_val != 255:
+            elif self._tiff_type == FileTiffType.IMAGERY and current_nodata_val != 255:
                 self.add_error(
                     error_type=FileTiffErrorType.NO_DATA,
                     error_message="noDataValue is not 255",
@@ -290,7 +320,8 @@ class FileTiff:
         return False
 
     def check_band_count(self, gdalinfo: GdalInfo) -> None:
-        """Add a Non Visual QA error if there is not exactly 3, 4 or 5 bands found, or 1 band if DEM.
+        """Add a Non Visual QA error if there is not exactly 3, 4 or 5 bands found for imagery,
+        or 1 band for DEM or intensity.
 
         Args:
             gdalinfo: `gdalinfo` output
@@ -303,7 +334,7 @@ class FileTiff:
         if len(bands) == bands_num + 2:
             if bands[bands_num]["colorInterpretation"] == "NIR" and bands[bands_num + 1]["colorInterpretation"] == "Alpha":
                 bands_num += 2
-        if self._tiff_type == "DEM":
+        if self._tiff_type in SINGLE_BAND_TIFF_TYPES:
             bands_num = 1
         if len(bands) != bands_num:
             self.add_error(
@@ -336,7 +367,7 @@ class FileTiff:
         band_greyscale_ints = {1: "Gray", 2: "Gray", 3: "Gray"}
         band_rgbn_ints = {1: "Red", 2: "Green", 3: "Blue", 4: "NIR", 5: "Alpha"}
         optional_colour_ints = {4: "Alpha"}
-        if self._tiff_type == "DEM":
+        if self._tiff_type in SINGLE_BAND_TIFF_TYPES:
             band_colour_ints = {1: "Gray"}
         if len(bands) == 5 and bands[3]["colorInterpretation"] == "NIR":
             n = 1
