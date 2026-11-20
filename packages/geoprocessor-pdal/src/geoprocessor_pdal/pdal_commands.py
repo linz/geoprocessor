@@ -1,8 +1,10 @@
+import json
 import os
 import subprocess
 from functools import cache
 from shutil import rmtree
-from tempfile import mkdtemp
+from tempfile import TemporaryDirectory, mkdtemp
+from typing import Any
 
 from geoprocessor_common.aws.aws_helper import is_s3
 from geoprocessor_common.epsg import EpsgNumber
@@ -72,27 +74,89 @@ pdal_translate_add_proj_command = get_pdal_command(
 )
 
 
+def collection_id_to_project_id(collection_id: str) -> str:
+    """The collection ULID as the UUID that `writers.copc.project_id` takes."""
+    return str(ULID.from_str(collection_id).to_uuid())
+
+
 def pdal_copc_project_id_option(collection_id: str) -> str:
     """`writers.copc.project_id` option using the collection ULID as a UUID."""
-    return f"--writers.copc.project_id={ULID.from_str(collection_id).to_uuid()}"
+    return f"--writers.copc.project_id={collection_id_to_project_id(collection_id)}"
 
 
+# `writers.copc` options shared by the translate command and the merge pipeline.
 # `forward` keeps the global encoding (GPS time type), scale, offset and VLRs of the input file. The other header
 # fields describe the reprocessed file: `filesource_id` and `system_id` are set here, `project_id` comes from
-# `pdal_copc_project_id_option`, and `software_id` and the creation date are left to the writer.
+# `collection_id_to_project_id`, and `software_id` and the creation date are left to the writer.
 # `a_srs` replaces the CRS of the input file, which may be malformed (see `pdal_translate_add_proj_command`), without
 # reprojecting.
+COPC_WRITER_OPTIONS: dict[str, str] = {
+    "forward": "global_encoding,scale,offset,vlr",
+    "filesource_id": "0",
+    "extra_dims": "all",
+    "system_id": "TRANSFORMATION",
+    "a_srs": f"EPSG:{EpsgNumber.NZTM_2000}+{EpsgNumber.NZVD_2016}",
+}
+
 pdal_translate_copc_command = get_pdal_command(
     "translate",
-    [
-        "--writer=writers.copc",
-        "--writers.copc.forward=global_encoding,scale,offset,vlr",
-        "--writers.copc.filesource_id=0",
-        "--writers.copc.extra_dims=all",
-        "--writers.copc.system_id=TRANSFORMATION",
-        f"--writers.copc.a_srs=EPSG:{EpsgNumber.NZTM_2000}+{EpsgNumber.NZVD_2016}",
-    ],
+    ["--writer=writers.copc", *(f"--writers.copc.{k}={v}" for k, v in COPC_WRITER_OPTIONS.items())],
 )
+
+pdal_pipeline_command = get_pdal_command("pipeline", [])
+
+
+def get_merge_copc_pipeline(input_files: list[str], output_file: str, collection_id: str | None = None) -> list[Any]:
+    """Build a PDAL pipeline that merges LAS/LAZ/COPC files into one COPC file.
+
+    PDAL merges every reader that feeds a writer, so the pipeline is the input files followed by the COPC writer.
+
+    Args:
+        input_files: local paths of the files to merge
+        output_file: local path of the COPC file to write
+        collection_id: ULID of the STAC collection, written to the LAS header as the Project ID. Defaults to None.
+
+    Raises:
+        ValueError: if there are no input files, or if any path is on S3
+
+    Returns:
+        the pipeline, ready to be written as JSON
+    """
+    if not input_files:
+        raise ValueError("At least one input file is needed to merge")
+    # `run_pdal` only moves the pipeline file to and from S3; the paths inside it go to PDAL as they are.
+    if s3_paths := [path for path in [*input_files, output_file] if is_s3(path)]:
+        raise ValueError(f"Merge paths must be local, download from and upload to S3 around the merge: {s3_paths}")
+
+    writer: dict[str, str] = {"type": "writers.copc", "filename": output_file, **COPC_WRITER_OPTIONS}
+    if collection_id:
+        writer["project_id"] = collection_id_to_project_id(collection_id)
+
+    return [*input_files, writer]
+
+
+def pdal_merge_copc(input_files: list[str], output_file: str, collection_id: str | None = None) -> str:
+    """Merge local LAS/LAZ/COPC files into one local COPC file.
+
+    Args:
+        input_files: local paths of the files to merge
+        output_file: local path of the COPC file to write
+        collection_id: ULID of the STAC collection, written to the LAS header as the Project ID. Defaults to None.
+
+    Returns:
+        the path of the merged COPC file
+    """
+    pipeline = get_merge_copc_pipeline(input_files, output_file, collection_id)
+
+    with TemporaryDirectory() as tmp_path:
+        pipeline_file = os.path.join(tmp_path, "merge_copc.json")
+        with open(pipeline_file, "w", encoding="utf-8") as file:
+            json.dump(pipeline, file)
+        get_log().info("pdal_merge_copc", inputFileCount=len(input_files), output=output_file)
+        run_pdal(pdal_pipeline_command, input_file=pipeline_file)
+
+    return output_file
+
 
 pdal_info_command = get_pdal_command(
     "info",
