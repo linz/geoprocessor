@@ -84,25 +84,12 @@ def pdal_copc_project_id_option(collection_id: str) -> str:
     return f"--writers.copc.project_id={collection_id_to_project_id(collection_id)}"
 
 
+# `writers.copc` options shared by the translate command and the merge pipeline.
 # `forward` keeps the global encoding (GPS time type), scale, offset and VLRs of the input file. The other header
 # fields describe the reprocessed file: `filesource_id` and `system_id` are set here, `project_id` comes from
-# `pdal_copc_project_id_option`, and `software_id` and the creation date are left to the writer.
+# `collection_id_to_project_id`, and `software_id` and the creation date are left to the writer.
 # `a_srs` replaces the CRS of the input file, which may be malformed (see `pdal_translate_add_proj_command`), without
 # reprojecting.
-pdal_translate_copc_command = get_pdal_command(
-    "translate",
-    [
-        "--writer=writers.copc",
-        "--writers.copc.forward=global_encoding,scale,offset,vlr",
-        "--writers.copc.filesource_id=0",
-        "--writers.copc.extra_dims=all",
-        "--writers.copc.system_id=TRANSFORMATION",
-        f"--writers.copc.a_srs=EPSG:{EpsgNumber.NZTM_2000}+{EpsgNumber.NZVD_2016}",
-    ],
-)
-
-# The same `writers.copc` options as `pdal_translate_copc_command`, for the merge pipeline.
-# A test checks that the two stay the same.
 COPC_WRITER_OPTIONS: dict[str, str] = {
     "forward": "global_encoding,scale,offset,vlr",
     "filesource_id": "0",
@@ -110,6 +97,11 @@ COPC_WRITER_OPTIONS: dict[str, str] = {
     "system_id": "TRANSFORMATION",
     "a_srs": f"EPSG:{EpsgNumber.NZTM_2000}+{EpsgNumber.NZVD_2016}",
 }
+
+pdal_translate_copc_command = get_pdal_command(
+    "translate",
+    ["--writer=writers.copc", *(f"--writers.copc.{k}={v}" for k, v in COPC_WRITER_OPTIONS.items())],
+)
 
 pdal_pipeline_command = get_pdal_command("pipeline", [])
 

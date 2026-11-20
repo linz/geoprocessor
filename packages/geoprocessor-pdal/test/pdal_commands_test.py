@@ -15,7 +15,6 @@ from geoprocessor_pdal.pdal_commands import (
     pdal_copc_project_id_option,
     pdal_merge_copc,
     pdal_pipeline_command,
-    pdal_translate_copc_command,
     run_pdal,
 )
 from ulid import ULID
@@ -108,17 +107,6 @@ def test_pdal_copc_project_id_option_rejects_a_collection_id_of_the_wrong_length
     """
     with pytest.raises(ValueError, match="26 characters"):
         pdal_copc_project_id_option("01HQRJ4ESMVNAKX9T6E9Y0F5Z")
-
-
-def test_pdal_translate_copc_command_uses_the_shared_writer_options() -> None:
-    """
-    tests that translate and merge write COPC files with the same header options
-    """
-    assert pdal_translate_copc_command == [
-        "translate",
-        "--writer=writers.copc",
-        *(f"--writers.copc.{key}={value}" for key, value in COPC_WRITER_OPTIONS.items()),
-    ]
 
 
 def test_get_merge_copc_pipeline_reads_every_input_then_writes_one_copc_file() -> None:
