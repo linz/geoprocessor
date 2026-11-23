@@ -8,3 +8,8 @@ __pycache__
 Thumbs.db
 /.venv
 /.vscode
+
+.claude/
+CLAUDE.local.md
+.DS_Store
+.env

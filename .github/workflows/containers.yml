@@ -32,9 +32,10 @@ jobs:
       IMAGE: local-${{ matrix.container }}
     steps:
       - name: Checkout
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup GIT version
         id: version
@@ -45,18 +46,18 @@ jobs:
           { echo "version=${GIT_VERSION}"; echo "version_major=${GIT_VERSION_MAJOR}"; echo "version_major_minor=${GIT_VERSION_MAJOR_MINOR}"; } >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@885d1462b80bc1c1c7f0b00334ad271f09369c55 # v2
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Docker meta
         id: meta
-        uses: docker/metadata-action@818d4b7b91585d195f67373fd9cb0332e31a7175 # v4
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ github.repository }}/${{ matrix.container }}
           labels: |
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
 
       - name: Build container
-        uses: docker/build-push-action@0a97817b6ade9f46837855d676c4cca3a2471fc9 # v4
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: Dockerfile.${{ matrix.container }}
@@ -71,23 +72,20 @@ jobs:
             GITHUB_RUN_ID=${{ github.run_id }}
 
       - name: End to end tests
-        run: ./e2e/${{ matrix.container }}.sh "$IMAGE" "${{ runner.temp }}"
+        run: ./e2e/${{ matrix.container }}.sh "$IMAGE" "${{ runner.temp }}/e2e"
 
       - name: Keep the output of a failed test run
-        uses: actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
           name: ${{ matrix.container }}-e2e-output
-          path: |
-            ${{ runner.temp }}/**/*.tiff
-            ${{ runner.temp }}/**/*.geojson
-            ${{ runner.temp }}/*.log
+          path: ${{ runner.temp }}/e2e
           retention-days: 7
           if-no-files-found: ignore
 
       - name: Login to GitHub Container Registry
         if: ${{ inputs.publish != '' }}
-        uses: docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc # v2
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -95,7 +93,7 @@ jobs:
 
       - name: Configure AWS Credentials
         if: ${{ inputs.publish != '' && env.AWS_CI_ROLE != '' }}
-        uses: aws-actions/configure-aws-credentials@5fd3084fc36e372ff1fff382a39b10d03659f355 # v2
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           aws-region: ap-southeast-2
           mask-aws-account-id: true
@@ -104,7 +102,7 @@ jobs:
       - name: Login to Amazon ECR
         id: login-ecr
         if: ${{ inputs.publish != '' && env.AWS_CI_ROLE != '' }}
-        uses: aws-actions/amazon-ecr-login@2fc7aceee09e9e4a7105c0d060c656fad0b4f63d # v1
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
 
       - name: Push the tested image
         if: ${{ inputs.publish != '' }}

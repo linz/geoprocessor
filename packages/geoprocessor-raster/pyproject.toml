@@ -1,21 +1,23 @@
 [build-system]
-requires = ["uv_build>=0.11.14,<0.13.0"]
+requires = ["uv_build>=0.11.14,<0.14.0"]
 build-backend = "uv_build"
 
 [project]
 name = "geoprocessor-raster"
-version = "1.1.0"
+version = "2.0.0"
 description = "Command line tools for raster (GDAL) LINZ geoprocessor workflows"
-requires-python = "~=3.12.3"
+requires-python = "~=3.15.2"
 dependencies = [
     "geoprocessor-common",
     "geoprocessor-gdal",
     "geoprocessor-stac",
-    "linz-logger",
+    "linz-logger>=0.13.1",
+    "numpy",
 ]
 
 [project.scripts]
 collection-from-items = "geoprocessor_raster.collection_from_items:main"
+compute-scale = "geoprocessor_raster.compute_scale:main"
 generate-hillshade = "geoprocessor_raster.generate_hillshade:main"
 standardise-validate = "geoprocessor_raster.standardise_validate:main"
 thumbnails = "geoprocessor_raster.thumbnails:main"

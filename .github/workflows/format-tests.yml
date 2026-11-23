@@ -1,23 +1,22 @@
 name: Format and Tests
 on:
   push:
-  pull_request:
-    branches:
-      - master
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          python-version: "3.12.3"
+          persist-credentials: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.6" # keep in sync with the uv image in Dockerfile.*
+          python-version: "3.15.2"
       - name: Sync uv
         run: |
-          uv sync --frozen --no-install-project
+          uv sync --locked --no-install-project
       - name: Format
         run: |
           uv run pre-commit run --all-files
@@ -40,3 +39,11 @@ jobs:
     secrets: inherit
     with:
       publish: ${{ (github.ref == 'refs/heads/master' && !startsWith(github.event.head_commit.message, 'release:')) && 'commit' || '' }}
+
+  ci-ok:
+    if: always()
+    needs: [build, containers]
+    runs-on: ubuntu-latest
+    steps:
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1

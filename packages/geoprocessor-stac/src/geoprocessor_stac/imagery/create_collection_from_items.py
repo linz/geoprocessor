@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING
 from boto3 import client
 from geoprocessor_common.cli.cli_helper import get_geometry_from_geojson_feature, get_non_empty_features
 from geoprocessor_common.files.files_helper import SUFFIX_FOOTPRINT, SUFFIX_JSON
-from geoprocessor_common.files.fs_s3 import bucket_name_from_path, get_object_parallel_multithreading, list_files_in_uri, read
+from geoprocessor_common.files.fs import list_file_names
+from geoprocessor_common.files.fs_s3 import bucket_name_from_path, get_object_parallel_multithreading, prefix_from_path, read
 from geoprocessor_common.log.time_helper import time_in_ms
 from geoprocessor_stac.imagery.collection import CAPTURE_DATES_FILE_NAME, COLLECTION_FILE_NAME, ImageryCollection
 from geoprocessor_stac.imagery.collection_context import CollectionContext
@@ -64,7 +65,12 @@ def create_collection_from_items(
 
     s3_client: S3Client = client("s3")
 
-    files_to_read = list_files_in_uri(uri, [SUFFIX_JSON, SUFFIX_FOOTPRINT], s3_client)
+    files_to_read = [
+        os.path.join(prefix_from_path(uri), name)
+        for name in list_file_names(uri, recursive=True)
+        if name.endswith((SUFFIX_JSON, SUFFIX_FOOTPRINT))
+    ]
+    get_log().info("Files Listed", number_of_files=len(files_to_read))
 
     items_to_add = []
     polygons = []
@@ -77,9 +83,8 @@ def create_collection_from_items(
 
     for key, result in get_object_parallel_multithreading(bucket_name_from_path(uri), files_to_read, s3_client, concurrency):
         content = json.load(result["Body"])
-        # The following if/else looks like it could be avoided by refactoring `list_files_in_uri()`
-        # to return a result list per suffix, but we would have to call `get_object_parallel_multithreading()`
-        # for each of them to avoid this if/else.
+        # The following if/else looks like it could be avoided by listing each suffix separately,
+        # but we would have to call `get_object_parallel_multithreading()` for each of them to avoid this if/else.
         if key.endswith(SUFFIX_JSON):
             if content["type"] != "Feature":
                 get_log().warn(

@@ -1,14 +1,20 @@
 from decimal import Decimal
+from pathlib import Path
+from unittest.mock import patch
 
+from fake_gdalinfo import fake_gdalinfo
 from geoprocessor_common.data_type import DataType
 from geoprocessor_common.epsg import EpsgNumber
 from geoprocessor_gdal.gdal.gdal_presets import CompressionPreset
-from geoprocessor_gdal.standardising import StandardisingConfig
-from pytest import raises
+from geoprocessor_gdal.rescale_range import RescaleRange
+from geoprocessor_gdal.standardising import StandardisingConfig, apply_gdal_transformation
+from pytest import CaptureFixture, raises
 from pytest_subtests import SubTests
 
 
-def standardising_config(preset: str, data_type: str) -> StandardisingConfig:
+def standardising_config(
+    preset: str, data_type: str, rescale_range: RescaleRange | None = None, rescale_gamma: float = 1.0
+) -> StandardisingConfig:
     return StandardisingConfig(
         gdal_preset=preset,
         source_epsg=EpsgNumber.NZTM_2000.value,
@@ -18,6 +24,8 @@ def standardising_config(preset: str, data_type: str) -> StandardisingConfig:
         simplify_footprints=False,
         cutline=None,
         data_type=data_type,
+        rescale_range=rescale_range,
+        rescale_gamma=rescale_gamma,
     )
 
 
@@ -63,3 +71,38 @@ def test_config_rejects_uint16_for_presets_other_than_rgbnir_or_webp(subtests: S
 def test_config_rejects_unknown_data_type() -> None:
     with raises(ValueError, match="Unsupported data type: int16"):
         standardising_config(CompressionPreset.RGBNIR_ZSTD.value, "int16")
+
+
+def test_config_warns_about_the_full_range_without_rescale_range(subtests: SubTests, capsys: CaptureFixture[str]) -> None:
+    """uint16 webp without a rescale range warns that it falls back to the full range."""
+    webp_uint16 = (CompressionPreset.WEBP.value, DataType.UINT16.value)
+
+    with subtests.test(msg="no warning with a rescale range"):
+        standardising_config(*webp_uint16, RescaleRange.parse("301,4012"), 1.3)
+        assert "webp_rescale_full_range" not in capsys.readouterr().out
+
+    with subtests.test(msg="warns about the full range without a rescale range"):
+        standardising_config(*webp_uint16)
+        assert "webp_rescale_full_range" in capsys.readouterr().out
+
+
+def test_apply_gdal_transformation_rescales_each_output_band(tmp_path: Path) -> None:
+    """Standardising passes the rescale range and gamma for the colour bands and the full range for alpha."""
+    config = standardising_config(CompressionPreset.WEBP.value, DataType.UINT16.value, RescaleRange.parse("301,4012"), 1.3)
+
+    with (
+        patch("geoprocessor_gdal.standardising.gdal_info", return_value=fake_gdalinfo()),
+        patch(
+            "geoprocessor_gdal.standardising.get_gdal_band_offset", return_value=["-b", "1", "-b", "2", "-b", "3", "-b", "4"]
+        ),
+        patch("geoprocessor_gdal.standardising.run_gdal") as run_gdal,
+    ):
+        apply_gdal_transformation("input.vrt", config, str(tmp_path), tile_name="CE16_5000_1001")
+
+    command = run_gdal.call_args.args[0]
+    assert command[command.index("-scale_3") : command.index("-scale_3") + 3] == ["-scale_3", "301", "4012"]
+    assert command[command.index("-exponent_3") : command.index("-exponent_3") + 2] == ["-exponent_3", "0.769231"]
+    assert command[command.index("-scale_4") : command.index("-scale_4") + 3] == ["-scale_4", "0", "65535"]
+    assert "-exponent_4" not in command
+    assert "LINZ_RESCALE_RANGE=301,4012" in command
+    assert "LINZ_RESCALE_GAMMA=1.3" in command

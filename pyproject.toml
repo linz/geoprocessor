@@ -1,10 +1,10 @@
 [build-system]
-requires = ["uv_build>=0.11.14,<0.13.0"]
+requires = ["uv_build>=0.11.14,<0.14.0"]
 build-backend = "uv_build"
 
 [project]
 name = "geoprocessor"
-version = "10.1.0"
+version = "11.0.0"
 description = "A collection of scripts for processing geospatial datasets"
 authors = [
     { name = "Blayne Chard", email = "bchard@linz.govt.nz" },
@@ -13,19 +13,18 @@ authors = [
     { name = "Sheetal Poudel", email = "spoudel@linz.govt.nz" },
     { name = "Tobias Schmidt", email = "tschmidt@linz.govt.nz" },
 ]
-requires-python = "~=3.12.3"
+requires-python = "~=3.15.2"
 dependencies = [
     "boto3",
     "geoprocessor-pointcloud",
     "geoprocessor-raster",
-    "linz-logger",
+    "linz-logger>=0.13.1",
     "shapely>=2.0",
 ]
 
 [dependency-groups]
 dev = [
     "black",
-    "gitlint",
     "isort",
     "moto>=4.2",
     "mypy",
@@ -50,6 +49,8 @@ pythonpath = [
 ]
 
 [tool.uv]
+# Minimum only: Dependabot runs its own bundled uv and refuses exact pins; CI pins uv in format-tests.yml
+required-version = ">=0.13.5"
 package = false
 default-groups = "all"
 

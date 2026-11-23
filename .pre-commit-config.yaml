@@ -8,16 +8,9 @@ repos:
         name: black
         entry: black
         language: system
-        args: [--target-version=py312]
+        args: [--target-version=py315]
         stages: [pre-commit]
         types: [python]
-
-      - id: gitlint
-        name: gitlint
-        entry: gitlint
-        args: [--msg-filename]
-        language: system
-        stages: [commit-msg]
 
       - id: isort
         name: isort

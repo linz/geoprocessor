@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.0.0](https://github.com/linz/geoprocessor/compare/geoprocessor-gdal-v0.3.0...geoprocessor-gdal-v1.0.0) (2026-11-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* Python 3.15 and GDAL 3.13.3 from LINZ base images TDE-2176 ([#1734](https://github.com/linz/geoprocessor/issues/1734))
+
+### Features
+
+* Python 3.15 and GDAL 3.13.3 from LINZ base images TDE-2176 ([#1734](https://github.com/linz/geoprocessor/issues/1734)) ([40837ff](https://github.com/linz/geoprocessor/commit/40837ffd333bc190e63c72831092680ad3d788f4))
+
+## [0.3.0](https://github.com/linz/geoprocessor/compare/geoprocessor-gdal-v0.2.0...geoprocessor-gdal-v0.3.0) (2026-11-04)
+
+
+### Features
+
+* rescale 16-bit webp with a source range and gamma TDE-2199 ([#1731](https://github.com/linz/geoprocessor/issues/1731)) ([4dbf695](https://github.com/linz/geoprocessor/commit/4dbf6954d5fd6caa52c7090b694a51e563d8c91b))
+* scale 16-bit sources to 8-bit using dataset percentiles TDE-2075 ([#1710](https://github.com/linz/geoprocessor/issues/1710)) ([5a9c848](https://github.com/linz/geoprocessor/commit/5a9c84874830775d7d6b4d155e63e841ae86df98))
+
 ## [0.2.0](https://github.com/linz/geoprocessor/compare/geoprocessor-gdal-v0.1.3...geoprocessor-gdal-v0.2.0) (2026-10-13)
 
 

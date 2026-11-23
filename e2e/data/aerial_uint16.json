@@ -1,0 +1,6 @@
+[
+  {
+    "output": "BG35_1000_4829",
+    "input": ["./tests/data/input_aerial_uint16.tif"]
+  }
+]
