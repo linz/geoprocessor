@@ -446,7 +446,6 @@ source = { editable = "packages/geoprocessor-pdal" }
 dependencies = [
     { name = "geoprocessor-common" },
     { name = "linz-logger" },
-    { name = "python-ulid" },
 ]
 
 [package.dev-dependencies]
@@ -460,7 +459,6 @@ dev = [
 requires-dist = [
     { name = "geoprocessor-common", editable = "packages/geoprocessor-common" },
     { name = "linz-logger", specifier = ">=0.13.1" },
-    { name = "python-ulid" },
 ]
 
 [package.metadata.requires-dev]

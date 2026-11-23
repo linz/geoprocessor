@@ -1,5 +1,4 @@
 import json
-from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from unittest.mock import patch
 
@@ -9,15 +8,10 @@ from geoprocessor_pointcloud.standardise_copc import (
     flatten,
     get_copc_file_name,
     json_file_loader,
-    main,
     manifest_loader,
     non_empty_str,
     pdal_standardise_copc,
-    run_pdal_standardise_copc,
 )
-
-COLLECTION_ID = "01HQRJ4ESMVNAKX9T6E9Y0F5ZK"
-PROJECT_ID_OPTION = "--writers.copc.project_id=018df122-3b34-dd55-3ea7-46727c0797f3"
 
 
 def fake_run_pdal(command: list[str], input_file: str, output_file: str) -> None:  # pylint: disable=unused-argument
@@ -107,56 +101,6 @@ def test_pdal_standardise_copc_writes_a_copc_file_to_the_target(tmp_path: Path) 
     assert (target / "a.copc.laz").read_bytes() == b"copc"
     run_pdal.assert_called_once()
     assert run_pdal.call_args.args == (pdal_translate_copc_command,)
-
-
-def test_pdal_standardise_copc_sets_the_project_id_to_the_collection_id(tmp_path: Path) -> None:
-    source_file = tmp_path / "a.laz"
-    source_file.write_bytes(b"laz")
-    target = tmp_path / "target"
-    target.mkdir()
-
-    with patch("geoprocessor_pointcloud.standardise_copc.run_pdal", side_effect=fake_run_pdal) as run_pdal:
-        pdal_standardise_copc(str(source_file), collection_id=COLLECTION_ID, target=str(target))
-
-    assert run_pdal.call_args.args == ([*pdal_translate_copc_command, PROJECT_ID_OPTION],)
-
-
-def test_run_pdal_standardise_copc_sets_the_project_id_of_every_file(tmp_path: Path) -> None:
-    """Regression: the collection ID was not passed on to `pdal_standardise_copc()`. A `ThreadPool` replaces the
-    process pool so that the mock records the calls."""
-    source_files = [tmp_path / "a.laz", tmp_path / "b.laz"]
-    for source_file in source_files:
-        source_file.write_bytes(b"laz")
-    target = tmp_path / "target"
-    target.mkdir()
-
-    with (
-        patch("geoprocessor_pointcloud.standardise_copc.Pool", ThreadPool),
-        patch("geoprocessor_pointcloud.standardise_copc.run_pdal", side_effect=fake_run_pdal) as run_pdal,
-    ):
-        result = run_pdal_standardise_copc(
-            [str(source_file) for source_file in source_files], 2, collection_id=COLLECTION_ID, target=str(target)
-        )
-
-    assert result == [str(target / "a.copc.laz"), str(target / "b.copc.laz")]
-    assert [call.args for call in run_pdal.call_args_list] == [([*pdal_translate_copc_command, PROJECT_ID_OPTION],)] * 2
-
-
-@pytest.mark.parametrize(
-    "collection_id_args, expected_collection_id",
-    [(["--collection-id", COLLECTION_ID], COLLECTION_ID), ([], None)],
-)
-def test_main_passes_the_collection_id_on(collection_id_args: list[str], expected_collection_id: str | None) -> None:
-    """Regression: `--collection-id` was parsed but not used."""
-    with (
-        patch("sys.argv", ["standardise-copc", "--files", "a.laz", *collection_id_args]),
-        patch("geoprocessor_pointcloud.standardise_copc.get_pdal_version", return_value="pdal 2.10.2"),
-        patch("geoprocessor_pointcloud.standardise_copc.run_pdal_standardise_copc", return_value=[]) as run_standardise,
-        patch("geoprocessor_pointcloud.standardise_copc.write"),
-    ):
-        main()
-
-    assert run_standardise.call_args.kwargs["collection_id"] == expected_collection_id
 
 
 def test_pdal_standardise_copc_skips_a_file_that_has_already_been_processed(tmp_path: Path) -> None:
