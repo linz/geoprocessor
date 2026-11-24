@@ -78,9 +78,6 @@ def test_get_pdal_version_reports_a_missing_executable() -> None:
             get_pdal_version()
 
 
-
-
-
 def test_get_merge_copc_pipeline_reads_every_input_then_writes_one_copc_file() -> None:
     pipeline = get_merge_copc_pipeline(["a.laz", "b.laz"], "merged.copc.laz")
 
@@ -89,7 +86,6 @@ def test_get_merge_copc_pipeline_reads_every_input_then_writes_one_copc_file() -
         "b.laz",
         {"type": "writers.copc", "filename": "merged.copc.laz", **COPC_WRITER_OPTIONS},
     ]
-
 
 
 def test_get_merge_copc_pipeline_rejects_no_input_files() -> None:
