@@ -8,7 +8,6 @@ from geoprocessor_pointcloud.standardise_copc import (
     flatten,
     get_copc_file_name,
     json_file_loader,
-    manifest_loader,
     non_empty_str,
     pdal_standardise_copc,
 )
@@ -55,27 +54,6 @@ def test_json_file_loader_returns_nothing_for_a_missing_file(tmp_path: Path) -> 
 
 def test_json_file_loader_returns_nothing_for_an_empty_path() -> None:
     assert not json_file_loader("")
-
-
-def test_manifest_loader_returns_the_sources(tmp_path: Path) -> None:
-    manifest = tmp_path / "manifest.json"
-    manifest.write_text(
-        json.dumps({"parameters": {"manifest": [{"source": "a.laz", "target": "x"}, {"source": "b.laz", "target": "y"}]}})
-    )
-
-    assert manifest_loader(str(manifest)) == ["a.laz", "b.laz"]
-
-
-def test_manifest_loader_returns_nothing_for_a_manifest_without_entries(tmp_path: Path) -> None:
-    manifest = tmp_path / "manifest.json"
-    manifest.write_text(json.dumps({"parameters": {}}))
-
-    assert not manifest_loader(str(manifest))
-
-
-def test_manifest_loader_returns_nothing_for_a_missing_file(tmp_path: Path) -> None:
-    """Regression: `read()` raises `NoSuchFileError`, not `FileNotFoundError`."""
-    assert not manifest_loader(str(tmp_path / "absent.json"))
 
 
 def test_get_copc_file_name_replaces_the_extension() -> None:

@@ -38,14 +38,6 @@ def get_args_parser() -> CommonArgumentParser:
         "If provided, this will be processed in addition to other file arguments.",
     )
     parser.add_argument(
-        "--from-manifest",
-        dest="from_manifest",
-        type=manifest_loader,
-        required=False,
-        help="JSON file containing a manifest of files to process. "
-        "If provided, this will be processed in addition to other file arguments.",
-    )
-    parser.add_argument(
         "--files",
         dest="files",
         type=non_empty_str,
@@ -105,23 +97,6 @@ def json_file_loader(path: str) -> list[str]:
         return []
     try:
         return list(flatten(json.loads(read(path))))
-    except NoSuchFileError as e:
-        get_log().error("An error occurred when loading the input file.", error=str(e))
-        return []
-
-
-def manifest_loader(path: str) -> list[str]:
-    """Load a JSON manifest file (compatible with our create-manifest workflow) and return its sources as a list of strings.
-
-    Args: path: path to the manifest file
-    Returns:
-        A list of strings contained in the manifest.
-    """
-    if not path:
-        return []
-    try:
-        manifest = json.loads(read(path))
-        return list(flatten([entry["source"] for entry in manifest.get("parameters", {}).get("manifest", [])]))
     except NoSuchFileError as e:
         get_log().error("An error occurred when loading the input file.", error=str(e))
         return []
@@ -243,7 +218,7 @@ def main() -> None:
     arguments = arguments_parser.parse_args()
 
     input_files: list[str] = []
-    for arg in [arguments.files, arguments.from_file, arguments.from_manifest]:
+    for arg in [arguments.files, arguments.from_file]:
         if arg:
             input_files.extend(arg)
 
