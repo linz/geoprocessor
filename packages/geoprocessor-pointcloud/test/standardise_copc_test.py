@@ -8,7 +8,6 @@ from geoprocessor_pointcloud.standardise_copc import (
     flatten,
     get_copc_file_name,
     json_file_loader,
-    non_empty_str,
     pdal_standardise_copc,
 )
 
@@ -28,16 +27,6 @@ def test_flatten_flattens_nesting_at_any_depth() -> None:
 
 def test_flatten_returns_nothing_for_an_empty_list() -> None:
     assert not list(flatten([]))
-
-
-def test_non_empty_str_wraps_a_value_in_a_list() -> None:
-    assert non_empty_str("a/file.laz") == ["a/file.laz"]
-
-
-def test_non_empty_str_discards_blank_values() -> None:
-    """Argo passes an empty string for an unset parameter, which must not become a file to process."""
-    for blank in ["", " ", "\t\n"]:
-        assert not non_empty_str(blank)
 
 
 def test_json_file_loader_flattens_the_file_it_reads(tmp_path: Path) -> None:
