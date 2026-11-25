@@ -53,16 +53,18 @@ def test_config_allows_float32_for_dem_presets(subtests: SubTests) -> None:
             assert config.data_type == DataType.FLOAT32.value
 
 
-def test_config_rejects_uint16_for_presets_other_than_rgbnir_or_webp(subtests: SubTests) -> None:
+def test_config_rejects_uint16_for_unsupported_presets(subtests: SubTests) -> None:
     for preset in [
-        preset for preset in CompressionPreset if preset not in (CompressionPreset.RGBNIR_ZSTD, CompressionPreset.WEBP)
+        preset
+        for preset in CompressionPreset
+        if preset not in (CompressionPreset.RGBNIR_ZSTD, CompressionPreset.INTENSITY_ZSTD, CompressionPreset.WEBP)
     ]:
         with subtests.test(msg=f"{DataType.UINT16.value} is invalid with {preset.value}"):
             with raises(
                 ValueError,
                 match=(
                     f"is only supported with the {CompressionPreset.RGBNIR_ZSTD.value} or "
-                    f"{CompressionPreset.WEBP.value} presets"
+                    f"{CompressionPreset.INTENSITY_ZSTD.value} or {CompressionPreset.WEBP.value} presets"
                 ),
             ):
                 standardising_config(preset.value, DataType.UINT16.value)

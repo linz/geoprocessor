@@ -144,3 +144,11 @@ def test_gdal_default_rg_missing_b() -> None:
     with raises(RuntimeError) as excinfo:
         get_gdal_band_offset("some_file.tiff", gdalinfo)
     assert "missing_expected_rgb_bands: Blue" in str(excinfo.value)
+
+
+def test_gdal_grey_bands_intensity_detection() -> None:
+    gdalinfo = fake_gdalinfo()
+    add_band(gdalinfo, color_interpretation="Gray")
+
+    bands = get_gdal_band_offset("some_file.tiff", gdalinfo, CompressionPreset.INTENSITY_ZSTD.value)
+    assert " ".join(bands) == "-b 1"
