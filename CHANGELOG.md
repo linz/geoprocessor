@@ -1,5 +1,13 @@
 # Changelog
 
+## [11.1.0](https://github.com/linz/geoprocessor/compare/v11.0.0...v11.1.0) (2026-11-25)
+
+
+### Features
+
+* add intensity STAC category, title, description and data_type TDE-2240 ([#1748](https://github.com/linz/geoprocessor/issues/1748)) ([cb29594](https://github.com/linz/geoprocessor/commit/cb29594190072bfe3229adf7d49500f6127f0ff8))
+* add intensity_zstd preset for 16-bit single-band intensity TDE-2239 ([#1747](https://github.com/linz/geoprocessor/issues/1747)) ([e51d412](https://github.com/linz/geoprocessor/commit/e51d41228453fe4c4afda225c35f5ac6b4cceea0))
+
 ## [11.0.0](https://github.com/linz/geoprocessor/compare/v10.2.0...v11.0.0) (2026-11-17)
 
 
