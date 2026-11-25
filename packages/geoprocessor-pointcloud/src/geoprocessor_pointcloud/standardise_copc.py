@@ -82,8 +82,14 @@ def pdal_standardise_copc(
     force: bool = False,
     source_crs: str | None = None,
 ) -> str:
-    """Merge the LAS/LAZ files of a tile into one COPC file named after the tile, with `source_crs` as its CRS,
-    keeping their header and extra dimensions.
+    """Merge the LAS/LAZ files of a tile into one COPC file (LAS 1.4) named after the tile, replacing their CRS with
+    `source_crs` without reprojecting.
+
+    The COPC file keeps every point of the source files and their extra dimensions. Its header keeps the global encoding
+    (GPS time type), scale and offsets of the source files where they all have the same value (the writer's defaults
+    otherwise), and the VLRs of every source file. The rest of the header describes the COPC file: the system ID is
+    `TRANSFORMATION`, the software ID is the PDAL version, the creation date is the day of the conversion, and the File
+    Source ID and Project ID are unassigned (zero). See `COPC_WRITER_OPTIONS`.
 
     Args:
         tile: the tile name (`output`) and the files to merge into it (`inputs`, S3 or local).
@@ -133,7 +139,8 @@ def pdal_standardise_copc(
             get_log().error(error_message, target=target_file)
             raise PDALExecutionException(error_message)
 
-        copy(source=tmp_file_out, target=target_file)  # copy back to target location (S3 or local)
+        # copy back to target location (S3 or local)
+        copy(source=tmp_file_out, target=target_file, content_type=ContentType.COPC.value)
 
     return target_file
 
