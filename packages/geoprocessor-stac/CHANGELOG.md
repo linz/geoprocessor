@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/linz/geoprocessor/compare/geoprocessor-stac-v2.0.0...geoprocessor-stac-v2.1.0) (2026-11-25)
+
+
+### Features
+
+* add intensity STAC category, title, description and data_type TDE-2240 ([#1748](https://github.com/linz/geoprocessor/issues/1748)) ([cb29594](https://github.com/linz/geoprocessor/commit/cb29594190072bfe3229adf7d49500f6127f0ff8))
+
 ## [2.0.0](https://github.com/linz/geoprocessor/compare/geoprocessor-stac-v1.1.1...geoprocessor-stac-v2.0.0) (2026-11-17)
 
 

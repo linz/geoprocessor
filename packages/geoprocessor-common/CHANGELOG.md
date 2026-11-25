@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/linz/geoprocessor/compare/geoprocessor-common-v1.0.0...geoprocessor-common-v1.1.0) (2026-11-25)
+
+
+### Features
+
+* add intensity_zstd preset for 16-bit single-band intensity TDE-2239 ([#1747](https://github.com/linz/geoprocessor/issues/1747)) ([e51d412](https://github.com/linz/geoprocessor/commit/e51d41228453fe4c4afda225c35f5ac6b4cceea0))
+
 ## [1.0.0](https://github.com/linz/geoprocessor/compare/geoprocessor-common-v0.3.0...geoprocessor-common-v1.0.0) (2026-11-17)
 
 
