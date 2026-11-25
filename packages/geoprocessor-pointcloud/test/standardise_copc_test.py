@@ -1,8 +1,10 @@
+import re
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 from geoprocessor_common.cli.cli_helper import TileFiles
+from geoprocessor_pdal.pdal_commands import PDALExecutionException
 from geoprocessor_pointcloud.standardise_copc import get_args_parser, pdal_standardise_copc
 
 
@@ -121,3 +123,19 @@ def test_pdal_standardise_copc_refuses_to_overwrite_a_source_file_on_s3() -> Non
         )
 
     pdal_merge_copc.assert_not_called()
+
+
+def test_pdal_standardise_copc_raises_when_pdal_writes_no_file(tmp_path: Path) -> None:
+    """`writers.copc` writes nothing when the source files have no points and still exits 0."""
+    source_file = tmp_path / "empty.laz"
+    source_file.write_bytes(b"laz without points")
+    target = tmp_path / "target"
+    target.mkdir()
+
+    with (
+        patch("geoprocessor_pointcloud.standardise_copc.pdal_merge_copc"),
+        pytest.raises(PDALExecutionException, match=re.escape(f"tile, its source files may have no points: {source_file}")),
+    ):
+        pdal_standardise_copc(TileFiles(output="tile", inputs=[str(source_file)]), target=str(target))
+
+    assert not list(target.iterdir())

@@ -11,7 +11,7 @@ from geoprocessor_common.cli.common_args import CommonArgumentParser
 from geoprocessor_common.files.files_helper import ContentType
 from geoprocessor_common.files.fs import copy, exists, write
 from geoprocessor_common.log.time_helper import time_in_ms
-from geoprocessor_pdal.pdal_commands import get_pdal_version, pdal_merge_copc
+from geoprocessor_pdal.pdal_commands import PDALExecutionException, get_pdal_version, pdal_merge_copc
 from linz_logger import get_log
 
 
@@ -93,6 +93,8 @@ def pdal_standardise_copc(
 
     Raises:
         ValueError: if the COPC file would overwrite one of the source files.
+        PDALExecutionException: if PDAL fails, or writes no COPC file, which happens when the source files have no
+            points.
 
     Returns:
         The path of the COPC file, for example `<target>/BY16_5000_0410.copc.laz` for the tile `BY16_5000_0410`.
@@ -123,6 +125,13 @@ def pdal_standardise_copc(
 
         tmp_file_out = os.path.join(tmp_path, copc_file_name)
         pdal_merge_copc(local_inputs, tmp_file_out, source_crs)
+
+        # `writers.copc` writes no file when there are no points ("skipping empty point view") and still exits 0
+        if not os.path.exists(tmp_file_out):
+            source_files = ", ".join(tile.inputs)
+            error_message = f"PDAL wrote no COPC file for {tile.output}, its source files may have no points: {source_files}"
+            get_log().error(error_message, target=target_file)
+            raise PDALExecutionException(error_message)
 
         copy(source=tmp_file_out, target=target_file)  # copy back to target location (S3 or local)
 
