@@ -73,12 +73,12 @@ pdal_translate_add_proj_command = get_pdal_command(
 )
 
 
-# `writers.copc` options shared by the translate command and the merge pipeline.
+# `writers.copc` options shared by the translate command and the merge pipeline, see `get_copc_writer_options()`.
 # `forward` keeps the global encoding (GPS time type), scale, offset and VLRs of the input file. The other header
 # fields describe the reprocessed file: `filesource_id` and `system_id` are set here, and `software_id`, the creation
 # date and `project_id` (all zeros, i.e. unassigned) are left to the writer.
 # `a_srs` replaces the CRS of the input file, which may be malformed (see `pdal_translate_add_proj_command`), without
-# reprojecting.
+# reprojecting. It defaults to NZTM2000 + NZVD2016.
 COPC_WRITER_OPTIONS: dict[str, str] = {
     "forward": "global_encoding,scale,offset,vlr",
     "filesource_id": "0",
@@ -87,15 +87,38 @@ COPC_WRITER_OPTIONS: dict[str, str] = {
     "a_srs": f"EPSG:{EpsgNumber.NZTM_2000}+{EpsgNumber.NZVD_2016}",
 }
 
-pdal_translate_copc_command = get_pdal_command(
-    "translate",
-    ["--writer=writers.copc", *(f"--writers.copc.{k}={v}" for k, v in COPC_WRITER_OPTIONS.items())],
-)
+
+def get_copc_writer_options(crs: str | None = None) -> dict[str, str]:
+    """Get the `writers.copc` options, with `a_srs` set to `crs` if one is given.
+
+    Args:
+        crs: CRS of the source point clouds, e.g. "EPSG:2193+7839". Defaults to `a_srs` in `COPC_WRITER_OPTIONS`.
+
+    Returns:
+        the `writers.copc` options
+    """
+    return {**COPC_WRITER_OPTIONS, "a_srs": crs} if crs else COPC_WRITER_OPTIONS
+
+
+def get_pdal_translate_copc_command(crs: str | None = None) -> list[str]:
+    """Build the `pdal translate` command that converts a LAS/LAZ file to COPC.
+
+    Args:
+        crs: CRS of the source point cloud, e.g. "EPSG:2193+7839". Defaults to `a_srs` in `COPC_WRITER_OPTIONS`.
+
+    Returns:
+        a list of arguments for `pdal`
+    """
+    return get_pdal_command(
+        "translate",
+        ["--writer=writers.copc", *(f"--writers.copc.{k}={v}" for k, v in get_copc_writer_options(crs).items())],
+    )
+
 
 pdal_pipeline_command = get_pdal_command("pipeline", [])
 
 
-def get_merge_copc_pipeline(input_files: list[str], output_file: str) -> list[Any]:
+def get_merge_copc_pipeline(input_files: list[str], output_file: str, crs: str | None = None) -> list[Any]:
     """Build a PDAL pipeline that merges LAS/LAZ/COPC files into one COPC file.
 
     PDAL merges every reader that feeds a writer, so the pipeline is the input files followed by the COPC writer.
@@ -103,6 +126,7 @@ def get_merge_copc_pipeline(input_files: list[str], output_file: str) -> list[An
     Args:
         input_files: local paths of the files to merge
         output_file: local path of the COPC file to write
+        crs: CRS of the source point clouds, e.g. "EPSG:2193+7839". Defaults to `a_srs` in `COPC_WRITER_OPTIONS`.
 
     Raises:
         ValueError: if there are no input files, or if any path is on S3
@@ -116,22 +140,23 @@ def get_merge_copc_pipeline(input_files: list[str], output_file: str) -> list[An
     if s3_paths := [path for path in [*input_files, output_file] if is_s3(path)]:
         raise ValueError(f"Merge paths must be local, download from and upload to S3 around the merge: {s3_paths}")
 
-    writer: dict[str, str] = {"type": "writers.copc", "filename": output_file, **COPC_WRITER_OPTIONS}
+    writer: dict[str, str] = {"type": "writers.copc", "filename": output_file, **get_copc_writer_options(crs)}
 
     return [*input_files, writer]
 
 
-def pdal_merge_copc(input_files: list[str], output_file: str) -> str:
+def pdal_merge_copc(input_files: list[str], output_file: str, crs: str | None = None) -> str:
     """Merge local LAS/LAZ/COPC files into one local COPC file.
 
     Args:
         input_files: local paths of the files to merge
         output_file: local path of the COPC file to write
+        crs: CRS of the source point clouds, e.g. "EPSG:2193+7839". Defaults to `a_srs` in `COPC_WRITER_OPTIONS`.
 
     Returns:
         the path of the merged COPC file
     """
-    pipeline = get_merge_copc_pipeline(input_files, output_file)
+    pipeline = get_merge_copc_pipeline(input_files, output_file, crs)
 
     with TemporaryDirectory() as tmp_path:
         pipeline_file = os.path.join(tmp_path, "merge_copc.json")

@@ -3,7 +3,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from geoprocessor_pdal.pdal_commands import pdal_translate_copc_command
+from geoprocessor_pdal.pdal_commands import get_pdal_translate_copc_command
 from geoprocessor_pointcloud.standardise_copc import (
     flatten,
     get_copc_file_name,
@@ -67,7 +67,19 @@ def test_pdal_standardise_copc_writes_a_copc_file_to_the_target(tmp_path: Path) 
     assert result == str(target / "a.copc.laz")
     assert (target / "a.copc.laz").read_bytes() == b"copc"
     run_pdal.assert_called_once()
-    assert run_pdal.call_args.args == (pdal_translate_copc_command,)
+    assert run_pdal.call_args.args == (get_pdal_translate_copc_command(),)
+
+
+def test_pdal_standardise_copc_assigns_the_given_source_crs(tmp_path: Path) -> None:
+    source_file = tmp_path / "a.laz"
+    source_file.write_bytes(b"laz")
+    target = tmp_path / "target"
+    target.mkdir()
+
+    with patch("geoprocessor_pointcloud.standardise_copc.run_pdal", side_effect=fake_run_pdal) as run_pdal:
+        pdal_standardise_copc(str(source_file), target=str(target), source_crs="EPSG:2193+4440")
+
+    assert run_pdal.call_args.args == (get_pdal_translate_copc_command("EPSG:2193+4440"),)
 
 
 def test_pdal_standardise_copc_skips_a_file_that_has_already_been_processed(tmp_path: Path) -> None:

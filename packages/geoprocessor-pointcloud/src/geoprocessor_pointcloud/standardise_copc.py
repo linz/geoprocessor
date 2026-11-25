@@ -11,8 +11,8 @@ from geoprocessor_common.files.files_helper import ContentType
 from geoprocessor_common.files.fs import NoSuchFileError, copy, exists, read, write
 from geoprocessor_common.log.time_helper import time_in_ms
 from geoprocessor_pdal.pdal_commands import (
+    get_pdal_translate_copc_command,
     get_pdal_version,
-    pdal_translate_copc_command,
     run_pdal,
 )
 from linz_logger import get_log
@@ -42,6 +42,13 @@ def get_args_parser() -> CommonArgumentParser:
         required=False,
         default="/tmp/",
         help="Path where the output files will be saved to. Defaults to '/tmp/'.",
+    )
+    parser.add_argument(
+        "--source-crs",
+        dest="source_crs",
+        required=False,
+        default="",
+        help='CRS of the source point clouds, e.g. "EPSG:2193+7839". Defaults to NZTM2000 + NZVD2016 if empty.',
     )
 
     return parser
@@ -116,13 +123,15 @@ def pdal_standardise_copc(
     source_file: str,
     target: str = "/tmp/",
     force: bool = False,
+    source_crs: str | None = None,
 ) -> str:
-    """Convert a LAS/LAZ file to COPC with a NZTM2000 + NZVD2016 CRS, keeping its header and extra dimensions.
+    """Convert a LAS/LAZ file to COPC with `source_crs` as its CRS, keeping its header and extra dimensions.
 
     Args:
         source_file: /path/to/a/file to process (S3 or local).
         target: path where the output files need to be saved to. Defaults to "/tmp/".
         force: overwrite existing output file. Defaults to False.
+        source_crs: CRS of the source file, e.g. "EPSG:2193+7839". Defaults to NZTM2000 + NZVD2016.
 
     Raises:
         ValueError: if the COPC file would overwrite the source file, which happens when a COPC source file is
@@ -152,7 +161,7 @@ def pdal_standardise_copc(
 
         copy(source=source_file, target=tmp_file_in)
 
-        run_pdal(pdal_translate_copc_command, input_file=tmp_file_in, output_file=tmp_file_out)
+        run_pdal(get_pdal_translate_copc_command(source_crs), input_file=tmp_file_in, output_file=tmp_file_out)
 
         copy(source=tmp_file_out, target=target_file)  # copy back to target location (S3 or local)
 
@@ -164,6 +173,7 @@ def run_pdal_standardise_copc(
     concurrency: int,
     target: str = "/tmp/",
     force: bool = False,
+    source_crs: str | None = None,
 ) -> list[str]:
     """Run `pdal_standardise_copc()` in parallel (see `concurrency`).
 
@@ -172,6 +182,7 @@ def run_pdal_standardise_copc(
         concurrency: number of concurrent files to process
         target: output directory path. Defaults to "/tmp/"
         force: overwrite existing files. Defaults to False.
+        source_crs: CRS of the source files, e.g. "EPSG:2193+7839". Defaults to NZTM2000 + NZVD2016.
 
     Returns:
         the list of COPC file paths, in the same order as `files_to_process`.
@@ -179,7 +190,7 @@ def run_pdal_standardise_copc(
     with Pool(concurrency) as p:
         results = list(
             p.map(
-                partial(pdal_standardise_copc, target=target, force=force),
+                partial(pdal_standardise_copc, target=target, force=force, source_crs=source_crs),
                 files_to_process,
             )
         )
@@ -193,6 +204,7 @@ def main() -> None:
     start_time = time_in_ms()
     arguments_parser = get_args_parser()
     arguments = arguments_parser.parse_args()
+    source_crs = arguments.source_crs.strip() or None
 
     input_files = list(flatten(arguments.from_file))
 
@@ -202,7 +214,9 @@ def main() -> None:
 
     pdal_version = get_pdal_version()
 
-    get_log().info("pdal_standardise_copc_start", pdalVersion=pdal_version, inputFileCount=len(input_files))
+    get_log().info(
+        "pdal_standardise_copc_start", pdalVersion=pdal_version, inputFileCount=len(input_files), sourceCrs=source_crs
+    )
 
     concurrency: int = 1
     if arguments.is_argo:
@@ -213,6 +227,7 @@ def main() -> None:
         concurrency,
         target=arguments.target,
         force=arguments.force,
+        source_crs=source_crs,
     )
     write("/tmp/processed.json", bytes(json.dumps(output_files, indent=0), "UTF-8"), content_type=ContentType.JSON)
 

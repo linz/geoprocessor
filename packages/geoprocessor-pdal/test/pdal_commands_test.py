@@ -8,8 +8,10 @@ import pytest
 from geoprocessor_pdal.pdal_commands import (
     COPC_WRITER_OPTIONS,
     PDALExecutionException,
+    get_copc_writer_options,
     get_merge_copc_pipeline,
     get_pdal_command,
+    get_pdal_translate_copc_command,
     get_pdal_version,
     pdal_merge_copc,
     pdal_pipeline_command,
@@ -84,8 +86,28 @@ def test_get_merge_copc_pipeline_reads_every_input_then_writes_one_copc_file() -
     assert pipeline == [
         "a.laz",
         "b.laz",
-        {"type": "writers.copc", "filename": "merged.copc.laz", **COPC_WRITER_OPTIONS},
+        {"type": "writers.copc", "filename": "merged.copc.laz", **get_copc_writer_options()},
     ]
+
+
+@pytest.mark.parametrize("crs", [None, ""])
+def test_get_copc_writer_options_defaults_to_nztm2000_and_nzvd2016(crs: str | None) -> None:
+    assert get_copc_writer_options(crs) == COPC_WRITER_OPTIONS
+    assert COPC_WRITER_OPTIONS["a_srs"] == "EPSG:2193+7839"
+
+
+def test_get_merge_copc_pipeline_assigns_the_given_crs() -> None:
+    pipeline = get_merge_copc_pipeline(["a.laz"], "merged.copc.laz", crs="EPSG:2193+4440")
+
+    assert pipeline[-1]["a_srs"] == "EPSG:2193+4440"
+
+
+def test_get_pdal_translate_copc_command_assigns_the_given_crs() -> None:
+    command = get_pdal_translate_copc_command("EPSG:2193+4440")
+
+    assert command[0] == "translate"
+    assert "--writers.copc.a_srs=EPSG:2193+4440" in command
+    assert "--writers.copc.a_srs=EPSG:2193+7839" in get_pdal_translate_copc_command()
 
 
 def test_get_merge_copc_pipeline_rejects_no_input_files() -> None:
@@ -116,7 +138,7 @@ def test_pdal_merge_copc_runs_the_pipeline_as_json() -> None:
         pipelines.append(json.loads(Path(input_file).read_text(encoding="utf-8")))
 
     with patch("geoprocessor_pdal.pdal_commands.run_pdal", side_effect=read_pipeline):
-        result = pdal_merge_copc(["a.laz", "b.laz"], "merged.copc.laz")
+        result = pdal_merge_copc(["a.laz", "b.laz"], "merged.copc.laz", crs="EPSG:2193+4440")
 
     assert result == "merged.copc.laz"
-    assert pipelines == [get_merge_copc_pipeline(["a.laz", "b.laz"], "merged.copc.laz")]
+    assert pipelines == [get_merge_copc_pipeline(["a.laz", "b.laz"], "merged.copc.laz", crs="EPSG:2193+4440")]
