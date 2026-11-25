@@ -1,6 +1,7 @@
 from fake_gdalinfo import add_band, add_palette_band, fake_gdalinfo
 from geoprocessor_gdal.gdal.gdal_presets import CompressionPreset
 from geoprocessor_gdal.tiff.file_tiff import FileTiff, FileTiffErrorType, FileTiffType
+from pytest_subtests import SubTests
 
 
 def test_check_band_count_valid_3() -> None:
@@ -455,7 +456,7 @@ def test_tiff_type_intensity() -> None:
     assert file_tiff.get_tiff_type() == FileTiffType.INTENSITY
 
 
-def test_check_band_count_intensity() -> None:
+def test_check_band_count_intensity(subtests: SubTests) -> None:
     """
     tests check_band_count with an intensity preset:
     only a single band is valid
@@ -466,17 +467,18 @@ def test_check_band_count_intensity() -> None:
         ("3 bands", ["Gray", "Gray", "Gray"], True),
     ]
     for name, colours, expect_errors in cases:
-        gdalinfo = fake_gdalinfo()
-        for colour in colours:
-            add_band(gdalinfo, color_interpretation=colour)
+        with subtests.test(msg=name):
+            gdalinfo = fake_gdalinfo()
+            for colour in colours:
+                add_band(gdalinfo, color_interpretation=colour)
 
-        file_tiff = FileTiff(["test"], CompressionPreset.INTENSITY_ZSTD.value)
-        file_tiff.check_band_count(gdalinfo)
+            file_tiff = FileTiff(["test"], CompressionPreset.INTENSITY_ZSTD.value)
+            file_tiff.check_band_count(gdalinfo)
 
-        assert bool(file_tiff.get_errors()) == expect_errors, name
+            assert bool(file_tiff.get_errors()) == expect_errors
 
 
-def test_check_color_interpretation_intensity() -> None:
+def test_check_color_interpretation_intensity(subtests: SubTests) -> None:
     """
     tests check_color_interpretation with an intensity preset:
     a single Gray band is valid, RGB is not
@@ -486,29 +488,31 @@ def test_check_color_interpretation_intensity() -> None:
         ("rgb", ["Red", "Green", "Blue"], True),
     ]
     for name, colours, expect_errors in cases:
-        gdalinfo = fake_gdalinfo()
-        for colour in colours:
-            add_band(gdalinfo, color_interpretation=colour)
+        with subtests.test(msg=name):
+            gdalinfo = fake_gdalinfo()
+            for colour in colours:
+                add_band(gdalinfo, color_interpretation=colour)
 
-        file_tiff = FileTiff(["test"], CompressionPreset.INTENSITY_ZSTD.value)
-        file_tiff.check_color_interpretation(gdalinfo)
+            file_tiff = FileTiff(["test"], CompressionPreset.INTENSITY_ZSTD.value)
+            file_tiff.check_color_interpretation(gdalinfo)
 
-        assert bool(file_tiff.get_errors()) == expect_errors, name
+            assert bool(file_tiff.get_errors()) == expect_errors
 
 
-def test_check_no_data_value_intensity() -> None:
+def test_check_no_data_value_intensity(subtests: SubTests) -> None:
     """
     tests check_no_data with an intensity preset:
     0 is valid, the RGB (255) and DEM (-9999) values are not
     """
     for no_data_value, expect_errors in [(0, False), (255, True), (-9999, True)]:
-        gdalinfo = fake_gdalinfo()
-        add_band(gdalinfo, no_data_value=no_data_value)
+        with subtests.test(msg=f"no_data_value={no_data_value}"):
+            gdalinfo = fake_gdalinfo()
+            add_band(gdalinfo, no_data_value=no_data_value)
 
-        file_tiff = FileTiff(["test"], CompressionPreset.INTENSITY_ZSTD.value)
-        file_tiff.check_no_data(gdalinfo)
+            file_tiff = FileTiff(["test"], CompressionPreset.INTENSITY_ZSTD.value)
+            file_tiff.check_no_data(gdalinfo)
 
-        assert bool(file_tiff.get_errors()) == expect_errors, f"no_data_value={no_data_value}"
+            assert bool(file_tiff.get_errors()) == expect_errors
 
 
 def test_check_no_data_invalid_no_value_intensity() -> None:
