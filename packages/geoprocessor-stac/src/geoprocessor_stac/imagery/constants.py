@@ -13,6 +13,8 @@ DEM_HILLSHADE = "dem-hillshade"
 DEM_HILLSHADE_IGOR = "dem-hillshade-igor"
 DSM_HILLSHADE = "dsm-hillshade"
 DSM_HILLSHADE_IGOR = "dsm-hillshade-igor"
+INTENSITY = "intensity"
+
 # DOMAINS
 LAND = "land"
 COASTAL = "coastal"
@@ -33,6 +35,7 @@ DATA_CATEGORIES = {
     DEM_HILLSHADE_IGOR: "DEM Hillshade - Igor",
     DSM_HILLSHADE: "DSM Hillshade",
     DSM_HILLSHADE_IGOR: "DSM Hillshade - Igor",
+    INTENSITY: "Intensity",
 }
 
 DATA_DOMAINS = {
