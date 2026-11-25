@@ -455,116 +455,60 @@ def test_tiff_type_intensity() -> None:
     assert file_tiff.get_tiff_type() == FileTiffType.INTENSITY
 
 
-def test_check_band_count_valid_1_intensity() -> None:
+def test_check_band_count_intensity() -> None:
     """
-    tests check_band_count when the input layer has a valid band count
-    which is 1 band and an intensity preset
+    tests check_band_count with an intensity preset:
+    only a single band is valid
     """
-    gdalinfo = fake_gdalinfo()
-    add_band(gdalinfo)
+    cases = [
+        ("1 band", ["Gray"], False),
+        ("band + alpha", ["Gray", "Alpha"], True),
+        ("3 bands", ["Gray", "Gray", "Gray"], True),
+    ]
+    for name, colours, expect_errors in cases:
+        gdalinfo = fake_gdalinfo()
+        for colour in colours:
+            add_band(gdalinfo, color_interpretation=colour)
 
-    file_tiff = FileTiff(["test"], CompressionPreset.INTENSITY_ZSTD.value)
-    file_tiff.check_band_count(gdalinfo)
+        file_tiff = FileTiff(["test"], CompressionPreset.INTENSITY_ZSTD.value)
+        file_tiff.check_band_count(gdalinfo)
 
-    assert not file_tiff.get_errors()
+        assert bool(file_tiff.get_errors()) == expect_errors, name
 
 
-def test_check_band_count_invalid_alpha_intensity() -> None:
+def test_check_color_interpretation_intensity() -> None:
     """
-    tests check_band_count when the input layer has an invalid band count
-    which is 2 bands where the second band is Alpha and an intensity preset
+    tests check_color_interpretation with an intensity preset:
+    a single Gray band is valid, RGB is not
     """
-    gdalinfo = fake_gdalinfo()
-    add_band(gdalinfo)
-    add_band(gdalinfo, color_interpretation="Alpha")
+    cases = [
+        ("gray", ["Gray"], False),
+        ("rgb", ["Red", "Green", "Blue"], True),
+    ]
+    for name, colours, expect_errors in cases:
+        gdalinfo = fake_gdalinfo()
+        for colour in colours:
+            add_band(gdalinfo, color_interpretation=colour)
 
-    file_tiff = FileTiff(["test"], CompressionPreset.INTENSITY_ZSTD.value)
-    file_tiff.check_band_count(gdalinfo)
+        file_tiff = FileTiff(["test"], CompressionPreset.INTENSITY_ZSTD.value)
+        file_tiff.check_color_interpretation(gdalinfo)
 
-    assert file_tiff.get_errors()
+        assert bool(file_tiff.get_errors()) == expect_errors, name
 
 
-def test_check_band_count_invalid_3_intensity() -> None:
+def test_check_no_data_value_intensity() -> None:
     """
-    tests check_band_count when the input layer has an invalid band count
-    which is 3 bands where the preset is intensity.
+    tests check_no_data with an intensity preset:
+    0 is valid, the RGB (255) and DEM (-9999) values are not
     """
-    gdalinfo = fake_gdalinfo()
-    add_band(gdalinfo)
-    add_band(gdalinfo)
-    add_band(gdalinfo)
+    for no_data_value, expect_errors in [(0, False), (255, True), (-9999, True)]:
+        gdalinfo = fake_gdalinfo()
+        add_band(gdalinfo, no_data_value=no_data_value)
 
-    file_tiff = FileTiff(["test"], CompressionPreset.INTENSITY_ZSTD.value)
-    file_tiff.check_band_count(gdalinfo)
+        file_tiff = FileTiff(["test"], CompressionPreset.INTENSITY_ZSTD.value)
+        file_tiff.check_no_data(gdalinfo)
 
-    assert file_tiff.get_errors()
-
-
-def test_check_color_interpretation_valid_intensity() -> None:
-    """
-    tests check_color_interpretation with the correct color interpretation and an intensity preset
-    """
-    gdalinfo = fake_gdalinfo()
-    add_band(gdalinfo, color_interpretation="Gray")
-
-    file_tiff = FileTiff(["test"], CompressionPreset.INTENSITY_ZSTD.value)
-    file_tiff.check_color_interpretation(gdalinfo)
-
-    assert not file_tiff.get_errors()
-
-
-def test_check_color_interpretation_invalid_intensity() -> None:
-    """
-    tests check_color_interpretation with the incorrect color interpretation and an intensity preset
-    """
-    gdalinfo = fake_gdalinfo()
-    add_band(gdalinfo, color_interpretation="Red")
-    add_band(gdalinfo, color_interpretation="Green")
-    add_band(gdalinfo, color_interpretation="Blue")
-
-    file_tiff = FileTiff(["test"], CompressionPreset.INTENSITY_ZSTD.value)
-    file_tiff.check_color_interpretation(gdalinfo)
-
-    assert file_tiff.get_errors()
-
-
-def test_check_no_data_valid_0_intensity() -> None:
-    """
-    tests check_no_data when the input layer has a valid no data value of 0 and an intensity preset
-    """
-    gdalinfo = fake_gdalinfo()
-    add_band(gdalinfo, no_data_value=0)
-
-    file_tiff = FileTiff(["test"], CompressionPreset.INTENSITY_ZSTD.value)
-    file_tiff.check_no_data(gdalinfo)
-
-    assert not file_tiff.get_errors()
-
-
-def test_check_no_data_invalid_255_intensity() -> None:
-    """
-    tests check_no_data when the input layer has an invalid no data value of 255 and an intensity preset
-    """
-    gdalinfo = fake_gdalinfo()
-    add_band(gdalinfo, no_data_value=255)
-
-    file_tiff = FileTiff(["test"], CompressionPreset.INTENSITY_ZSTD.value)
-    file_tiff.check_no_data(gdalinfo)
-
-    assert file_tiff.get_errors()
-
-
-def test_check_no_data_invalid_minus_9999_intensity() -> None:
-    """
-    tests check_no_data when the input layer has an invalid no data value of -9999 and an intensity preset
-    """
-    gdalinfo = fake_gdalinfo()
-    add_band(gdalinfo, no_data_value=-9999)
-
-    file_tiff = FileTiff(["test"], CompressionPreset.INTENSITY_ZSTD.value)
-    file_tiff.check_no_data(gdalinfo)
-
-    assert file_tiff.get_errors()
+        assert bool(file_tiff.get_errors()) == expect_errors, f"no_data_value={no_data_value}"
 
 
 def test_check_no_data_invalid_no_value_intensity() -> None:
