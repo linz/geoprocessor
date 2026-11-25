@@ -121,7 +121,7 @@ pdal_pipeline_command = get_pdal_command("pipeline", [])
 def get_merge_copc_pipeline(input_files: list[str], output_file: str, crs: str | None = None) -> list[Any]:
     """Build a PDAL pipeline that merges LAS/LAZ/COPC files into one COPC file.
 
-    PDAL merges every reader that feeds a writer, so the pipeline is the input files followed by the COPC writer.
+    `filters.merge` joins the points from every input file into one set before the COPC writer.
 
     Args:
         input_files: local paths of the files to merge
@@ -142,7 +142,7 @@ def get_merge_copc_pipeline(input_files: list[str], output_file: str, crs: str |
 
     writer: dict[str, str] = {"type": "writers.copc", "filename": output_file, **get_copc_writer_options(crs)}
 
-    return [*input_files, writer]
+    return [*input_files, {"type": "filters.merge"}, writer]
 
 
 def pdal_merge_copc(input_files: list[str], output_file: str, crs: str | None = None) -> str:
