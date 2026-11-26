@@ -229,7 +229,7 @@ def main() -> None:
 
     output_files = run_pdal_standardise_copc(
         input_files,
-        concurrency = arguments.concurrency,
+        concurrency=arguments.concurrency,
         target=arguments.target,
         force=arguments.force,
         source_crs=source_crs,
