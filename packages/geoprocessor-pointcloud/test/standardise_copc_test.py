@@ -6,10 +6,29 @@ import pytest
 from geoprocessor_pdal.pdal_commands import get_pdal_translate_copc_command
 from geoprocessor_pointcloud.standardise_copc import (
     flatten,
+    get_args_parser,
     get_copc_file_name,
     json_file_loader,
     pdal_standardise_copc,
 )
+
+
+def test_get_args_parser_reads_the_concurrency() -> None:
+    arguments = get_args_parser().parse_args(["--from-file", "files.json", "--concurrency", "3"])
+
+    assert arguments.concurrency == 3
+
+
+def test_get_args_parser_defaults_the_concurrency_to_1() -> None:
+    arguments = get_args_parser().parse_args(["--from-file", "files.json"])
+
+    assert arguments.concurrency == 1
+
+
+@pytest.mark.parametrize("concurrency", ["0", "-1", "abc"])
+def test_get_args_parser_rejects_a_concurrency_that_is_not_a_positive_integer(concurrency: str) -> None:
+    with pytest.raises(SystemExit):
+        get_args_parser().parse_args(["--from-file", "files.json", "--concurrency", concurrency])
 
 
 def fake_run_pdal(command: list[str], input_file: str, output_file: str) -> None:  # pylint: disable=unused-argument

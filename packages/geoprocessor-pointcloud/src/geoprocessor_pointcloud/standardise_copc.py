@@ -10,6 +10,7 @@ from geoprocessor_common.cli.common_args import CommonArgumentParser
 from geoprocessor_common.files.files_helper import ContentType
 from geoprocessor_common.files.fs import NoSuchFileError, copy, exists, read, write
 from geoprocessor_common.log.time_helper import time_in_ms
+from geoprocessor_common.cli.cli_helper import str_to_positive_int
 from geoprocessor_pdal.pdal_commands import (
     get_pdal_translate_copc_command,
     get_pdal_version,
@@ -49,6 +50,14 @@ def get_args_parser() -> CommonArgumentParser:
         required=False,
         default="",
         help='CRS of the source point clouds, e.g. "EPSG:2193+7839". Defaults to NZTM2000 + NZVD2016 if empty.',
+    )
+    parser.add_argument(
+        "--concurrency",
+        dest="concurrency",
+        type=str_to_positive_int,
+        required=False,
+        default=1,
+        help="Number of concurrent processes to use. Defaults to 1.",
     )
 
     return parser
@@ -218,13 +227,9 @@ def main() -> None:
         "pdal_standardise_copc_start", pdalVersion=pdal_version, inputFileCount=len(input_files), sourceCrs=source_crs
     )
 
-    concurrency: int = 1
-    if arguments.is_argo:
-        concurrency = 4
-
     output_files = run_pdal_standardise_copc(
         input_files,
-        concurrency,
+        concurrency = arguments.concurrency,
         target=arguments.target,
         force=arguments.force,
         source_crs=source_crs,
