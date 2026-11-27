@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0](https://github.com/linz/geoprocessor/compare/geoprocessor-pdal-v1.0.0...geoprocessor-pdal-v1.1.0) (2026-11-27)
+
+
+### Features
+
+* extend geoprocessor pdal to merge files TDE-2238 ([#1749](https://github.com/linz/geoprocessor/issues/1749)) ([be21f9a](https://github.com/linz/geoprocessor/commit/be21f9aff83ea6145b78329105688d2bd7b32d63))
+* point cloud standardising script POC TDE-1878 ([#1685](https://github.com/linz/geoprocessor/issues/1685)) ([9e9ecdf](https://github.com/linz/geoprocessor/commit/9e9ecdf968378fbe47c82757f8204d2888807dbc))
+
 ## [1.0.0](https://github.com/linz/geoprocessor/compare/geoprocessor-pdal-v0.1.3...geoprocessor-pdal-v1.0.0) (2026-11-17)
 
 
