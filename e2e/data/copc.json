@@ -1,0 +1,21 @@
+[
+  {
+    "output": "pdal_bad_header_1",
+    "input": ["./tests/data/pdal_bad_header_1.laz"]
+  },
+  {
+    "output": "pdal_good_header_1",
+    "input": ["./tests/data/pdal_good_header_1.laz"]
+  },
+  {
+    "output": "custom_header",
+    "input": ["/tmp/custom_header.laz"]
+  },
+  {
+    "output": "merged",
+    "input": [
+      "./tests/data/pdal_good_header_1.laz",
+      "./tests/data/pdal_bad_header_1.laz"
+    ]
+  }
+]

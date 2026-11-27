@@ -1,0 +1,6 @@
+[
+  {
+    "output": "pdal_good_header_1",
+    "input": ["./tests/data/pdal_good_header_1.laz"]
+  }
+]
