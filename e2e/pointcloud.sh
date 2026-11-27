@@ -57,11 +57,12 @@ check() {
 
 fix_laz_headers() {
   run fix-laz-header --files ./tests/data/pdal_bad_header_1.laz ./tests/data/pdal_good_header_1.laz --target /tmp/
-  # A good header is kept as it is, a bad one is rewritten
+  # A good header is kept as it is, a bad one is rewritten. `cmp` exits 1 when the files differ, and 2 when one is
+  # missing, which must fail the case too.
   cmp --silent "${directory}/pdal_good_header_1.laz" "$(fixture pdal_good_header_1.laz)"
-  if cmp --silent "${directory}/pdal_bad_header_1.laz" "$(fixture pdal_bad_header_1.laz)"; then
-    return 1
-  fi
+  local status=0
+  cmp --silent "${directory}/pdal_bad_header_1.laz" "$(fixture pdal_bad_header_1.laz)" || status=$?
+  ((status == 1))
 }
 
 standardise_copc() {
