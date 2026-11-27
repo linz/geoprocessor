@@ -33,7 +33,11 @@ from geoprocessor_gdal.tile.tile_index import Bounds, get_bounds_from_name
 from linz_logger import get_log
 from tifffile import TiffFile
 
-UINT16_SUPPORTED_PRESETS = (CompressionPreset.RGBNIR_ZSTD.value, CompressionPreset.WEBP.value)
+UINT16_SUPPORTED_PRESETS = (
+    CompressionPreset.RGBNIR_ZSTD.value,
+    CompressionPreset.INTENSITY_ZSTD.value,
+    CompressionPreset.WEBP.value,
+)
 
 
 @dataclass

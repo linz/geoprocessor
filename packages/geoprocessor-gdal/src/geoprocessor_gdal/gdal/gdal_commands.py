@@ -119,7 +119,7 @@ def get_gdal_command(
     get_log().info("gdal_preset_and_data_type", preset=preset, data_type=data_type)
 
     rescale_to_8bit = preset == CompressionPreset.WEBP.value and data_type != DataType.UINT8.value
-    needs_bigtiff = data_type == DataType.UINT16.value and not rescale_to_8bit
+    needs_bigtiff = preset == CompressionPreset.RGBNIR_ZSTD.value and data_type == DataType.UINT16.value
 
     if (rescale_range is not None or rescale_gamma != 1) and not rescale_to_8bit:
         raise ValueError(
@@ -143,6 +143,7 @@ def get_gdal_command(
         CompressionPreset.RGBNIR_ZSTD.value: ZSTD_OPTIONS,
         CompressionPreset.DEM_ZSTD.value: ZSTD_OPTIONS,
         CompressionPreset.DEM_LERC.value: DEM_LERC,
+        CompressionPreset.INTENSITY_ZSTD.value: ZSTD_OPTIONS,
     }
 
     preset_options: list[str] | None = PRESET_OPTIONS.get(preset)

@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Annotated
 
 DEFAULT_NO_DATA_VALUE: Annotated[Decimal, "From the New Zealand National Aerial LiDAR Base Specification"] = Decimal(-9999)
+INTENSITY_NO_DATA_VALUE: Annotated[int, "No data value of the supplied 3DCM intensity TIFFs"] = 0
 
 SCALE_254_ADD_NO_DATA = ["-scale", "0", "255", "0", "254", "-a_nodata", "255"]
 """ Scale imagery from 0-255 to 0-254 then set 255 as NO_DATA.
@@ -99,6 +100,7 @@ class CompressionPreset(str, Enum):
 
     DEM_LERC = "dem_lerc"
     DEM_ZSTD = "dem_zstd"
+    INTENSITY_ZSTD = "intensity_zstd"
     LZW = "lzw"
     RGBNIR_ZSTD = "rgbnir_zstd"
     WEBP = "webp"

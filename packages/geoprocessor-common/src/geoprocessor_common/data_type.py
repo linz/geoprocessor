@@ -4,8 +4,8 @@ from enum import Enum
 class DataType(str, Enum):
     """Enum for the data types a dataset can be standardised as.
 
-    `UINT16` is valid with the `CompressionPreset.RGBNIR_ZSTD` preset and with `CompressionPreset.WEBP`
-    when the imagery category is aerial-photo based.
+    `UINT16` is valid with the `CompressionPreset.RGBNIR_ZSTD` and `CompressionPreset.INTENSITY_ZSTD` presets,
+    and with `CompressionPreset.WEBP` when the imagery category is aerial-photo based.
     """
 
     FLOAT32 = "float32"
