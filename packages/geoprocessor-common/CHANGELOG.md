@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/linz/geoprocessor/compare/geoprocessor-common-v1.1.0...geoprocessor-common-v1.1.1) (2026-11-27)
+
+
+### Bug Fixes
+
+* error on a tile without points, set the COPC content type TDE-2255 ([#1758](https://github.com/linz/geoprocessor/issues/1758)) ([591f332](https://github.com/linz/geoprocessor/commit/591f3320d5148ef7c794b10ce2b22ce26ae3105e))
+
 ## [1.1.0](https://github.com/linz/geoprocessor/compare/geoprocessor-common-v1.0.0...geoprocessor-common-v1.1.0) (2026-11-25)
 
 

@@ -1,5 +1,18 @@
 # Changelog
 
+## [11.2.0](https://github.com/linz/geoprocessor/compare/v11.1.0...v11.2.0) (2026-11-27)
+
+
+### Features
+
+* extend geoprocessor pdal to merge files TDE-2238 ([#1749](https://github.com/linz/geoprocessor/issues/1749)) ([be21f9a](https://github.com/linz/geoprocessor/commit/be21f9aff83ea6145b78329105688d2bd7b32d63))
+* point cloud standardising script POC TDE-1878 ([#1685](https://github.com/linz/geoprocessor/issues/1685)) ([9e9ecdf](https://github.com/linz/geoprocessor/commit/9e9ecdf968378fbe47c82757f8204d2888807dbc))
+
+
+### Bug Fixes
+
+* error on a tile without points, set the COPC content type TDE-2255 ([#1758](https://github.com/linz/geoprocessor/issues/1758)) ([591f332](https://github.com/linz/geoprocessor/commit/591f3320d5148ef7c794b10ce2b22ce26ae3105e))
+
 ## [11.1.0](https://github.com/linz/geoprocessor/compare/v11.0.0...v11.1.0) (2026-11-25)
 
 
