@@ -70,6 +70,23 @@ pdal_translate_add_proj_command = get_pdal_command(
     ],
 )
 
+# `forward` keeps the global encoding (GPS time type), scale, offset and VLRs of the input file. The other header
+# fields describe the reprocessed file: `filesource_id` and `system_id` are set here, and `software_id`, the creation
+# date and `project_id` (all zeros, i.e. unassigned) are left to the writer.
+# `a_srs` replaces the CRS of the input file, which may be malformed (see `pdal_translate_add_proj_command`), without
+# reprojecting.
+pdal_translate_copc_command = get_pdal_command(
+    "translate",
+    [
+        "--writer=writers.copc",
+        "--writers.copc.forward=global_encoding,scale,offset,vlr",
+        "--writers.copc.filesource_id=0",
+        "--writers.copc.extra_dims=all",
+        "--writers.copc.system_id=TRANSFORMATION",
+        f"--writers.copc.a_srs=EPSG:{EpsgNumber.NZTM_2000}+{EpsgNumber.NZVD_2016}",
+    ],
+)
+
 pdal_info_command = get_pdal_command(
     "info",
     ["--metadata", "--summary", "--json"],
