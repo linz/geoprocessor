@@ -75,8 +75,9 @@ standardise_copc() {
   check '.metadata | .global_encoding == 1 and .filesource_id == 42 and .creation_year == 2024 and .system_id == "CUSTOM"' \
     <<<"$(metadata /tmp/custom_header.laz)"
 
-  local start_year
-  start_year=$(date --utc +%Y)
+  # The day the run starts, as year and day of year (1 for 1 January), to check the COPC file's creation date
+  local start_year start_doy
+  read -r start_year start_doy < <(date --utc '+%Y %-j')
   run standardise-copc --from-file ./tests/data/copc.json --target /tmp/
 
   # A COPC file per tile, with every point of the tile's source files
@@ -98,13 +99,14 @@ standardise_copc() {
     <<<"${good}"
 
   # Kept: the GPS time type (PDAL also sets the WKT bit, 16), scale and offsets
-  check '.metadata | .global_encoding == 17 and .scale_x == 0.001 and .offset_x == 1700000 and .offset_y == 5600000' \
-    <<<"${custom}"
-  # Replaced, to describe the COPC file
+  check '.metadata | .global_encoding == 17 and .scale_x == 0.001 and .scale_y == 0.001 and .scale_z == 0.001
+    and .offset_x == 1700000 and .offset_y == 5600000 and .offset_z == 0' <<<"${custom}"
+  # Replaced, to describe the COPC file. The source's creation date is 2024, day 0.
   [[ "$(run pdal --version)" =~ pdal\ ([0-9.]+) ]]
-  check --arg version "${BASH_REMATCH[1]}" --argjson start_year "${start_year}" '.metadata |
+  check --arg version "${BASH_REMATCH[1]}" --argjson start_year "${start_year}" --argjson start_doy "${start_doy}" '.metadata |
     .filesource_id == 0 and .system_id == "TRANSFORMATION" and .project_id == "00000000-0000-0000-0000-000000000000"
-    and .creation_year >= $start_year and (.software_id | startswith("PDAL \($version) "))' <<<"${custom}"
+    and [.creation_year, .creation_doy] >= [$start_year, $start_doy] and (.software_id | startswith("PDAL \($version) "))' \
+    <<<"${custom}"
 }
 
 standardise_copc_empty_tile() {
@@ -117,7 +119,7 @@ standardise_copc_empty_tile() {
   log=$(run standardise-copc --from-file ./tests/data/copc_empty.json --target /tmp/ 2>&1) || status=$?
   echo "${log}"
   ((status != 0))
-  grep --quiet "PDAL wrote no COPC file for empty, its source files may have no points: /tmp/empty.laz" <<<"${log}"
+  grep --quiet --fixed-strings "PDAL wrote no COPC file for empty, its source files may have no points: /tmp/empty.laz" <<<"${log}"
   [[ ! -e "${directory}/empty.copc.laz" ]]
 }
 
@@ -131,7 +133,7 @@ standardise_copc_refuses_to_overwrite_a_source() {
   log=$(run standardise-copc --force --from-file ./tests/data/copc_overwrite.json --target /tmp/ 2>&1) || status=$?
   echo "${log}"
   ((status != 0))
-  grep --quiet "would overwrite a source file" <<<"${log}"
+  grep --quiet --fixed-strings "would overwrite a source file" <<<"${log}"
   [[ "$(sha256sum "${directory}/pdal_good_header_1.copc.laz")" == "${checksum}" ]]
 }
 
