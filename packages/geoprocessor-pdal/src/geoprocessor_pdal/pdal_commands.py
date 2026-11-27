@@ -73,7 +73,7 @@ pdal_translate_add_proj_command = get_pdal_command(
 )
 
 
-# `writers.copc` options shared by the translate command and the merge pipeline, see `get_copc_writer_options()`.
+# `writers.copc` options used by the merge pipeline, see `get_copc_writer_options()`.
 # `forward` keeps the global encoding (GPS time type), scale, offset and VLRs of the input file. The other header
 # fields describe the reprocessed file: `filesource_id` and `system_id` are set here, and `software_id`, the creation
 # date and `project_id` (all zeros, i.e. unassigned) are left to the writer.
@@ -97,22 +97,7 @@ def get_copc_writer_options(crs: str | None = None) -> dict[str, str]:
     Returns:
         the `writers.copc` options
     """
-    return {**COPC_WRITER_OPTIONS, "a_srs": crs} if crs else COPC_WRITER_OPTIONS
-
-
-def get_pdal_translate_copc_command(crs: str | None = None) -> list[str]:
-    """Build the `pdal translate` command that converts a LAS/LAZ file to COPC.
-
-    Args:
-        crs: CRS of the source point cloud, e.g. "EPSG:2193+7839". Defaults to `a_srs` in `COPC_WRITER_OPTIONS`.
-
-    Returns:
-        a list of arguments for `pdal`
-    """
-    return get_pdal_command(
-        "translate",
-        ["--writer=writers.copc", *(f"--writers.copc.{k}={v}" for k, v in get_copc_writer_options(crs).items())],
-    )
+    return {**COPC_WRITER_OPTIONS, "a_srs": crs} if crs else dict(COPC_WRITER_OPTIONS)
 
 
 pdal_pipeline_command = get_pdal_command("pipeline", [])

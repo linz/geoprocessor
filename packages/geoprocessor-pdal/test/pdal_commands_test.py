@@ -11,7 +11,6 @@ from geoprocessor_pdal.pdal_commands import (
     get_copc_writer_options,
     get_merge_copc_pipeline,
     get_pdal_command,
-    get_pdal_translate_copc_command,
     get_pdal_version,
     pdal_merge_copc,
     pdal_pipeline_command,
@@ -97,18 +96,18 @@ def test_get_copc_writer_options_defaults_to_nztm2000_and_nzvd2016(crs: str | No
     assert COPC_WRITER_OPTIONS["a_srs"] == "EPSG:2193+7839"
 
 
+@pytest.mark.parametrize("crs", [None, "", "EPSG:2193+4440"])
+def test_get_copc_writer_options_returns_a_copy_that_does_not_change_the_defaults(crs: str | None) -> None:
+    options = get_copc_writer_options(crs)
+    options["a_srs"] = "EPSG:1234"
+
+    assert COPC_WRITER_OPTIONS["a_srs"] == "EPSG:2193+7839"
+
+
 def test_get_merge_copc_pipeline_assigns_the_given_crs() -> None:
     pipeline = get_merge_copc_pipeline(["a.laz"], "merged.copc.laz", crs="EPSG:2193+4440")
 
     assert pipeline[-1]["a_srs"] == "EPSG:2193+4440"
-
-
-def test_get_pdal_translate_copc_command_assigns_the_given_crs() -> None:
-    command = get_pdal_translate_copc_command("EPSG:2193+4440")
-
-    assert command[0] == "translate"
-    assert "--writers.copc.a_srs=EPSG:2193+4440" in command
-    assert "--writers.copc.a_srs=EPSG:2193+7839" in get_pdal_translate_copc_command()
 
 
 def test_get_merge_copc_pipeline_rejects_no_input_files() -> None:
