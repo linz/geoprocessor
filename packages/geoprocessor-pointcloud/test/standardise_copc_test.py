@@ -1,9 +1,15 @@
+import re
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from boto3 import client
 from geoprocessor_common.cli.cli_helper import TileFiles
+from geoprocessor_pdal.pdal_commands import PDALExecutionException
 from geoprocessor_pointcloud.standardise_copc import get_args_parser, pdal_standardise_copc
+from moto import mock_aws
+from moto.s3.responses import DEFAULT_REGION_NAME
+from mypy_boto3_s3 import S3Client
 
 
 def test_get_args_parser_reads_the_concurrency() -> None:
@@ -69,6 +75,22 @@ def test_pdal_standardise_copc_assigns_the_given_source_crs(tmp_path: Path) -> N
     assert pdal_merge_copc.call_args.args[2] == "EPSG:2193+4440"
 
 
+@mock_aws
+def test_pdal_standardise_copc_uploads_with_the_copc_content_type(tmp_path: Path) -> None:
+    s3_client: S3Client = client("s3", region_name=DEFAULT_REGION_NAME)
+    s3_client.create_bucket(Bucket="testbucket")
+    source_file = tmp_path / "a.laz"
+    source_file.write_bytes(b"laz")
+
+    with patch("geoprocessor_pointcloud.standardise_copc.pdal_merge_copc", side_effect=fake_pdal_merge_copc):
+        result = pdal_standardise_copc(TileFiles(output="tile", inputs=[str(source_file)]), target="s3://testbucket/target/")
+
+    assert result == "s3://testbucket/target/tile.copc.laz"
+    uploaded = s3_client.get_object(Bucket="testbucket", Key="target/tile.copc.laz")
+    assert uploaded["Body"].read() == b"copc"
+    assert uploaded["ContentType"] == "application/vnd.laszip+copc"
+
+
 def test_pdal_standardise_copc_skips_a_tile_that_has_already_been_processed(tmp_path: Path) -> None:
     target_file = tmp_path / "tile.copc.laz"
     target_file.write_bytes(b"already processed")
@@ -121,3 +143,19 @@ def test_pdal_standardise_copc_refuses_to_overwrite_a_source_file_on_s3() -> Non
         )
 
     pdal_merge_copc.assert_not_called()
+
+
+def test_pdal_standardise_copc_raises_when_pdal_writes_no_file(tmp_path: Path) -> None:
+    """`writers.copc` writes nothing when the source files have no points and still exits 0."""
+    source_file = tmp_path / "empty.laz"
+    source_file.write_bytes(b"laz without points")
+    target = tmp_path / "target"
+    target.mkdir()
+
+    with (
+        patch("geoprocessor_pointcloud.standardise_copc.pdal_merge_copc"),
+        pytest.raises(PDALExecutionException, match=re.escape(f"tile, its source files may have no points: {source_file}")),
+    ):
+        pdal_standardise_copc(TileFiles(output="tile", inputs=[str(source_file)]), target=str(target))
+
+    assert not list(target.iterdir())

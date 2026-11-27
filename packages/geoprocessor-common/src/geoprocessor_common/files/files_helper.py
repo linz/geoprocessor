@@ -11,6 +11,9 @@ class ContentType(str, Enum):
     GEOJSON = "application/geo+json"
     """ https://www.iana.org/assignments/media-types/application/geo+json"""
     JPEG = "image/jpeg"
+    COPC = "application/vnd.laszip+copc"
+    """ Cloud Optimized Point Cloud (https://copc.io), the media type used by STAC:
+    https://github.com/radiantearth/stac-spec/blob/master/best-practices.md#common-media-types-in-stac"""
 
 
 def get_file_name_from_path(path: str) -> str:

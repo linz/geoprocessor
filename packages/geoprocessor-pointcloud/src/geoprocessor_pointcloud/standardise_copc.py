@@ -11,7 +11,7 @@ from geoprocessor_common.cli.common_args import CommonArgumentParser
 from geoprocessor_common.files.files_helper import ContentType
 from geoprocessor_common.files.fs import copy, exists, write
 from geoprocessor_common.log.time_helper import time_in_ms
-from geoprocessor_pdal.pdal_commands import get_pdal_version, pdal_merge_copc
+from geoprocessor_pdal.pdal_commands import PDALExecutionException, get_pdal_version, pdal_merge_copc
 from linz_logger import get_log
 
 
@@ -82,8 +82,14 @@ def pdal_standardise_copc(
     force: bool = False,
     source_crs: str | None = None,
 ) -> str:
-    """Merge the LAS/LAZ files of a tile into one COPC file named after the tile, with `source_crs` as its CRS,
-    keeping their header and extra dimensions.
+    """Merge the LAS/LAZ files of a tile into one COPC file (LAS 1.4) named after the tile, replacing their CRS with
+    `source_crs` without reprojecting.
+
+    The COPC file keeps every point of the source files and their extra dimensions. Its header keeps the global encoding
+    (GPS time type), scale and offsets of the source files where they all have the same value (the writer's defaults
+    otherwise), and the VLRs of every source file. The rest of the header describes the COPC file: the system ID is
+    `TRANSFORMATION`, the software ID is the PDAL version, the creation date is the day of the conversion, and the File
+    Source ID and Project ID are unassigned (zero). See `COPC_WRITER_OPTIONS`.
 
     Args:
         tile: the tile name (`output`) and the files to merge into it (`inputs`, S3 or local).
@@ -93,6 +99,8 @@ def pdal_standardise_copc(
 
     Raises:
         ValueError: if the COPC file would overwrite one of the source files.
+        PDALExecutionException: if PDAL fails, or writes no COPC file, which happens when the source files have no
+            points.
 
     Returns:
         The path of the COPC file, for example `<target>/BY16_5000_0410.copc.laz` for the tile `BY16_5000_0410`.
@@ -124,7 +132,15 @@ def pdal_standardise_copc(
         tmp_file_out = os.path.join(tmp_path, copc_file_name)
         pdal_merge_copc(local_inputs, tmp_file_out, source_crs)
 
-        copy(source=tmp_file_out, target=target_file)  # copy back to target location (S3 or local)
+        # `writers.copc` writes no file when there are no points ("skipping empty point view") and still exits 0
+        if not os.path.exists(tmp_file_out):
+            source_files = ", ".join(tile.inputs)
+            error_message = f"PDAL wrote no COPC file for {tile.output}, its source files may have no points: {source_files}"
+            get_log().error(error_message, target=target_file)
+            raise PDALExecutionException(error_message)
+
+        # copy back to target location (S3 or local)
+        copy(source=tmp_file_out, target=target_file, content_type=ContentType.COPC.value)
 
     return target_file
 

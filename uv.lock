@@ -480,6 +480,8 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "moto" },
+    { name = "mypy-boto3-s3" },
     { name = "pytest" },
     { name = "pytest-dependency" },
     { name = "pytest-subtests" },
@@ -494,6 +496,8 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "moto", specifier = ">=4.2" },
+    { name = "mypy-boto3-s3" },
     { name = "pytest" },
     { name = "pytest-dependency" },
     { name = "pytest-subtests" },
