@@ -19,6 +19,8 @@ standardise-copc = "geoprocessor_pointcloud.standardise_copc:main"
 
 [dependency-groups]
 dev = [
+    "moto>=4.2",
+    "mypy-boto3-s3",
     "pytest",
     "pytest-dependency",
     "pytest-subtests",
